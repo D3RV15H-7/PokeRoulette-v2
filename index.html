@@ -14181,44 +14181,54 @@ const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 const battlePixelFallback=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 function battleStorageKey(){return 'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest')}
-// In-memory source of truth: always updated immediately, even if browser storage is unavailable.
+// Single authoritative battle record, keyed by Pokédex ID, with legacy migration.
 let battleStatsMemory=null;
+const battleStatsKey='pokeroulette_battle_stats_v188';
 function battleWins(){
  if(battleStatsMemory)return battleStatsMemory;
  const merged={};
- for(const key of [
+ const keys=[battleStatsKey,'pokeroulette_battle_stats_v187','pokeroulette_battle_stats_device_v186',
   'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest'),
   'pokeroulette_battle_stats_v185_'+(currentUser?.uid||'guest'),
-  'pokeroulette_battle_stats_v186_'+(currentUser?.uid||'guest'),
-  'pokeroulette_battle_stats_device_v186',
-  'pokeroulette_battle_stats_v187'
- ]){
+  'pokeroulette_battle_stats_v186_'+(currentUser?.uid||'guest')];
+ for(const key of keys){
   try{
    const records=JSON.parse(localStorage.getItem(key)||'{}');
    if(!records||typeof records!=='object')continue;
    for(const [id,record] of Object.entries(records)){
-    if(!record||typeof record!=='object')continue;
-    if(!merged[id]||(Number(record.battles)||0)>(Number(merged[id].battles)||0))merged[id]={...record};
+    if(!record||typeof record!=='object'||!/^\d+$/.test(id))continue;
+    const old=merged[id];
+    if(!old||(Number(record.battles)||0)>(Number(old.battles)||0)||
+      ((Number(record.battles)||0)===(Number(old.battles)||0)&&(Number(record.wins)||0)>(Number(old.wins)||0)))
+     merged[id]={name:record.name||'',battles:Number(record.battles)||0,wins:Number(record.wins)||0};
    }
-  }catch(e){console.warn('Battle stats read issue',key,e)}
+  }catch(e){console.warn('Battle stats read',key,e)}
  }
  battleStatsMemory=merged;
- return battleStatsMemory;
+ return merged;
 }
-function battleSaveResult(fighters,winner){
- const records=battleWins();
- for(let i=0;i<fighters.length;i++){
-  const fighter=fighters[i],key=String(fighter.id),old=records[key]||{};
-  records[key]={name:fighter.name,battles:(Number(old.battles)||0)+1,wins:(Number(old.wins)||0)+(i===winner?1:0)};
- }
- const encoded=JSON.stringify(records);
- for(const key of ['pokeroulette_battle_stats_v187','pokeroulette_battle_stats_device_v186',battleStorageKey(),
-  'pokeroulette_battle_stats_v186_'+(currentUser?.uid||'guest')]){
-  try{localStorage.setItem(key,encoded)}catch(e){console.warn('Battle stats write issue',key,e)}
- }
- // Update any visible cards immediately; do not depend on reopening the selector.
+function battlePersistStats(){
+ try{localStorage.setItem(battleStatsKey,JSON.stringify(battleWins()))}
+ catch(e){console.error('Battle statistics could not be saved',e)}
  if(battleEl('battleOwnedOverlay')&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
  battleRenderLeaderboard();
+}
+// A battle is counted when it starts, not only when the winner screen appears.
+function battleRecordStart(fighters){
+ const records=battleWins();
+ for(const p of fighters){
+  const id=String(Number(p.id));
+  if(!/^\d+$/.test(id))continue;
+  const old=records[id]||{};
+  records[id]={name:p.name,battles:(Number(old.battles)||0)+1,wins:Number(old.wins)||0};
+ }
+ battlePersistStats();
+}
+function battleRecordWinner(fighters,winner){
+ const p=fighters[winner];if(!p)return;
+ const id=String(Number(p.id)),records=battleWins(),old=records[id]||{};
+ records[id]={name:p.name,battles:Number(old.battles)||0,wins:(Number(old.wins)||0)+1};
+ battlePersistStats();
 }
 function battleRenderLeaderboard(){
  if(!battleEl('battleLeaderboard'))return;
@@ -14649,6 +14659,7 @@ async function battleStart(){
   if(fighters[0].id===fighters[1].id)throw Error('Choose two different Pokémon.');
   await Promise.all(fighters.map(battlePrepareMoves));
   fighters.forEach((p,i)=>{p.hp=p.maxHp;battlePaint(p,i)});
+  battleRecordStart(fighters);
   await battleSleep(650);
   let turn=0;
   while(fighters.every(p=>p.hp>0)&&turn<70&&token===battleRun){
@@ -14682,7 +14693,7 @@ async function battleStart(){
   const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
   const champ=fighters[winner];
   battleSetMessage('🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!',turn>=70?'Won on remaining HP.':'The opponent fainted!');
-  battleSaveResult(fighters,winner);
+  battleRecordWinner(fighters,winner);
  }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
  finally{battleBusy=false;battleEl('battleStart').disabled=false}
 }
