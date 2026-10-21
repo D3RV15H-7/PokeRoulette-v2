@@ -3326,6 +3326,44 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .special-water .battle-pixel{width:16px;height:16px}
 #battleModal .special-ice .battle-pixel{width:17px;height:17px}
 @media(prefers-reduced-motion:reduce){#battleModal .battle-special-fx.active .battle-pixel{animation:none;opacity:0}}
+
+/* v180 — GBA-inspired battle composition: pale sky, grassy battlefield and separated HUDs */
+#battleModal .battle-arena{
+ background:
+ linear-gradient(to bottom,#f4f4e8 0%,#f2f1dd 41%,#dfe5c4 60%,#b3ce88 60%,#96bc73 100%)!important;
+ border:3px solid #738c83!important;
+ box-shadow:inset 0 0 0 3px #d7e5cf;
+}
+#battleModal .battle-pixel-sky{
+ inset:0 0 40%;
+ background:
+ linear-gradient(90deg,transparent 10%,#fffefa 10% 30%,transparent 30% 70%,#fffefa 70% 84%,transparent 84%) 0 17%/100% 2.5% no-repeat,
+ linear-gradient(90deg,transparent 18%,#e3e7d7 18% 43%,transparent 43% 62%,#e3e7d7 62% 80%,transparent 80%) 0 28%/100% 2% no-repeat!important;
+ opacity:.7;
+}
+#battleModal .battle-pixel-hills{
+ inset:45% 0 35%;opacity:.55;
+ background:linear-gradient(to bottom,transparent 60%,#c8d7a9 60% 80%,#b8ce9c 80%)!important;
+}
+#battleModal .battle-ground{
+ background:repeating-linear-gradient(0deg,#91b76c 0 5px,#a9c984 5px 10px)!important;
+ border:3px solid #799e65;
+ box-shadow:0 5px 0 #6d9460,0 8px 0 #5e8255!important;
+ opacity:.95;
+}
+#battleModal .battle-ground-back{width:44%;height:10%;right:4%;top:37%;transform:skewX(-13deg)}
+#battleModal .battle-ground-front{width:53%;height:12%;left:2%;bottom:10%;transform:skewX(-13deg)}
+#battleModal .battle-fighter.right{top:8%;right:4%;width:47%}
+#battleModal .battle-fighter.left{bottom:9%;left:3%;width:48%}
+#battleModal .battle-fighter img{height:clamp(75px,15dvh,130px);filter:drop-shadow(2px 4px 0 #405d4266)}
+#battleModal .battle-name,#battleModal .battle-hp-text{
+ color:#263e38;text-shadow:1px 1px 0 #ffffffbd!important;
+}
+#battleModal .battle-hp{border:2px solid #40544c;background:#293c35;height:11px}
+#battleModal .battle-log{
+ background:#f8f7e9;color:#263b39;border:3px solid #506b66;
+ box-shadow:inset 0 0 0 2px #dce6d8;
+}
 </style>
 </head>
 <body data-app-build="v175">
@@ -14069,7 +14107,8 @@ async function battleNameFor(id){
  if(battleNameCache.has(id))return battleNameCache.get(id);
  const response=await fetch('https://pokeapi.co/api/v2/pokemon/'+id);
  if(!response.ok)throw Error('Unable to load Pokémon name.');
- const name=(await response.json()).name;
+ const pokemon=await response.json();
+ const name=pokemon.species?.name||pokemon.name;
  battleNameCache.set(id,name);
  return name;
 }
@@ -14122,7 +14161,7 @@ async function battleFetch(value){
  if(!response.ok)throw Error('Could not find Pokémon: '+value);
  const data=await response.json();
  const stats=Object.fromEntries(data.stats.map(s=>[s.stat.name,s.base_stat]));
- return {id:data.id,name:data.name,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
+ return {id:data.id,name:data.species?.name||data.name,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
  maxHp:Math.max(35,Math.floor(65+data.stats[0].base_stat*1.8)),hp:0,moves:data.moves.map(m=>({name:m.move.name,url:m.move.url,details:m.version_group_details}))};
 }
 function battleSetSprite(img,id){
