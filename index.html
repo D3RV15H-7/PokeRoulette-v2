@@ -3269,6 +3269,9 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-pokeball::before{inset:15%}
 #battleModal.battle-editing .battle-arena,#battleModal.battle-editing .battle-log{display:none!important}
 @media(max-height:680px){#battleModal .battle-generate-row{top:calc(8px + 17px + 3px + 36px + 3px)}#battleModal .battle-random-both{height:31px}}
+/* v176 editable battle selectors */
+#battleModal .battle-pick input{pointer-events:auto!important;user-select:text!important;-webkit-user-select:text!important;touch-action:manipulation;position:relative;z-index:5}
+#battleModal.battle-editing .battle-pick input{opacity:1!important}
 </style>
 </head>
 <body data-app-build="v175">
@@ -14017,7 +14020,7 @@ async function battleRandomiseOne(slot){
  const other=battleEl('battlePick'+(slot===0?2:1)).value.trim().toLowerCase();
  let id=1+Math.floor(Math.random()*TOTAL);
  let name='';
- input.disabled=true;
+ // Keep the text field editable while a random Pokémon is being fetched.
  try{
   for(let tries=0;tries<12;tries++){
    name=await battleNameFor(id);
@@ -14028,7 +14031,7 @@ async function battleRandomiseOne(slot){
   await battlePreview(slot);
   battleEl('battleLog').textContent='Pokémon selected. Ready to battle!';
  }catch(err){battleEl('battleLog').textContent=err.message}
- finally{input.disabled=false}
+ finally{input.readOnly=false;input.disabled=false}
 }
 async function battleRandomise(){
  if(battleBusy)return;
@@ -14126,7 +14129,7 @@ function battleInitUI(){
  if(icon&&header&&!header.firstChild){const copy=icon.cloneNode(true);copy.removeAttribute('id');header.append(copy)}
  for(let i=0;i<2;i++){
   const input=battleEl('battlePick'+(i+1));
-  input.addEventListener('focus',battleFocusStart);
+  input.addEventListener('focus',()=>{input.disabled=false;input.readOnly=false;battleFocusStart();requestAnimationFrame(()=>{try{input.select()}catch(_){}})});
   input.addEventListener('blur',battleFocusEnd);
   input.addEventListener('input',()=>battleQueuePreview(i));
   input.addEventListener('change',()=>battleQueuePreview(i));
@@ -14134,8 +14137,9 @@ function battleInitUI(){
  }
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleInitUI);else battleInitUI();
+function battleDisplayName(name){return String(name||'').split('-').map(part=>part ? part.charAt(0).toUpperCase()+part.slice(1) : part).join('-');}
 function battlePaint(p,i){
- battleEl('battleName'+i).textContent=p.name;
+ battleEl('battleName'+i).textContent=battleDisplayName(p.name);
  battleSetSprite(battleEl('battleImg'+i),p.id);
  battleEl('battleImg'+i).alt=p.name;
  battleEl('battleFighter'+i).className='battle-fighter '+(i?'right':'left');
@@ -14175,12 +14179,12 @@ async function battleStart(){
     const result=battleAttack(attacker,defender);
     const node=battleEl('battleFighter'+i);
     node.classList.add('attacking');
-    battleEl('battleLog').textContent=attacker.name+' attacks with '+result.type+' power!';
+    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' attacks with '+result.type+' power!';
     await battleSleep(470);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
     battlePaint(defender,1-i);
     battleEl('battleFighter'+(1-i)).classList.add('hit');
-    battleEl('battleLog').textContent=attacker.name+' dealt '+result.damage+' damage! '+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
+    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' dealt '+result.damage+' damage! '+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
     await battleSleep(680);battleEl('battleFighter'+(1-i)).classList.remove('hit');
     if(defender.hp<=0){battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
    }
@@ -14189,7 +14193,7 @@ async function battleStart(){
   if(token!==battleRun)return;
   const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
   const champ=fighters[winner];
-  battleEl('battleLog').textContent='🏆 '+champ.name.toUpperCase()+' WINS! '+(turn>=70?'Won on remaining HP.':'The opponent fainted!');
+  battleEl('battleLog').textContent='🏆 '+battleDisplayName(champ.name)+' wins! '+(turn>=70?'Won on remaining HP.':'The opponent fainted!');
   const wins=battleWins();const key=String(champ.id);
   wins[key]={name:champ.name,wins:(wins[key]?.wins||0)+1};
   try{localStorage.setItem(battleStorageKey(),JSON.stringify(wins))}catch(_){}
