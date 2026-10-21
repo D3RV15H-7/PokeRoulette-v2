@@ -3427,6 +3427,20 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .battle-owned-choice{border:1px solid #435873;background:#1e2e45;border-radius:11px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 3px;min-width:0;font:inherit;font-size:12px}
 .battle-owned-choice img{width:55px;height:55px;object-fit:contain;image-rendering:pixelated}
 .battle-owned-choice span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* v184: consistent selection controls and four-column owned roster */
+#battleModal .battle-owned-trigger{height:42px!important;min-height:0!important;max-height:42px!important;box-sizing:border-box!important;font-size:clamp(12px,3.2vw,15px)!important;font-weight:700!important;padding:5px 6px!important;border-radius:10px!important;border:2px solid #52647e!important;align-self:stretch!important;line-height:normal!important}
+@media(max-height:680px){#battleModal .battle-owned-trigger{height:36px!important;max-height:36px!important}}
+.battle-owned-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.battle-owned-choice{padding:7px 2px;gap:3px;font-size:clamp(9px,2.5vw,11px);min-width:0}
+.battle-owned-choice img{width:clamp(36px,10vw,49px);height:clamp(36px,10vw,49px)}
+.battle-owned-choice .battle-owned-stats{font-size:clamp(8px,2vw,10px);color:#c1d4e8;white-space:nowrap;letter-spacing:-.2px}
+/* Place fuzzy matches below the opponent input, above its randomise control */
+#battleModal .battle-suggest{top:calc(20px + 42px + 5px)!important;bottom:auto!important;max-height:min(180px,34dvh)!important;box-shadow:0 9px 25px #000b!important;z-index:200!important}
+#battleModal .battle-panel{overflow:visible!important}
+#battleModal .battle-choices{overflow:visible!important}
+#battleModal .battle-pick{overflow:visible!important}
+@media(max-height:680px){#battleModal .battle-suggest{top:calc(17px + 36px + 3px)!important}}
 </style>
 </head>
 <body data-app-build="v175">
@@ -14208,8 +14222,11 @@ function battleRenderOwned(){
  for(const p of matches){
   const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
   const img=document.createElement('img');img.src=p.sprite;img.alt='';img.loading='lazy';
-  const name=document.createElement('span');name.textContent=p.name;
-  button.append(img,name);
+  const name=document.createElement('span');name.textContent=battleDisplayName(p.name);
+  const record=battleWins()[String(p.id)]||{};
+  const stats=document.createElement('small');stats.className='battle-owned-stats';
+  stats.textContent='Battles '+(record.battles||0)+' · Wins '+(record.wins||0);
+  button.append(img,name,stats);
   button.addEventListener('click',()=>battleSelectOwned(p));
   grid.append(button);
  }
@@ -14606,8 +14623,11 @@ async function battleStart(){
   const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
   const champ=fighters[winner];
   battleSetMessage('🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!',turn>=70?'Won on remaining HP.':'The opponent fainted!');
-  const wins=battleWins();const key=String(champ.id);
-  wins[key]={name:champ.name,wins:(wins[key]?.wins||0)+1};
+  const wins=battleWins();
+  for(const fighter of fighters){
+   const key=String(fighter.id),previous=wins[key]||{};
+   wins[key]={name:fighter.name,wins:(previous.wins||0)+(fighter.id===champ.id?1:0),battles:(previous.battles||0)+1};
+  }
   try{localStorage.setItem(battleStorageKey(),JSON.stringify(wins))}catch(_){}
   battleRenderLeaderboard();
  }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
