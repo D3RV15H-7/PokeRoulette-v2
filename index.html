@@ -3364,6 +3364,47 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
  background:#f8f7e9;color:#263b39;border:3px solid #506b66;
  box-shadow:inset 0 0 0 2px #dce6d8;
 }
+
+/* v181 — dark retro battlefield with opposite-side health displays */
+#battleModal .battle-arena{
+ background:linear-gradient(to bottom,#243d53 0%,#36596b 44%,#476c65 58%,#355d4b 58%,#254839 100%)!important;
+ border:3px solid #56716e!important;box-shadow:inset 0 0 0 3px #1b343e!important;
+}
+#battleModal .battle-pixel-sky{inset:0 0 42%;opacity:.65;
+ background:linear-gradient(90deg,transparent 12%,#688b9580 12% 30%,transparent 30% 68%,#668e9980 68% 80%,transparent 80%) 0 18%/100% 3% no-repeat!important}
+#battleModal .battle-pixel-hills{inset:45% 0 38%;opacity:.75;
+ background:linear-gradient(to bottom,transparent 40%,#4d756b 40% 70%,#436959 70%)!important}
+#battleModal .battle-ground{
+ background:repeating-linear-gradient(0deg,#477a56 0 6px,#548760 6px 12px)!important;
+ border:3px solid #3a674e!important;box-shadow:0 5px 0 #305a43,0 8px 0 #234737!important;
+}
+#battleModal .battle-fighter.left,#battleModal .battle-fighter.right{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+ pointer-events:none;transform:none!important;
+}
+#battleModal .battle-fighter .battle-name,#battleModal .battle-fighter .battle-hp,#battleModal .battle-fighter .battle-hp-text{
+ position:absolute!important;width:43%!important;z-index:5;margin:0!important;
+}
+#battleModal .battle-fighter.left .battle-name{top:55%;right:4%;text-align:center}
+#battleModal .battle-fighter.left .battle-hp{top:61%;right:4%}
+#battleModal .battle-fighter.left .battle-hp-text{top:65%;right:4%;text-align:center}
+#battleModal .battle-fighter.right .battle-name{top:8%;left:4%;text-align:center}
+#battleModal .battle-fighter.right .battle-hp{top:14%;left:4%}
+#battleModal .battle-fighter.right .battle-hp-text{top:18%;left:4%;text-align:center}
+#battleModal .battle-fighter img{position:absolute!important;width:42%!important;height:30%!important;object-fit:contain!important}
+#battleModal .battle-fighter.left img{left:4%;bottom:11%}
+#battleModal .battle-fighter.right img{right:4%;top:24%}
+#battleModal .battle-name,#battleModal .battle-hp-text{color:#eef8f1!important;text-shadow:1px 2px 0 #102b2c!important}
+#battleModal .battle-arena.battle-move-flash{animation:none!important;box-shadow:inset 0 0 0 3px #1b343e!important}
+#battleModal .battle-log{
+ height:clamp(72px,9dvh,92px)!important;min-height:72px!important;max-height:92px!important;
+ flex:0 0 clamp(72px,9dvh,92px)!important;
+ padding:7px 12px!important;display:flex!important;flex-direction:column;justify-content:center;
+ overflow:hidden!important;line-height:1.35!important;background:#e4e9dc!important;color:#203a35!important;
+ border:3px solid #58776c!important;
+}
+#battleModal .battle-message-line{display:block;width:100%;overflow-wrap:anywhere}
+#battleModal .battle-message-line + .battle-message-line{margin-top:2px}
 </style>
 </head>
 <body data-app-build="v175">
@@ -14337,6 +14378,13 @@ function battleSpecialEffect(result,from){
  }
  layer.classList.remove('active');void layer.offsetWidth;layer.classList.add('active');
 }
+function battleSetMessage(first,second=''){
+ const log=battleEl('battleLog');if(!log)return;
+ log.replaceChildren();
+ const top=document.createElement('div');top.className='battle-message-line';top.textContent=first;
+ log.append(top);
+ if(second){const bottom=document.createElement('div');bottom.className='battle-message-line';bottom.textContent=second;log.append(bottom)}
+}
 async function battleStart(){
  if(battleBusy)return;
  const a=battleEl('battlePick1').value,b=battleEl('battlePick2').value;
@@ -14359,15 +14407,19 @@ async function battleStart(){
     const result=battleAttack(attacker,defender);
     const node=battleEl('battleFighter'+i);
     node.classList.add('attacking');
-    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!';
-    battleFlash(result.type,1-i);
+    battleSetMessage(battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!');
     if(result.special)battleSpecialEffect(result,i);
     else battleProjectile(result.type,i);
     await battleSleep(590);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
     battlePaint(defender,1-i);
     battleEl('battleFighter'+(1-i)).classList.add('hit');
-    battleEl('battleLog').textContent=(result.missed?battleDisplayName(attacker.name)+' missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' and dealt '+result.damage+' damage! ')+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
+    battleSetMessage(
+      result.missed
+        ? battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!'
+        : battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage.',
+      result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':''
+    );
     await battleSleep(820);battleEl('battleFighter'+(1-i)).classList.remove('hit');
     if(defender.hp<=0){battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
    }
@@ -14376,7 +14428,7 @@ async function battleStart(){
   if(token!==battleRun)return;
   const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
   const champ=fighters[winner];
-  battleEl('battleLog').textContent='🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS! '+(turn>=70?'Won on remaining HP.':'The opponent fainted!');
+  battleSetMessage('🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!',turn>=70?'Won on remaining HP.':'The opponent fainted!');
   const wins=battleWins();const key=String(champ.id);
   wins[key]={name:champ.name,wins:(wins[key]?.wins||0)+1};
   try{localStorage.setItem(battleStorageKey(),JSON.stringify(wins))}catch(_){}
