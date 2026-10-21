@@ -3415,6 +3415,18 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-suggest button{display:block;width:100%;border:0;border-bottom:1px solid #35495e;background:transparent;color:#f3f7ff;text-align:left;padding:9px 13px;font:inherit;font-size:14px}
 #battleModal .battle-suggest button:active{background:#3d566f}
 #battleModal .battle-arena canvas.battle-move-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-events:none;image-rendering:pixelated}
+
+#battleModal .battle-owned-trigger{width:100%;min-height:47px;background:#202d41;border:2px solid #52647e;border-radius:11px;color:#f6f7ff;font:inherit;font-weight:700;padding:9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.battle-owned-overlay:not([hidden]){position:fixed;inset:0;z-index:999999;background:#07101bd9;display:flex;align-items:center;justify-content:center;padding:18px}
+.battle-owned-dialog{background:#101a2b;border:2px solid #53677e;border-radius:18px;padding:16px;width:min(440px,100%);max-height:75dvh;display:flex;flex-direction:column;gap:12px;color:#fff}
+.battle-owned-heading{display:flex;justify-content:space-between;align-items:center;font-size:18px}
+.battle-owned-heading button{background:#34445a;color:#fff;border:0;border-radius:50%;width:34px;height:34px;font-size:20px}
+#battleOwnedSearch{background:#25344a;color:#fff;border:1px solid #60748d;border-radius:10px;padding:12px;font:inherit;width:100%;box-sizing:border-box}
+.battle-owned-count{color:#b7c5d8;font-size:12px}
+.battle-owned-grid{overflow-y:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;overscroll-behavior:contain}
+.battle-owned-choice{border:1px solid #435873;background:#1e2e45;border-radius:11px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 3px;min-width:0;font:inherit;font-size:12px}
+.battle-owned-choice img{width:55px;height:55px;object-fit:contain;image-rendering:pixelated}
+.battle-owned-choice span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body data-app-build="v175">
@@ -3614,14 +3626,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       <div class="battle-ground battle-ground-back" aria-hidden="true"></div>
       <div class="battle-ground battle-ground-front" aria-hidden="true"></div>
       <canvas class="battle-move-canvas" id="battleMoveCanvas" aria-hidden="true"></canvas><div class="battle-attack-fx" id="battleAttackFx" aria-hidden="true"></div><div class="battle-special-fx" id="battleSpecialFx" aria-hidden="true"></div>
-      <div class="battle-fighter left" id="battleFighter0"><div class="battle-name" id="battleName0">Pokémon 1</div><div class="battle-hp"><div id="battleBar0"></div></div><div class="battle-hp-text" id="battleHP0">—</div><img id="battleImg0" alt="" hidden></div>
-      <div class="battle-fighter right" id="battleFighter1"><div class="battle-name" id="battleName1">Pokémon 2</div><div class="battle-hp"><div id="battleBar1"></div></div><div class="battle-hp-text" id="battleHP1">—</div><img id="battleImg1" alt="" hidden></div>
+      <div class="battle-fighter left" id="battleFighter0"><div class="battle-name" id="battleName0">Your Pokémon</div><div class="battle-hp"><div id="battleBar0"></div></div><div class="battle-hp-text" id="battleHP0">—</div><img id="battleImg0" alt="" hidden></div>
+      <div class="battle-fighter right" id="battleFighter1"><div class="battle-name" id="battleName1">Opponent</div><div class="battle-hp"><div id="battleBar1"></div></div><div class="battle-hp-text" id="battleHP1">—</div><img id="battleImg1" alt="" hidden></div>
     </div>
-    <div class="battle-panel battle-log" id="battleLog" role="status" aria-live="polite">Choose two Pokémon or generate random opponents to begin.</div>
+    <div class="battle-panel battle-log" id="battleLog" role="status" aria-live="polite">Select one of your collected Pokémon and choose an opponent to begin.</div>
     <div class="battle-panel">
       <div class="battle-choices">
-        <div class="battle-pick"><label for="battlePick1">POKÉMON 1</label><input id="battlePick1" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest1"></div><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
-        <div class="battle-pick"><label for="battlePick2">POKÉMON 2</label><input id="battlePick2" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Select Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
@@ -3630,6 +3642,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 
 
   </div>
+</div>
+<div id="battleOwnedOverlay" class="battle-owned-overlay" hidden>
+ <div class="battle-owned-dialog" role="dialog" aria-modal="true" aria-label="Select your Pokémon">
+  <div class="battle-owned-heading"><strong>Your Dex Pokémon</strong><button type="button" onclick="battleCloseOwned()" aria-label="Close">✕</button></div>
+  <input id="battleOwnedSearch" placeholder="Search your collected Pokémon" autocomplete="off" oninput="battleRenderOwned()">
+  <div id="battleOwnedCount" class="battle-owned-count"></div>
+  <div id="battleOwnedGrid" class="battle-owned-grid"></div>
+ </div>
 </div>
 <div class="tcg-zoom-modal" id="tcgZoomModal" onclick="closeTcgZoom()">
   <div class="tcg-zoom-content" id="zoomContainer" onclick="event.stopPropagation()">
@@ -14163,39 +14183,80 @@ async function battleNameFor(id){
  battleNameCache.set(id,name);
  return name;
 }
+
+function battleOwnedEntries(){
+ const ids=[...memCol].map(Number).filter(id=>Number.isInteger(id)&&id>=1&&id<=TOTAL);
+ return ids.map(id=>{
+  const entry=(typeof dir!=='undefined'&&Array.isArray(dir))?dir.find(p=>Number(p.id)===id):null;
+  return {id,name:entry?.name||((typeof pokemonNames!=='undefined'&&pokemonNames[id-1])||'Pokémon #'+id),sprite:entry?.sprite||battlePixelFallback(id)};
+ }).sort((a,b)=>a.id-b.id);
+}
+function battleOpenOwned(){
+ if(battleBusy)return;
+ battleEl('battleOwnedOverlay').hidden=false;
+ battleEl('battleOwnedSearch').value='';
+ battleRenderOwned();
+}
+function battleCloseOwned(){battleEl('battleOwnedOverlay').hidden=true}
+function battleRenderOwned(){
+ const all=battleOwnedEntries(),q=battleEl('battleOwnedSearch').value.trim().toLowerCase();
+ const matches=all.filter(p=>p.name.toLowerCase().includes(q)||String(p.id).includes(q));
+ const grid=battleEl('battleOwnedGrid');grid.replaceChildren();
+ battleEl('battleOwnedCount').textContent=all.length+' Pokémon collected'+(q?' · '+matches.length+' matching':'');
+ if(!all.length){grid.textContent='Your Dex has no collected Pokémon yet. Add a Pokémon to your Dex first.';return}
+ if(!matches.length){grid.textContent='No matching Pokémon in your Dex.';return}
+ for(const p of matches){
+  const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
+  const img=document.createElement('img');img.src=p.sprite;img.alt='';img.loading='lazy';
+  const name=document.createElement('span');name.textContent=p.name;
+  button.append(img,name);
+  button.addEventListener('click',()=>battleSelectOwned(p));
+  grid.append(button);
+ }
+}
+async function battleSelectOwned(p){
+ if(!memCol.has(p.id)&&!memCol.has(String(p.id)))return;
+ battleEl('battlePick1').value=String(p.id);
+ battleEl('battleChooseOwned').textContent=p.name;
+ battleCloseOwned();
+ await battlePreview(0);
+}
 async function battleRandomiseOne(slot){
  if(battleBusy)return;
- const input=battleEl('battlePick'+(slot+1));
- const other=battleEl('battlePick'+(slot===0?2:1)).value.trim().toLowerCase();
- let id=1+Math.floor(Math.random()*TOTAL);
- let name='';
- // Keep the text field editable while a random Pokémon is being fetched.
+ if(slot===0){
+  const owned=battleOwnedEntries();
+  if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
+  const other=battleEl('battlePick2').value.trim().toLowerCase();
+  const choices=owned.filter(p=>String(p.id)!==other&&p.name.toLowerCase()!==other);
+  await battleSelectOwned((choices.length?choices:owned)[Math.floor(Math.random()*(choices.length||owned.length))]);
+  return;
+ }
+ const input=battleEl('battlePick2'),other=battleEl('battlePick1').value.trim().toLowerCase();
  try{
-  for(let tries=0;tries<12;tries++){
+  let id=1+Math.floor(Math.random()*TOTAL),name='';
+  for(let tries=0;tries<20;tries++){
    name=await battleNameFor(id);
-   if(name!==other&&String(id)!==other)break;
+   if(String(id)!==other)break;
    id=1+Math.floor(Math.random()*TOTAL);
   }
-  input.value=name.replace(/(^|-)([a-z])/g,(_,sep,ch)=>sep+ch.toUpperCase());
-  await battlePreview(slot);
-  battleEl('battleLog').textContent='Pokémon selected. Ready to battle!';
- }catch(err){battleEl('battleLog').textContent=err.message}
- finally{input.readOnly=false;input.disabled=false}
+  input.value=battleDisplayName(name);
+  await battlePreview(1);
+ }catch(err){battleSetMessage(err.message||'Unable to select opponent.')}
 }
 async function battleRandomise(){
  if(battleBusy)return;
- const button=battleEl('battleRandomBoth');
- button.disabled=true;
+ const button=battleEl('battleRandomBoth');button.disabled=true;
  try{
-  let a=1+Math.floor(Math.random()*TOTAL),b=1+Math.floor(Math.random()*TOTAL);
-  while(b===a)b=1+Math.floor(Math.random()*TOTAL);
-  const names=await Promise.all([battleNameFor(a),battleNameFor(b)]);
-  names.forEach((name,i)=>{
-   battleEl('battlePick'+(i+1)).value=name.replace(/(^|-)([a-z])/g,(_,sep,ch)=>sep+ch.toUpperCase());
-  });
-  await Promise.all([battlePreview(0),battlePreview(1)]);
-  battleEl('battleLog').textContent='Both Pokémon are ready. Press Battle!';
- }catch(err){battleEl('battleLog').textContent=err.message||'Unable to randomise Pokémon.'}
+  const owned=battleOwnedEntries();
+  if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
+  const chosen=owned[Math.floor(Math.random()*owned.length)];
+  await battleSelectOwned(chosen);
+  let opponent=1+Math.floor(Math.random()*TOTAL);
+  while(opponent===chosen.id)opponent=1+Math.floor(Math.random()*TOTAL);
+  battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));
+  await battlePreview(1);
+  battleSetMessage('Both Pokémon are ready. Press Battle!');
+ }catch(err){battleSetMessage(err.message||'Unable to randomise Pokémon.')}
  finally{button.disabled=false}
 }
 function battleResolve(value){
@@ -14236,7 +14297,7 @@ async function battlePreview(slot){
 }
 function battleResetPreview(slot){
  const img=battleEl('battleImg'+slot);img.hidden=true;img.removeAttribute('src');
- battleEl('battleName'+slot).textContent='Pokémon '+(slot+1);
+ battleEl('battleName'+slot).textContent=slot===0?'Your Pokémon':'Opponent';
  battleEl('battleHP'+slot).textContent='—';
  battleEl('battleBar'+slot).style.width='0%';
 }
@@ -14278,6 +14339,7 @@ function battleInitUI(){
  if(icon&&header&&!header.firstChild){const copy=icon.cloneNode(true);copy.removeAttribute('id');header.append(copy)}
  for(let i=0;i<2;i++){
   const input=battleEl('battlePick'+(i+1));
+  if(i===0)continue;
   input.addEventListener('focus',()=>{input.disabled=false;input.readOnly=false;battleFocusStart();requestAnimationFrame(()=>{try{input.select()}catch(_){}})});
   for(const eventName of ['pointerdown','touchstart','click'])input.addEventListener(eventName,e=>e.stopPropagation());
   input.addEventListener('blur',()=>{setTimeout(()=>battleHideSuggest(i),180);battleFocusEnd()});
@@ -14502,7 +14564,8 @@ function battleSetMessage(first,second=''){
 async function battleStart(){
  if(battleBusy)return;
  const a=battleEl('battlePick1').value,b=battleEl('battlePick2').value;
- if(!a.trim()||!b.trim()){battleEl('battleLog').textContent='Choose both Pokémon first.';return}
+ if(!a.trim()||!b.trim()){battleSetMessage('Choose your Pokémon and an opponent first.');return}
+ if(!battleOwnedEntries().some(p=>String(p.id)===a.trim())){battleSetMessage('Your Pokémon must be in your Dex collection.');return}
  battleBusy=true;const token=++battleRun;battleEl('battleStart').disabled=true;
  try{
   battleEl('battleLog').textContent='Preparing your Pokémon…';
