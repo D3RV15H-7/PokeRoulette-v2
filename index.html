@@ -3647,7 +3647,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
     <div class="battle-panel">
       <div class="battle-choices">
         <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Select Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
-        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Type Pokémon or Randomise" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
@@ -14172,7 +14172,17 @@ const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 const battlePixelFallback=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 function battleStorageKey(){return 'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest')}
-function battleWins(){try{return JSON.parse(localStorage.getItem(battleStorageKey()))||{}}catch(_){return {}}}
+function battleWins(){
+ try{
+  const primary=JSON.parse(localStorage.getItem(battleStorageKey())||'{}')||{};
+  const backup=JSON.parse(localStorage.getItem('pokeroulette_battle_stats_v185_'+(currentUser?.uid||'guest'))||'{}')||{};
+  const merged={...primary};
+  for(const [id,record] of Object.entries(backup)){
+   if(!merged[id] || (Number(record.battles)||0)>(Number(merged[id].battles)||0))merged[id]=record;
+  }
+  return merged;
+ }catch(_){return {}}
+}
 function battleRenderLeaderboard(){
  if(!battleEl('battleLeaderboard'))return;
  const entries=Object.entries(battleWins()).sort((a,b)=>b[1].wins-a[1].wins||Number(a[0])-Number(b[0])).slice(0,10);
@@ -14234,7 +14244,7 @@ function battleRenderOwned(){
 async function battleSelectOwned(p){
  if(!memCol.has(p.id)&&!memCol.has(String(p.id)))return;
  battleEl('battlePick1').value=String(p.id);
- battleEl('battleChooseOwned').textContent=p.name;
+ battleEl('battleChooseOwned').textContent=battleDisplayName(p.name);
  battleCloseOwned();
  await battlePreview(0);
 }
@@ -14583,7 +14593,7 @@ async function battleStart(){
  const a=battleEl('battlePick1').value,b=battleEl('battlePick2').value;
  if(!a.trim()||!b.trim()){battleSetMessage('Choose your Pokémon and an opponent first.');return}
  if(!battleOwnedEntries().some(p=>String(p.id)===a.trim())){battleSetMessage('Your Pokémon must be in your Dex collection.');return}
- battleBusy=true;const token=++battleRun;battleEl('battleStart').disabled=true;
+ battleBusy=true;const token=++battleRun;const battleAccountUid=currentUser?.uid||'guest';battleEl('battleStart').disabled=true;
  try{
   battleEl('battleLog').textContent='Preparing your Pokémon…';
   const fighters=await Promise.all([battleFetch(a),battleFetch(b)]);
@@ -14628,8 +14638,13 @@ async function battleStart(){
    const key=String(fighter.id),previous=wins[key]||{};
    wins[key]={name:fighter.name,wins:(previous.wins||0)+(fighter.id===champ.id?1:0),battles:(previous.battles||0)+1};
   }
-  try{localStorage.setItem(battleStorageKey(),JSON.stringify(wins))}catch(_){}
+  try{
+   const encoded=JSON.stringify(wins);
+   localStorage.setItem(battleStorageKey(),encoded);
+   localStorage.setItem('pokeroulette_battle_stats_v185_'+battleAccountUid,encoded);
+  }catch(err){console.warn('Unable to persist battle statistics',err)}
   battleRenderLeaderboard();
+  if(battleEl('battleOwnedOverlay')&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
  }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
  finally{battleBusy=false;battleEl('battleStart').disabled=false}
 }
