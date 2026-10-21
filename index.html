@@ -3277,6 +3277,55 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal.battle-editing .modal-body{margin-top:0!important;max-height:var(--battle-visible-height,100dvh)!important;overflow-y:auto!important}
 #battleModal .battle-arena.battle-move-flash{animation:battleMoveGlow .5s ease-out}
 @keyframes battleMoveGlow{0%,100%{box-shadow:none}35%{box-shadow:inset 0 0 55px 12px var(--battle-flash,#fff),0 0 12px var(--battle-flash,#fff)}}
+
+/* v178: original retro handheld-inspired pixel arena */
+#battleModal .battle-arena{
+ background:linear-gradient(to bottom,#9dc7ce 0%,#b9d8c9 36%,#d6d7aa 61%,#8eac72 61%,#709460 100%);
+ border:3px solid #627e8a;image-rendering:pixelated;isolation:isolate;
+}
+#battleModal .battle-arena::after{display:none}
+#battleModal .battle-pixel-sky{position:absolute;inset:0 0 37%;z-index:0;pointer-events:none;
+ background:
+ linear-gradient(90deg,transparent 0 12%,#e8edcf80 12% 19%,transparent 19% 71%,#e8edcf70 71% 78%,transparent 78%) 0 13%/100% 5% no-repeat,
+ linear-gradient(90deg,transparent 0 22%,#e7eac980 22% 35%,transparent 35% 60%,#e7eac980 60% 72%,transparent 72%) 0 24%/100% 3% no-repeat}
+#battleModal .battle-pixel-hills{position:absolute;inset:35% 0 30%;z-index:0;pointer-events:none;opacity:.85;
+ background:linear-gradient(135deg,transparent 42%,#89b19a 42% 61%,transparent 61%) left bottom/48% 90% no-repeat,
+ linear-gradient(225deg,transparent 40%,#7da98e 40% 63%,transparent 63%) right bottom/60% 100% no-repeat}
+#battleModal .battle-ground{position:absolute;z-index:1;border-radius:50%;pointer-events:none;
+ background:repeating-linear-gradient(0deg,#547c5d 0 5px,#628663 5px 10px);
+ box-shadow:0 7px 0 #436f56,0 10px 0 #345a49;opacity:.82}
+#battleModal .battle-ground-back{width:39%;height:11%;right:6%;top:43%;transform:skewX(-12deg)}
+#battleModal .battle-ground-front{width:48%;height:13%;left:3%;bottom:8%;transform:skewX(-12deg)}
+#battleModal .battle-fighter{z-index:3}
+#battleModal .battle-fighter img{filter:drop-shadow(3px 5px 0 #234c3866)}
+#battleModal .battle-name,#battleModal .battle-hp-text{text-shadow:1px 2px 0 #1c3a43}
+#battleModal .battle-attack-fx{position:absolute;z-index:5;left:50%;top:50%;width:20px;height:20px;opacity:0;pointer-events:none;transform:translate(-50%,-50%);border-radius:50%}
+#battleModal .battle-attack-fx.active{animation:battleProjectile .58s steps(7,end) forwards;
+ background:var(--fx-color,#fff);box-shadow:0 0 0 5px #fff8,0 0 0 12px var(--fx-color,#fff8),0 0 15px 13px var(--fx-color,#fff)}
+#battleModal .battle-attack-fx.from-left{--fx-start-x:-120px;--fx-start-y:95px;--fx-end-x:110px;--fx-end-y:-55px}
+#battleModal .battle-attack-fx.from-right{--fx-start-x:110px;--fx-start-y:-55px;--fx-end-x:-120px;--fx-end-y:95px}
+@keyframes battleProjectile{0%{opacity:0;transform:translate(var(--fx-start-x),var(--fx-start-y)) scale(.4)}15%{opacity:1}85%{opacity:1}100%{opacity:0;transform:translate(var(--fx-end-x),var(--fx-end-y)) scale(1.5)}}
+#battleModal .battle-log{border:3px solid #8ba3a2;background:#f4f2db;color:#263d43;border-radius:10px;
+ font-weight:800;box-shadow:inset 0 0 0 2px #314952;font-family:inherit}
+@media(prefers-reduced-motion:reduce){#battleModal .battle-attack-fx.active{animation:none;opacity:0}}
+
+/* v179 signature move pixel animations */
+#battleModal .battle-special-fx{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden}
+#battleModal .battle-special-fx .battle-pixel{position:absolute;left:50%;top:50%;width:13px;height:13px;opacity:0;image-rendering:pixelated}
+#battleModal .battle-special-fx.active .battle-pixel{animation:signaturePixel .68s steps(7,end) var(--delay) both}
+#battleModal .battle-special-fx.fx-left{--travel:120px;--start:-110px}
+#battleModal .battle-special-fx.fx-right{--travel:-120px;--start:110px}
+@keyframes signaturePixel{
+ 0%{opacity:0;transform:translate(calc(var(--start) + var(--x)),calc(var(--y) + 15px)) scale(.5)}
+ 18%{opacity:1}
+ 55%{opacity:1;transform:translate(var(--x),var(--y)) scale(1.5)}
+ 100%{opacity:0;transform:translate(calc(var(--travel) + var(--x)),calc(var(--y) - 15px)) scale(.5)}
+}
+#battleModal .special-electric .battle-pixel{width:19px;height:25px}
+#battleModal .special-fire .battle-pixel{width:12px;height:19px;clip-path:polygon(50% 0,100% 50%,80% 100%,10% 100%,0 55%)}
+#battleModal .special-water .battle-pixel{width:16px;height:16px}
+#battleModal .special-ice .battle-pixel{width:17px;height:17px}
+@media(prefers-reduced-motion:reduce){#battleModal .battle-special-fx.active .battle-pixel{animation:none;opacity:0}}
 </style>
 </head>
 <body data-app-build="v175">
@@ -3471,6 +3520,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   <div class="modal-body battle-body" onclick="event.stopPropagation()">
     <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
     <div class="battle-arena" aria-label="Pokémon battle arena">
+      <div class="battle-pixel-sky" aria-hidden="true"></div>
+      <div class="battle-pixel-hills" aria-hidden="true"></div>
+      <div class="battle-ground battle-ground-back" aria-hidden="true"></div>
+      <div class="battle-ground battle-ground-front" aria-hidden="true"></div>
+      <div class="battle-attack-fx" id="battleAttackFx" aria-hidden="true"></div><div class="battle-special-fx" id="battleSpecialFx" aria-hidden="true"></div>
       <div class="battle-fighter left" id="battleFighter0"><div class="battle-name" id="battleName0">Pokémon 1</div><div class="battle-hp"><div id="battleBar0"></div></div><div class="battle-hp-text" id="battleHP0">—</div><img id="battleImg0" alt="" hidden></div>
       <div class="battle-fighter right" id="battleFighter1"><div class="battle-name" id="battleName1">Pokémon 2</div><div class="battle-hp"><div id="battleBar1"></div></div><div class="battle-hp-text" id="battleHP1">—</div><img id="battleImg1" alt="" hidden></div>
     </div>
@@ -14162,7 +14216,7 @@ async function battlePrepareMoves(p){
  const ordered=[...pool].sort((a,b)=>{
   const ia=battleMovePriority.indexOf(a.name),ib=battleMovePriority.indexOf(b.name);
   return (ia<0?999:ia)-(ib<0?999:ib);
- }).slice(0,12);
+ }).slice(0,24);
  const loaded=await Promise.all(ordered.map(async m=>{
   try{
    if(battleMoveCache.has(m.name))return battleMoveCache.get(m.name);
@@ -14174,10 +14228,19 @@ async function battlePrepareMoves(p){
  }));
  p.battleMoves=loaded.filter(m=>m&&m.power>0&&['physical','special'].includes(m.category));
  if(!p.battleMoves.length)p.battleMoves=[{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100}];
+ // A single signature special attack per Pokémon, chosen from moves it can learn.
+ const specials=p.battleMoves.filter(m=>m.category==='special');
+ p.signatureMove=specials.sort((a,b)=>(battleMovePriority.indexOf(a.name)<0?999:battleMovePriority.indexOf(a.name)<0? -999:0)||b.power-a.power)[0]||null;
+ p.signatureUsed=false;
+ p.regularMoves=p.battleMoves.filter(m=>m.category!=='special');
+ if(!p.regularMoves.length)p.regularMoves=[{name:'tackle',type:'normal',category:'physical',power:40,accuracy:100}];
+
 }
 function battleAttack(attacker,defender){
- const candidates=attacker.battleMoves||[];
- const move=candidates[Math.floor(Math.random()*candidates.length)]||{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100};
+ const useSignature=!!attacker.signatureMove&&!attacker.signatureUsed&&(Math.random()<.35||attacker.hp<attacker.maxHp*.4);
+ const candidates=attacker.regularMoves||attacker.battleMoves||[];
+ const move=useSignature?attacker.signatureMove:(candidates[Math.floor(Math.random()*candidates.length)]||{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100});
+ if(useSignature)attacker.signatureUsed=true;
  const effect=battleEffectiveness(move.type,defender);
  const attack=attacker.stats[move.category==='special'?'special-attack':'attack'];
  const defense=defender.stats[move.category==='special'?'special-defense':'defense'];
@@ -14185,7 +14248,7 @@ function battleAttack(attacker,defender){
  const weightFactor=Math.min(1.08,Math.max(.96,1+Math.log10(Math.max(1,attacker.weight)/Math.max(1,defender.weight))*.025));
  const missed=Math.random()*100>=move.accuracy;
  const damage=missed||effect===0?0:Math.max(1,Math.round((5+(move.power/12)*(attack/Math.max(1,defense)))*stab*effect*weightFactor*(.85+Math.random()*.3)));
- return {damage,type:move.type,effect,move:move.name,missed};
+ return {damage,type:move.type,effect,move:move.name,missed,special:useSignature};
 }
 function battleMoveLabel(name){return name.split('-').map(w=>w[0]?.toUpperCase()+w.slice(1)).join(' ')}
 function battleFlash(type,target){
@@ -14198,6 +14261,42 @@ function battleFlash(type,target){
  bug:'#a6ce42',flying:'#99d5ef',normal:'#e5e7eb'
  })[type]||'#ffffff');
  arena.classList.remove('battle-move-flash');void arena.offsetWidth;arena.classList.add('battle-move-flash');
+}
+function battleProjectile(type,from){
+ const fx=battleEl('battleAttackFx');if(!fx)return;
+ const colors={fire:'#ff793b',water:'#4baeff',electric:'#ffdd3d',grass:'#79d35a',ice:'#c4f6ff',psychic:'#f18ada',ghost:'#a78bfa',dragon:'#9875e8',dark:'#75648f',fighting:'#f69a5c',ground:'#bc9968',rock:'#b6a080',poison:'#ba7bdb',fairy:'#ffa5d8',steel:'#c1d6e1',bug:'#b0d64c',flying:'#9cdef5',normal:'#e5e7eb'};
+ fx.style.setProperty('--fx-color',colors[type]||'#fff');
+ fx.className='battle-attack-fx '+(from===0?'from-left':'from-right');
+ void fx.offsetWidth;fx.classList.add('active');
+}
+function battleSpecialEffect(result,from){
+ const layer=battleEl('battleSpecialFx');if(!layer)return;
+ layer.replaceChildren();
+ const kind=result.type;
+ layer.className='battle-special-fx special-'+kind+(from===0?' fx-left':' fx-right');
+ // Pixel particles form recognisable fire, electricity, water, ice and other type attacks.
+ const palettes={
+  fire:['#fff5a0','#ffb52d','#f05b2a','#bd283b'],electric:['#ffffff','#fff37b','#facc15','#dba400'],
+  water:['#d9faff','#78dcff','#2993e8','#1754b0'],ice:['#ffffff','#b9f4ff','#6ad5ed','#8faaf4'],
+  grass:['#d5ff9a','#76df67','#319f50','#155b3b'],psychic:['#ffb8fb','#ee6edb','#a14be0','#6235aa'],
+  ghost:['#c9b9ff','#9876d7','#6045a5','#322766'],dragon:['#f4aaff','#aa78f7','#6648cb','#37318a']
+ };
+ const colors=palettes[kind]||['#fff','#e4dc8d','#a9b4cf','#607b9c'];
+ const count=kind==='electric'?17:kind==='fire'?28:kind==='water'?19:22;
+ for(let n=0;n<count;n++){
+  const px=document.createElement('span');
+  px.className='battle-pixel';
+  px.style.setProperty('--i',n);
+  px.style.setProperty('--x',((n%7)-3)*11+'px');
+  px.style.setProperty('--y',(Math.floor(n/7)-2)*13+'px');
+  px.style.setProperty('--delay',(n%6)*35+'ms');
+  px.style.background=colors[n%colors.length];
+  if(kind==='electric')px.style.clipPath='polygon(38% 0,100% 0,65% 43%,100% 43%,15% 100%,39% 51%,0 51%)';
+  if(kind==='ice')px.style.clipPath='polygon(50% 0,65% 36%,100% 50%,65% 64%,50% 100%,35% 64%,0 50%,35% 36%)';
+  if(kind==='water')px.style.borderRadius='50% 50% 55% 55%';
+  layer.append(px);
+ }
+ layer.classList.remove('active');void layer.offsetWidth;layer.classList.add('active');
 }
 async function battleStart(){
  if(battleBusy)return;
@@ -14223,12 +14322,14 @@ async function battleStart(){
     node.classList.add('attacking');
     battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!';
     battleFlash(result.type,1-i);
-    await battleSleep(470);node.classList.remove('attacking');
+    if(result.special)battleSpecialEffect(result,i);
+    else battleProjectile(result.type,i);
+    await battleSleep(590);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
     battlePaint(defender,1-i);
     battleEl('battleFighter'+(1-i)).classList.add('hit');
     battleEl('battleLog').textContent=(result.missed?battleDisplayName(attacker.name)+' missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' and dealt '+result.damage+' damage! ')+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
-    await battleSleep(680);battleEl('battleFighter'+(1-i)).classList.remove('hit');
+    await battleSleep(820);battleEl('battleFighter'+(1-i)).classList.remove('hit');
     if(defender.hp<=0){battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
    }
    turn++;
