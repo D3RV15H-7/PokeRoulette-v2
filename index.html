@@ -3272,6 +3272,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 /* v176 editable battle selectors */
 #battleModal .battle-pick input{pointer-events:auto!important;user-select:text!important;-webkit-user-select:text!important;touch-action:manipulation;position:relative;z-index:5}
 #battleModal.battle-editing .battle-pick input{opacity:1!important}
+
+#battleModal.battle-editing{top:0!important;bottom:0!important;height:100dvh!important;align-items:stretch!important}
+#battleModal.battle-editing .modal-body{margin-top:0!important;max-height:var(--battle-visible-height,100dvh)!important;overflow-y:auto!important}
+#battleModal .battle-arena.battle-move-flash{animation:battleMoveGlow .5s ease-out}
+@keyframes battleMoveGlow{0%,100%{box-shadow:none}35%{box-shadow:inset 0 0 55px 12px var(--battle-flash,#fff),0 0 12px var(--battle-flash,#fff)}}
 </style>
 </head>
 <body data-app-build="v175">
@@ -14064,7 +14069,7 @@ async function battleFetch(value){
  const data=await response.json();
  const stats=Object.fromEntries(data.stats.map(s=>[s.stat.name,s.base_stat]));
  return {id:data.id,name:data.name,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
- maxHp:Math.max(35,Math.floor(65+data.stats[0].base_stat*1.8)),hp:0};
+ maxHp:Math.max(35,Math.floor(65+data.stats[0].base_stat*1.8)),hp:0,moves:data.moves.map(m=>({name:m.move.name,url:m.move.url,details:m.version_group_details}))};
 }
 function battleSetSprite(img,id){
  img.hidden=false;
@@ -14103,7 +14108,7 @@ function battleSyncKeyboard(){
  const vv=window.visualViewport;
  const top=vv?vv.offsetTop:0;
  const height=vv?vv.height:window.innerHeight;
- modal.style.setProperty('--battle-visible-top',top+'px');
+ modal.style.setProperty('--battle-visible-top','0px');
  modal.style.setProperty('--battle-visible-height',height+'px');
 }
 function battleFocusStart(){
@@ -14130,6 +14135,7 @@ function battleInitUI(){
  for(let i=0;i<2;i++){
   const input=battleEl('battlePick'+(i+1));
   input.addEventListener('focus',()=>{input.disabled=false;input.readOnly=false;battleFocusStart();requestAnimationFrame(()=>{try{input.select()}catch(_){}})});
+  for(const eventName of ['pointerdown','touchstart','click'])input.addEventListener(eventName,e=>e.stopPropagation());
   input.addEventListener('blur',battleFocusEnd);
   input.addEventListener('input',()=>battleQueuePreview(i));
   input.addEventListener('change',()=>battleQueuePreview(i));
@@ -14148,15 +14154,50 @@ function battlePaint(p,i){
  const ratio=p.hp/p.maxHp;bar.style.background=ratio>.5?'#10b981':ratio>.2?'#facc15':'#ef4444';
 }
 function battleEffectiveness(type,defender){return defender.types.reduce((n,t)=>n*(battleTypes[type]?.[t]??1),1)}
+const battleMoveCache=new Map();
+const battleMovePriority=['thunderbolt','flamethrower','ice-beam','water-pulse','shadow-ball','earthquake','psychic','energy-ball','aura-sphere','dragon-pulse','air-slash','sludge-bomb','rock-slide','dark-pulse','bug-buzz','moonblast','iron-head','quick-attack','tackle','scratch','bite','pound','gust','ember','water-gun','vine-whip','thunder-shock'];
+async function battlePrepareMoves(p){
+ const choices=p.moves.filter(m=>m.details?.some(d=>d.move_learn_method?.name==='level-up'));
+ const pool=choices.length?choices:p.moves;
+ const ordered=[...pool].sort((a,b)=>{
+  const ia=battleMovePriority.indexOf(a.name),ib=battleMovePriority.indexOf(b.name);
+  return (ia<0?999:ia)-(ib<0?999:ib);
+ }).slice(0,12);
+ const loaded=await Promise.all(ordered.map(async m=>{
+  try{
+   if(battleMoveCache.has(m.name))return battleMoveCache.get(m.name);
+   const r=await fetch(m.url);if(!r.ok)return null;
+   const d=await r.json();
+   const result={name:d.name,type:d.type.name,category:d.damage_class.name,power:d.power||0,accuracy:d.accuracy??100};
+   battleMoveCache.set(m.name,result);return result;
+  }catch(_){return null}
+ }));
+ p.battleMoves=loaded.filter(m=>m&&m.power>0&&['physical','special'].includes(m.category));
+ if(!p.battleMoves.length)p.battleMoves=[{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100}];
+}
 function battleAttack(attacker,defender){
- const physical=(attacker.stats.attack/Math.max(1,defender.stats.defense));
- const special=(attacker.stats['special-attack']/Math.max(1,defender.stats['special-defense']));
- const ratio=Math.max(physical,special);
- const options=attacker.types.map(type=>({type,effect:battleEffectiveness(type,defender)})).sort((a,b)=>b.effect-a.effect);
- const move=options[0];
+ const candidates=attacker.battleMoves||[];
+ const move=candidates[Math.floor(Math.random()*candidates.length)]||{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100};
+ const effect=battleEffectiveness(move.type,defender);
+ const attack=attacker.stats[move.category==='special'?'special-attack':'attack'];
+ const defense=defender.stats[move.category==='special'?'special-defense':'defense'];
+ const stab=attacker.types.includes(move.type)?1.5:1;
  const weightFactor=Math.min(1.08,Math.max(.96,1+Math.log10(Math.max(1,attacker.weight)/Math.max(1,defender.weight))*.025));
- const damage=move.effect===0?0:Math.max(1,Math.round((13+19*ratio)*move.effect*weightFactor*(.85+Math.random()*.3)));
- return {damage,type:move.type,effect:move.effect};
+ const missed=Math.random()*100>=move.accuracy;
+ const damage=missed||effect===0?0:Math.max(1,Math.round((5+(move.power/12)*(attack/Math.max(1,defense)))*stab*effect*weightFactor*(.85+Math.random()*.3)));
+ return {damage,type:move.type,effect,move:move.name,missed};
+}
+function battleMoveLabel(name){return name.split('-').map(w=>w[0]?.toUpperCase()+w.slice(1)).join(' ')}
+function battleFlash(type,target){
+ const arena=document.querySelector('#battleModal .battle-arena');
+ if(!arena)return;
+ arena.style.setProperty('--battle-flash',({
+ fire:'#ff7039',water:'#3db7ff',electric:'#facc15',grass:'#6ee783',ice:'#9be8ff',
+ psychic:'#ed80ee',ghost:'#a78bfa',dark:'#73718f',dragon:'#8c80ff',fighting:'#ef9568',
+ ground:'#c69b5e',rock:'#c5a783',poison:'#c084fc',fairy:'#ff9bd2',steel:'#b9d4dc',
+ bug:'#a6ce42',flying:'#99d5ef',normal:'#e5e7eb'
+ })[type]||'#ffffff');
+ arena.classList.remove('battle-move-flash');void arena.offsetWidth;arena.classList.add('battle-move-flash');
 }
 async function battleStart(){
  if(battleBusy)return;
@@ -14167,6 +14208,7 @@ async function battleStart(){
   battleEl('battleLog').textContent='Preparing your Pokémon…';
   const fighters=await Promise.all([battleFetch(a),battleFetch(b)]);
   if(fighters[0].id===fighters[1].id)throw Error('Choose two different Pokémon.');
+  await Promise.all(fighters.map(battlePrepareMoves));
   fighters.forEach((p,i)=>{p.hp=p.maxHp;battlePaint(p,i)});
   await battleSleep(650);
   let turn=0;
@@ -14179,12 +14221,13 @@ async function battleStart(){
     const result=battleAttack(attacker,defender);
     const node=battleEl('battleFighter'+i);
     node.classList.add('attacking');
-    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' attacks with '+result.type+' power!';
+    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!';
+    battleFlash(result.type,1-i);
     await battleSleep(470);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
     battlePaint(defender,1-i);
     battleEl('battleFighter'+(1-i)).classList.add('hit');
-    battleEl('battleLog').textContent=battleDisplayName(attacker.name)+' dealt '+result.damage+' damage! '+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
+    battleEl('battleLog').textContent=(result.missed?battleDisplayName(attacker.name)+' missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' and dealt '+result.damage+' damage! ')+(result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective.':'');
     await battleSleep(680);battleEl('battleFighter'+(1-i)).classList.remove('hit');
     if(defender.hp<=0){battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
    }
@@ -14193,7 +14236,7 @@ async function battleStart(){
   if(token!==battleRun)return;
   const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
   const champ=fighters[winner];
-  battleEl('battleLog').textContent='🏆 '+battleDisplayName(champ.name)+' wins! '+(turn>=70?'Won on remaining HP.':'The opponent fainted!');
+  battleEl('battleLog').textContent='🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS! '+(turn>=70?'Won on remaining HP.':'The opponent fainted!');
   const wins=battleWins();const key=String(champ.id);
   wins[key]={name:champ.name,wins:(wins[key]?.wins||0)+1};
   try{localStorage.setItem(battleStorageKey(),JSON.stringify(wins))}catch(_){}
