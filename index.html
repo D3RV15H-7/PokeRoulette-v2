@@ -3405,6 +3405,16 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 }
 #battleModal .battle-message-line{display:block;width:100%;overflow-wrap:anywhere}
 #battleModal .battle-message-line + .battle-message-line{margin-top:2px}
+
+/* v182 refinements */
+#battleModal .battle-pixel-sky{display:none!important}
+#battleModal .battle-arena{border:5px solid #172a35!important;box-shadow:inset 0 0 0 3px #405b62,0 0 0 2px #0b1825!important}
+#battleModal .battle-pick{position:relative}
+#battleModal .battle-suggest{position:absolute;left:0;right:0;bottom:calc(100% - 1px);max-height:185px;overflow-y:auto;z-index:100;background:#172638;border:2px solid #627c91;border-radius:12px;box-shadow:0 -8px 25px #0009;display:none}
+#battleModal .battle-suggest.open{display:block}
+#battleModal .battle-suggest button{display:block;width:100%;border:0;border-bottom:1px solid #35495e;background:transparent;color:#f3f7ff;text-align:left;padding:9px 13px;font:inherit;font-size:14px}
+#battleModal .battle-suggest button:active{background:#3d566f}
+#battleModal .battle-arena canvas.battle-move-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-events:none;image-rendering:pixelated}
 </style>
 </head>
 <body data-app-build="v175">
@@ -3603,15 +3613,15 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       <div class="battle-pixel-hills" aria-hidden="true"></div>
       <div class="battle-ground battle-ground-back" aria-hidden="true"></div>
       <div class="battle-ground battle-ground-front" aria-hidden="true"></div>
-      <div class="battle-attack-fx" id="battleAttackFx" aria-hidden="true"></div><div class="battle-special-fx" id="battleSpecialFx" aria-hidden="true"></div>
+      <canvas class="battle-move-canvas" id="battleMoveCanvas" aria-hidden="true"></canvas><div class="battle-attack-fx" id="battleAttackFx" aria-hidden="true"></div><div class="battle-special-fx" id="battleSpecialFx" aria-hidden="true"></div>
       <div class="battle-fighter left" id="battleFighter0"><div class="battle-name" id="battleName0">Pokémon 1</div><div class="battle-hp"><div id="battleBar0"></div></div><div class="battle-hp-text" id="battleHP0">—</div><img id="battleImg0" alt="" hidden></div>
       <div class="battle-fighter right" id="battleFighter1"><div class="battle-name" id="battleName1">Pokémon 2</div><div class="battle-hp"><div id="battleBar1"></div></div><div class="battle-hp-text" id="battleHP1">—</div><img id="battleImg1" alt="" hidden></div>
     </div>
     <div class="battle-panel battle-log" id="battleLog" role="status" aria-live="polite">Choose two Pokémon or generate random opponents to begin.</div>
     <div class="battle-panel">
       <div class="battle-choices">
-        <div class="battle-pick"><label for="battlePick1">POKÉMON 1</label><input id="battlePick1" list="battlePokemonList" placeholder="Pokémon name" autocomplete="off"><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
-        <div class="battle-pick"><label for="battlePick2">POKÉMON 2</label><input id="battlePick2" list="battlePokemonList" placeholder="Pokémon name" autocomplete="off"><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battlePick1">POKÉMON 1</label><input id="battlePick1" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest1"></div><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battlePick2">POKÉMON 2</label><input id="battlePick2" placeholder="Pokémon name" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
@@ -14270,13 +14280,51 @@ function battleInitUI(){
   const input=battleEl('battlePick'+(i+1));
   input.addEventListener('focus',()=>{input.disabled=false;input.readOnly=false;battleFocusStart();requestAnimationFrame(()=>{try{input.select()}catch(_){}})});
   for(const eventName of ['pointerdown','touchstart','click'])input.addEventListener(eventName,e=>e.stopPropagation());
-  input.addEventListener('blur',battleFocusEnd);
-  input.addEventListener('input',()=>battleQueuePreview(i));
+  input.addEventListener('blur',()=>{setTimeout(()=>battleHideSuggest(i),180);battleFocusEnd()});
+  input.addEventListener('input',()=>{battleQueuePreview(i);battleSuggest(i)});
   input.addEventListener('change',()=>battleQueuePreview(i));
   battleResetPreview(i);
  }
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleInitUI);else battleInitUI();
+
+let battleSpeciesNames=[];
+async function battleLoadSpecies(){
+ if(battleSpeciesNames.length)return;
+ if(typeof pokemonNames!=='undefined'&&Array.isArray(pokemonNames)&&pokemonNames.length){
+  battleSpeciesNames=pokemonNames.filter(Boolean).map(String);
+ }
+ try{
+  const r=await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1500');
+  if(r.ok){const data=await r.json();battleSpeciesNames=[...new Set([...battleSpeciesNames,...data.results.map(p=>p.name)])]}
+ }catch(_){}
+}
+function battleHideSuggest(i){const el=battleEl('battleSuggest'+(i+1));if(el)el.classList.remove('open')}
+function battleSuggest(i){
+ const input=battleEl('battlePick'+(i+1)),panel=battleEl('battleSuggest'+(i+1));
+ if(!input||!panel)return;
+ const query=input.value.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+ panel.replaceChildren();
+ if(query.length<2){battleHideSuggest(i);return}
+ const ranked=battleSpeciesNames.map(name=>{
+  const compact=name.toLowerCase().replace(/[^a-z0-9]/g,'');
+  let score=compact===query?0:compact.startsWith(query)?1:compact.includes(query)?3:100;
+  if(score===100){
+   let pos=0,miss=0;
+   for(const c of query){const found=compact.indexOf(c,pos);if(found<0){miss+=2}else{pos=found+1}}
+   if(miss<=2)score=10+miss+Math.abs(compact.length-query.length)*.2;
+  }
+  return {name,score};
+ }).filter(x=>x.score<100).sort((a,b)=>a.score-b.score||a.name.length-b.name.length).slice(0,7);
+ ranked.forEach(({name})=>{
+  const btn=document.createElement('button');btn.type='button';btn.textContent=battleDisplayName(name);
+  btn.addEventListener('pointerdown',e=>e.preventDefault());
+  btn.addEventListener('click',()=>{input.value=battleDisplayName(name);battleHideSuggest(i);battleQueuePreview(i);input.blur()});
+  panel.append(btn);
+ });
+ panel.classList.toggle('open',ranked.length>0);
+}
+battleLoadSpecies();
 function battleDisplayName(name){return String(name||'').split('-').map(part=>part ? part.charAt(0).toUpperCase()+part.slice(1) : part).join('-');}
 function battlePaint(p,i){
  battleEl('battleName'+i).textContent=battleDisplayName(p.name);
@@ -14349,7 +14397,73 @@ function battleProjectile(type,from){
  fx.className='battle-attack-fx '+(from===0?'from-left':'from-right');
  void fx.offsetWidth;fx.classList.add('active');
 }
+
+let battleMoveFrame=0;
+function battleNamedMoveEffect(result,from){
+ const canvas=battleEl('battleMoveCanvas');
+ if(!canvas)return false;
+ const move=result.move||'';
+ const fire=['flamethrower','fire-blast','ember','heat-wave','flame-burst'];
+ const electric=['thunderbolt','thunder','thunder-shock','discharge'];
+ const water=['hydro-pump','water-pulse','water-gun','surf'];
+ const ice=['ice-beam','blizzard','icy-wind'];
+ const style=fire.includes(move)?'flame':electric.includes(move)?'bolt':water.includes(move)?'water':ice.includes(move)?'ice':null;
+ if(!style)return false;
+ cancelAnimationFrame(battleMoveFrame);
+ const arena=canvas.parentElement;
+ const rect=arena.getBoundingClientRect();
+ canvas.width=Math.max(120,Math.round(rect.width/3));canvas.height=Math.max(100,Math.round(rect.height/3));
+ const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+ const W=canvas.width,H=canvas.height;
+ const start=from===0?[W*.3,H*.73]:[W*.72,H*.39];
+ const end=from===0?[W*.72,H*.39]:[W*.3,H*.73];
+ const palettes={
+  flame:['#ffeb72','#ff9d26','#ef5128','#a62b37'],
+  bolt:['#fffce1','#fff476','#f7cb29','#d68c1b'],
+  water:['#d9ffff','#75d8ff','#238de4','#1756b0'],
+  ice:['#ffffff','#d3faff','#83dbef','#70a4dc']
+ };
+ const seed=(n)=>{const x=Math.sin(n*127.1+move.length*53.3)*43758.5453;return x-Math.floor(x)};
+ let startTime=null;
+ function draw(t){
+  if(startTime===null)startTime=t;
+  const p=Math.min(1,(t-startTime)/850);
+  ctx.clearRect(0,0,W,H);
+  const dx=end[0]-start[0],dy=end[1]-start[1];
+  const colors=palettes[style];
+  const count=style==='flame'?55:style==='bolt'?15:style==='water'?35:30;
+  for(let k=0;k<count;k++){
+   const trail=style==='bolt'?k/count:seed(k+11)*.36;
+   const q=Math.max(0,Math.min(1,p*1.35-trail));
+   if(q<=0||q>=1)continue;
+   const jitter=style==='bolt'?(seed(k+3)-.5)*28:(seed(k+19)-.5)*(style==='flame'?22:16);
+   const x=start[0]+dx*q+jitter;
+   const y=start[1]+dy*q+(seed(k+29)-.5)*(style==='bolt'?25:17);
+   const size=style==='flame'?3+Math.floor(seed(k+40)*5):style==='bolt'?4:3+Math.floor(seed(k+51)*3);
+   ctx.fillStyle=colors[k%4];
+   if(style==='bolt'){
+    // Zig-zag lightning segments, with bright pixel core.
+    ctx.fillRect(Math.round(x),Math.round(y),size+3,3);
+    ctx.fillRect(Math.round(x+size),Math.round(y-5),3,8);
+   }else if(style==='ice'){
+    ctx.fillRect(Math.round(x),Math.round(y),size,2);
+    ctx.fillRect(Math.round(x+size/2),Math.round(y-size/2),2,size);
+   }else if(style==='water'){
+    ctx.fillRect(Math.round(x),Math.round(y),size,size);
+    ctx.fillStyle='#c7f6ff';ctx.fillRect(Math.round(x+1),Math.round(y),2,2);
+   }else{
+    // A tapered flowing stream of overlapping flame pixels.
+    ctx.fillRect(Math.round(x),Math.round(y),size+4,size);
+    ctx.fillStyle=colors[(k+1)%4];ctx.fillRect(Math.round(x+2),Math.round(y-3),size,3);
+   }
+  }
+  if(p<1)battleMoveFrame=requestAnimationFrame(draw);else ctx.clearRect(0,0,W,H);
+ }
+ battleMoveFrame=requestAnimationFrame(draw);
+ return true;
+}
 function battleSpecialEffect(result,from){
+ if(battleNamedMoveEffect(result,from))return;
  const layer=battleEl('battleSpecialFx');if(!layer)return;
  layer.replaceChildren();
  const kind=result.type;
@@ -14417,7 +14531,7 @@ async function battleStart(){
     battleSetMessage(
       result.missed
         ? battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!'
-        : battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage.',
+        : battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage!',
       result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':''
     );
     await battleSleep(820);battleEl('battleFighter'+(1-i)).classList.remove('hit');
