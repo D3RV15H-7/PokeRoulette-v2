@@ -3442,6 +3442,15 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-pick{overflow:visible!important}
 @media(max-height:680px){#battleModal .battle-suggest{top:calc(17px + 36px + 3px)!important}}
 </style>
+<style>
+/* v186 fixes */
+#battleModal .battle-log{background:#172b35!important;color:#eaf5f1!important;border-color:#557b77!important;box-shadow:inset 0 0 0 2px #2b4c50!important}
+#battleModal.battle-editing .battle-ball-row{display:none!important}
+#battleModal .battle-fighter img{scale:var(--battle-height-scale,1);transform-origin:center bottom}
+#battleModal .battle-fighter.left img{transform-origin:center bottom}
+#battleModal .battle-fighter.right img{transform-origin:center bottom}
+#battleModal .battle-pick input::placeholder{font-size:clamp(12px,3.1vw,16px)!important}
+</style>
 </head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -3647,7 +3656,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
     <div class="battle-panel">
       <div class="battle-choices">
         <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Select Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
-        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Type Pokémon or Randomise" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Type or Randomise" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
@@ -14176,8 +14185,10 @@ function battleWins(){
  try{
   const primary=JSON.parse(localStorage.getItem(battleStorageKey())||'{}')||{};
   const backup=JSON.parse(localStorage.getItem('pokeroulette_battle_stats_v185_'+(currentUser?.uid||'guest'))||'{}')||{};
+  const stable=JSON.parse(localStorage.getItem('pokeroulette_battle_stats_v186_'+(currentUser?.uid||'guest'))||'{}')||{};
+  const device=JSON.parse(localStorage.getItem('pokeroulette_battle_stats_device_v186')||'{}')||{};
   const merged={...primary};
-  for(const [id,record] of Object.entries(backup)){
+  for(const [id,record] of Object.entries({...backup,...stable,...device})){
    if(!merged[id] || (Number(record.battles)||0)>(Number(merged[id].battles)||0))merged[id]=record;
   }
   return merged;
@@ -14300,7 +14311,7 @@ async function battleFetch(value){
  if(!response.ok)throw Error('Could not find Pokémon: '+value);
  const data=await response.json();
  const stats=Object.fromEntries(data.stats.map(s=>[s.stat.name,s.base_stat]));
- return {id:data.id,name:data.species?.name||data.name,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
+ return {id:data.id,name:data.species?.name||data.name,heightDm:data.height,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
  maxHp:Math.max(35,Math.floor(65+data.stats[0].base_stat*1.8)),hp:0,moves:data.moves.map(m=>({name:m.move.name,url:m.move.url,details:m.version_group_details}))};
 }
 function battleSetSprite(img,id){
@@ -14419,6 +14430,10 @@ function battlePaint(p,i){
  battleEl('battleName'+i).textContent=battleDisplayName(p.name);
  battleSetSprite(battleEl('battleImg'+i),p.id);
  battleEl('battleImg'+i).alt=p.name;
+ // Compare PokéAPI heights with a square-root scale to keep both sprites visible.
+ const metres=Number(p.heightDm)/10;
+ const spriteScale=Number.isFinite(metres)&&metres>0?Math.max(.58,Math.min(1.38,Math.sqrt(metres/1.6))):1;
+ battleEl('battleImg'+i).style.setProperty('--battle-height-scale',spriteScale.toFixed(3));
  battleEl('battleFighter'+i).className='battle-fighter '+(i?'right':'left');
  battleEl('battleHP'+i).textContent=Math.max(0,p.hp)+' / '+p.maxHp+' HP';
  const bar=battleEl('battleBar'+i);bar.style.width=Math.max(0,100*p.hp/p.maxHp)+'%';
@@ -14640,8 +14655,10 @@ async function battleStart(){
   }
   try{
    const encoded=JSON.stringify(wins);
-   localStorage.setItem(battleStorageKey(),encoded);
+   localStorage.setItem('pokeroulette_battle_wins_v170_'+battleAccountUid,encoded);
    localStorage.setItem('pokeroulette_battle_stats_v185_'+battleAccountUid,encoded);
+   localStorage.setItem('pokeroulette_battle_stats_v186_'+battleAccountUid,encoded);
+   localStorage.setItem('pokeroulette_battle_stats_device_v186',encoded);
   }catch(err){console.warn('Unable to persist battle statistics',err)}
   battleRenderLeaderboard();
   if(battleEl('battleOwnedOverlay')&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
