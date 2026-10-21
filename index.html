@@ -3441,6 +3441,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-choices{overflow:visible!important}
 #battleModal .battle-pick{overflow:visible!important}
 @media(max-height:680px){#battleModal .battle-suggest{top:calc(17px + 36px + 3px)!important}}
+
+/* v189: opponent sprite feet anchored to rear platform rather than its top offset */
+#battleModal .battle-fighter.right img{
+ top:auto!important;bottom:42%!important;right:4%!important;
+ transform-origin:center bottom!important;
+}
+#battleModal .battle-fighter.left img{bottom:11%!important;transform-origin:center bottom!important}
 </style>
 <style>
 /* v186 fixes */
@@ -10508,6 +10515,7 @@ function setupAuthListener() {
       setAuthStatus();
       document.getElementById('authPassword').value = '';
       activeUid = user.uid;
+      battleInitAccountStats(user.uid);
       reloadWheelSpinState();
       if (previousUid && previousUid !== user.uid) reloadMemoryFromLocal();
       try { localStorage.setItem('p_last_uid', user.uid); } catch (e) {}
@@ -10556,6 +10564,8 @@ saveLocalState();
       }
     } else {
       activeUid = null;
+      if(battleStatsUnsubscribe){battleStatsUnsubscribe();battleStatsUnsubscribe=null}
+      battleStatsOwner=null;battleStatsMemory=null;battleStatsReady=true;
       try { localStorage.removeItem('p_last_uid'); } catch (e) {}
       if (loggedInView) loggedInView.style.display = 'none';
       if (loggedOutView) loggedOutView.style.display = 'flex';
@@ -14181,55 +14191,115 @@ const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 const battlePixelFallback=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 function battleStorageKey(){return 'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest')}
-// Single authoritative battle record, keyed by Pokédex ID, with legacy migration.
+// Battle stats are scoped to the signed-in Firebase user and mirrored locally.
 let battleStatsMemory=null;
-const battleStatsKey='pokeroulette_battle_stats_v188';
-function battleWins(){
- if(battleStatsMemory)return battleStatsMemory;
+let battleStatsOwner=null;
+let battleStatsReady=false;
+let battleStatsUnsubscribe=null;
+const battleStatsGuestKey='pokeroulette_battle_stats_guest_v189';
+const battleStatsUserKey=uid=>'pokeroulette_battle_stats_account_v189_'+uid;
+const battleStatsCurrentOwner=()=>currentUser?.uid||'guest';
+function battleNormaliseStats(raw){
+ const out={};
+ for(const [id,r] of Object.entries(raw&&typeof raw==='object'?raw:{})){
+  if(!/^\d+$/.test(id)||!r||typeof r!=='object')continue;
+  out[id]={name:String(r.name||''),battles:Math.max(0,Number(r.battles)||0),wins:Math.max(0,Number(r.wins)||0)};
+ }
+ return out;
+}
+function battleLocalStats(owner){
+ try{return battleNormaliseStats(JSON.parse(localStorage.getItem(owner==='guest'?battleStatsGuestKey:battleStatsUserKey(owner))||'{}'))}
+ catch(_){return {}}
+}
+function battleLegacyStats(owner){
  const merged={};
- const keys=[battleStatsKey,'pokeroulette_battle_stats_v187','pokeroulette_battle_stats_device_v186',
-  'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest'),
-  'pokeroulette_battle_stats_v185_'+(currentUser?.uid||'guest'),
-  'pokeroulette_battle_stats_v186_'+(currentUser?.uid||'guest')];
+ const keys=['pokeroulette_battle_stats_v188','pokeroulette_battle_stats_v187','pokeroulette_battle_stats_device_v186',
+ 'pokeroulette_battle_wins_v170_'+owner,'pokeroulette_battle_stats_v185_'+owner,'pokeroulette_battle_stats_v186_'+owner];
  for(const key of keys){
   try{
-   const records=JSON.parse(localStorage.getItem(key)||'{}');
-   if(!records||typeof records!=='object')continue;
-   for(const [id,record] of Object.entries(records)){
-    if(!record||typeof record!=='object'||!/^\d+$/.test(id))continue;
-    const old=merged[id];
-    if(!old||(Number(record.battles)||0)>(Number(old.battles)||0)||
-      ((Number(record.battles)||0)===(Number(old.battles)||0)&&(Number(record.wins)||0)>(Number(old.wins)||0)))
-     merged[id]={name:record.name||'',battles:Number(record.battles)||0,wins:Number(record.wins)||0};
+   const records=battleNormaliseStats(JSON.parse(localStorage.getItem(key)||'{}'));
+   for(const [id,r] of Object.entries(records)){
+    if(!merged[id]||r.battles>merged[id].battles||(r.battles===merged[id].battles&&r.wins>merged[id].wins))merged[id]=r;
    }
-  }catch(e){console.warn('Battle stats read',key,e)}
+  }catch(_){}
  }
- battleStatsMemory=merged;
  return merged;
 }
+function battleWins(){
+ const owner=battleStatsCurrentOwner();
+ if(owner!==battleStatsOwner){
+  battleStatsOwner=owner;
+  battleStatsMemory=battleLocalStats(owner);
+  battleStatsReady=owner==='guest';
+ }
+ return battleStatsMemory;
+}
 function battlePersistStats(){
- try{localStorage.setItem(battleStatsKey,JSON.stringify(battleWins()))}
- catch(e){console.error('Battle statistics could not be saved',e)}
+ const owner=battleStatsCurrentOwner(),records=battleWins();
+ try{localStorage.setItem(owner==='guest'?battleStatsGuestKey:battleStatsUserKey(owner),JSON.stringify(records))}
+ catch(e){console.warn('Battle local storage unavailable',e)}
  if(battleEl('battleOwnedOverlay')&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
  battleRenderLeaderboard();
 }
-// A battle is counted when it starts, not only when the winner screen appears.
-function battleRecordStart(fighters){
- const records=battleWins();
- for(const p of fighters){
-  const id=String(Number(p.id));
-  if(!/^\d+$/.test(id))continue;
-  const old=records[id]||{};
-  records[id]={name:p.name,battles:(Number(old.battles)||0)+1,wins:Number(old.wins)||0};
+function battleStatsCloudRef(uid){return db.collection('users').doc(uid)}
+async function battleInitAccountStats(uid){
+ if(battleStatsUnsubscribe){battleStatsUnsubscribe();battleStatsUnsubscribe=null}
+ battleStatsOwner=uid;
+ battleStatsMemory=battleLocalStats(uid);
+ battleStatsReady=false;
+ battlePersistStats();
+ if(!uid||!db){battleStatsReady=true;return}
+ try{
+  const ref=battleStatsCloudRef(uid);
+  const snapshot=await ref.get();
+  if(currentUser?.uid!==uid)return;
+  if(snapshot.exists){
+   battleStatsMemory=battleNormaliseStats(snapshot.data()?.battleStats);
+  }else{
+   // One-time migration: only seed a new cloud record with legacy data.
+   const legacy=battleLegacyStats(uid);
+   const local=battleLocalStats(uid);
+   const seed=Object.keys(local).length?local:legacy;
+   if(Object.keys(seed).length){
+    await db.runTransaction(async tx=>{
+     const existing=await tx.get(ref);
+     if(!existing.exists)tx.set(ref,{battleStats:seed,battleStatsUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+    const latest=await ref.get();
+    battleStatsMemory=battleNormaliseStats(latest.data()?.battleStats);
+   }
+  }
+  battleStatsReady=true;
+  battlePersistStats();
+  battleStatsUnsubscribe=ref.onSnapshot(snap=>{
+   if(currentUser?.uid!==uid||!snap.exists||snap.metadata.hasPendingWrites)return;
+   battleStatsMemory=battleNormaliseStats(snap.data()?.battleStats);
+   battlePersistStats();
+  },err=>console.warn('Battle stats sync listener',err));
+ }catch(err){
+  console.warn('Battle stats cloud loading failed',err);
+  if(currentUser?.uid===uid){battleStatsReady=true;battlePersistStats()}
  }
- battlePersistStats();
 }
-function battleRecordWinner(fighters,winner){
- const p=fighters[winner];if(!p)return;
- const id=String(Number(p.id)),records=battleWins(),old=records[id]||{};
- records[id]={name:p.name,battles:Number(old.battles)||0,wins:(Number(old.wins)||0)+1};
+function battleRecordDelta(p,field){
+ const id=String(Number(p.id));if(!/^\d+$/.test(id))return;
+ const owner=battleStatsCurrentOwner();
+ const records=battleWins(),old=records[id]||{name:p.name,battles:0,wins:0};
+ records[id]={...old,name:p.name,[field]:(Number(old[field])||0)+1};
  battlePersistStats();
+ if(owner==='guest'||!db)return;
+ const ref=battleStatsCloudRef(owner);
+ // Firestore transaction prevents lost increments across multiple devices.
+ db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  const cloud=battleNormaliseStats(snap.data()?.battleStats);
+  const previous=cloud[id]||{name:p.name,battles:0,wins:0};
+  cloud[id]={...previous,name:p.name,[field]:(Number(previous[field])||0)+1};
+  tx.set(ref,{battleStats:cloud,battleStatsUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ }).catch(err=>console.warn('Battle stat cloud save failed; saved locally',err));
 }
+function battleRecordStart(fighters){for(const p of fighters)battleRecordDelta(p,'battles')}
+function battleRecordWinner(fighters,winner){if(fighters[winner])battleRecordDelta(fighters[winner],'wins')}
 function battleRenderLeaderboard(){
  if(!battleEl('battleLeaderboard'))return;
  const entries=Object.entries(battleWins()).sort((a,b)=>b[1].wins-a[1].wins||Number(a[0])-Number(b[0])).slice(0,10);
@@ -14649,6 +14719,7 @@ function battleSetMessage(first,second=''){
 }
 async function battleStart(){
  if(battleBusy)return;
+ if(currentUser&&db&&!battleStatsReady){battleSetMessage('Loading your account battle statistics. Please try again shortly.');return}
  const a=battleEl('battlePick1').value,b=battleEl('battlePick2').value;
  if(!a.trim()||!b.trim()){battleSetMessage('Choose your Pokémon and an opponent first.');return}
  if(!battleOwnedEntries().some(p=>String(p.id)===a.trim())){battleSetMessage('Your Pokémon must be in your Dex collection.');return}
