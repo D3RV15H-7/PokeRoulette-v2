@@ -3506,7 +3506,16 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-fighter img.battle-random-appear{animation:battleRandomAppear .55s ease-out!important}
 @keyframes battleRandomAppear{from{opacity:0;filter:brightness(3)}to{opacity:1;filter:brightness(1)}}
 </style>
-</head>
+<style>
+#battleModal .battle-ball-row{position:relative}
+#battleModal .battle-record-trigger{position:absolute;right:calc(50% + 91px);top:50%;transform:translateY(-50%);border:1px solid #53667e;background:#26374d;color:#f2f6fc;border-radius:11px;padding:9px 6px;font-size:clamp(9px,2.2vw,12px);font-weight:700;max-width:100px;white-space:normal;line-height:1.15}
+#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice{display:flex;align-items:center;justify-content:center;min-height:88px;padding:8px}
+#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice img{width:75%;height:72px;object-fit:contain;image-rendering:pixelated}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice{display:flex;flex-direction:column;justify-content:space-between;align-items:center;gap:4px;padding:8px 2px;min-height:100px;opacity:1}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice img{height:53px;max-width:92%;object-fit:contain;image-rendering:pixelated}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice small{font-size:clamp(9px,2vw,12px);white-space:nowrap;font-weight:650;color:#e4edf9}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice:disabled{cursor:default}
+</style></head>
 <body data-app-build="v175">
 <div class="viewport">
   <header id="appRefreshHandle">
@@ -3715,7 +3724,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
-      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><div class="battle-speed-options" role="group" aria-label="Battle speed"><button type="button" class="battle-speed-option" data-speed="0.5" onclick="battleSetSpeed(0.5)" aria-pressed="false">x0.5</button><button type="button" class="battle-speed-option selected" data-speed="1" onclick="battleSetSpeed(1)" aria-pressed="true">x1</button><button type="button" class="battle-speed-option" data-speed="2" onclick="battleSetSpeed(2)" aria-pressed="false">x2</button></div></div>
+      <div class="battle-ball-row"><button type="button" class="battle-record-trigger" onclick="battleOpenRecord()">Battle Record</button><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><div class="battle-speed-options" role="group" aria-label="Battle speed"><button type="button" class="battle-speed-option" data-speed="0.5" onclick="battleSetSpeed(0.5)" aria-pressed="false">x0.5</button><button type="button" class="battle-speed-option selected" data-speed="1" onclick="battleSetSpeed(1)" aria-pressed="true">x1</button><button type="button" class="battle-speed-option" data-speed="2" onclick="battleSetSpeed(2)" aria-pressed="false">x2</button></div></div>
     </div>
 
 
@@ -3723,7 +3732,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 </div>
 <div id="battleOwnedOverlay" class="battle-owned-overlay" hidden>
  <div class="battle-owned-dialog" role="dialog" aria-modal="true" aria-label="Select your Pokémon">
-  <div class="battle-owned-heading"><strong>Your Dex Pokémon</strong><button type="button" onclick="battleCloseOwned()" aria-label="Close">✕</button></div>
+  <div class="battle-owned-heading"><strong id="battleOwnedTitle">Your Dex Pokémon</strong><button type="button" onclick="battleCloseOwned()" aria-label="Close">✕</button></div>
   <input id="battleOwnedSearch" placeholder="Search your collected Pokémon" autocomplete="off" oninput="battleRenderOwned()">
   <div id="battleOwnedCount" class="battle-owned-count"></div>
   <div id="battleOwnedGrid" class="battle-owned-grid"></div>
@@ -14391,8 +14400,19 @@ function battleOwnedEntries(){
   return {id,name:entry?.name||((typeof pokemonNames!=='undefined'&&pokemonNames[id-1])||'Pokémon #'+id),sprite:entry?.sprite||battlePixelFallback(id)};
  }).sort((a,b)=>a.id-b.id);
 }
+let battleOwnedMode='select';
 function battleOpenOwned(){
  if(battleBusy)return;
+ battleOwnedMode='select';
+ battleEl('battleOwnedTitle').textContent='Your Dex Pokémon';
+ battleEl('battleOwnedOverlay').hidden=false;
+ battleEl('battleOwnedSearch').value='';
+ battleRenderOwned();
+}
+function battleOpenRecord(){
+ if(battleBusy)return;
+ battleOwnedMode='record';
+ battleEl('battleOwnedTitle').textContent='Battle Record';
  battleEl('battleOwnedOverlay').hidden=false;
  battleEl('battleOwnedSearch').value='';
  battleRenderOwned();
@@ -14400,20 +14420,31 @@ function battleOpenOwned(){
 function battleCloseOwned(){battleEl('battleOwnedOverlay').hidden=true}
 function battleRenderOwned(){
  const all=battleOwnedEntries(),q=battleEl('battleOwnedSearch').value.trim().toLowerCase();
+ const records=battleWins();
  const matches=all.filter(p=>p.name.toLowerCase().includes(q)||String(p.id).includes(q));
+ if(battleOwnedMode==='record'){
+  matches.sort((a,b)=>(Number(records[String(b.id)]?.wins)||0)-(Number(records[String(a.id)]?.wins)||0)||a.id-b.id);
+ }
  const grid=battleEl('battleOwnedGrid');grid.replaceChildren();
+ grid.classList.toggle('battle-record-grid',battleOwnedMode==='record');
  battleEl('battleOwnedCount').textContent=all.length+' Pokémon collected'+(q?' · '+matches.length+' matching':'');
  if(!all.length){grid.textContent='Your Dex has no collected Pokémon yet. Add a Pokémon to your Dex first.';return}
  if(!matches.length){grid.textContent='No matching Pokémon in your Dex.';return}
  for(const p of matches){
   const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
-  const img=document.createElement('img');img.src=p.sprite;img.alt='';img.loading='lazy';
-  const name=document.createElement('span');name.textContent=battleDisplayName(p.name);
-  const record=battleWins()[String(p.id)]||{};
-  const stats=document.createElement('small');stats.className='battle-owned-stats';
-  stats.textContent='Battles '+(record.battles||0)+' · Wins '+(record.wins||0);
-  button.append(img,name,stats);
-  button.addEventListener('click',()=>battleSelectOwned(p,button));
+  const img=document.createElement('img');img.src=p.sprite;img.alt=battleDisplayName(p.name);img.loading='lazy';
+  button.title=battleDisplayName(p.name);
+  if(battleOwnedMode==='record'){
+   const record=records[String(p.id)]||{};
+   const wins=Math.max(0,Number(record.wins)||0),battles=Math.max(0,Number(record.battles)||0);
+   const won=document.createElement('small');won.className='battle-record-won';won.textContent='Battles won: '+wins;
+   const lost=document.createElement('small');lost.className='battle-record-lost';lost.textContent='Battles lost: '+Math.max(0,battles-wins);
+   button.append(won,img,lost);
+   button.disabled=true;
+  }else{
+   button.append(img);
+   button.addEventListener('click',()=>battleSelectOwned(p,button));
+  }
   grid.append(button);
  }
 }
@@ -14463,7 +14494,8 @@ async function battleRandomReveal(slot,source){
  if(img)img.style.visibility='hidden';
  await battleRandomEntrance(slot,source);
  if(img){img.style.visibility='';img.classList.remove('battle-random-appear');void img.offsetWidth;img.classList.add('battle-random-appear');setTimeout(()=>img.classList.remove('battle-random-appear'),650)}
- const value=battleEl('battlePick'+(slot+1)).value;
+ const chosen=battleEl('battlePick'+(slot+1));
+ const value=chosen.dataset.pokemonKey||chosen.value;
  // PokéAPI's cry endpoint uses the numeric Pokémon identifier.
  try{
   const pokemon=await battleFetch(value);
@@ -14658,7 +14690,18 @@ function battleSuggest(i){
  ranked.forEach(({name})=>{
   const btn=document.createElement('button');btn.type='button';btn.textContent=battleDisplayName(name);
   btn.addEventListener('pointerdown',e=>e.preventDefault());
-  btn.addEventListener('click',()=>{input.value=battleDisplayName(name);input.dataset.pokemonKey=name;battleHideSuggest(i);clearTimeout(battlePreviewTimers[i]);battlePreview(i);input.blur()});
+  btn.addEventListener('click',async()=>{
+  if(battleBusy||battleRandomising)return;
+  battleAudioUnlock();
+  battleRandomising=true;
+  try{
+   const r=btn.getBoundingClientRect(),origin={x:r.left+r.width/2,y:r.top+r.height/2};
+   input.value=battleDisplayName(name);input.dataset.pokemonKey=name;
+   battleHideSuggest(i);clearTimeout(battlePreviewTimers[i]);input.blur();
+   await battlePreview(i);
+   await battleRandomReveal(i,origin);
+  }finally{battleRandomising=false}
+ });
   panel.append(btn);
  });
  panel.classList.toggle('open',ranked.length>0);
