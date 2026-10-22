@@ -3462,7 +3462,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-ball-row{position:relative;display:flex;justify-content:center;align-items:center}
 #battleModal .battle-speed-toggle{position:absolute;left:calc(50% + 50px);top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#293b52;border:1px solid #657b95;border-radius:12px;color:#f2f7ff;min-width:45px;height:45px;padding:3px 6px;cursor:pointer;font-weight:800}
 #battleModal .battle-speed-chevrons{font-size:23px;line-height:19px}
-#battleModal .battle-speed-label{font-size:11px;line-height:14px}
+#battleModal .battle-speed-label{font-size:9px;line-height:12px}
 #battleModal .battle-attack-fx.active{animation-duration:calc(.58s / var(--battle-speed,1))!important}
 #battleModal .battle-special-fx.active .battle-pixel{animation-duration:calc(.68s / var(--battle-speed,1))!important}
 #battleModal .battle-fighter.attacking img{animation-duration:calc(.45s / var(--battle-speed,1))!important}
@@ -3488,6 +3488,15 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 <style>
 /* v191: relative species-height sizing, shared by preview and active battle */
 #battleModal .battle-fighter img{scale:var(--battle-height-scale,1)!important;object-position:center bottom!important}
+</style>
+<style>
+/* v196: randomised Poké Ball travels from the clicked button to the platform. */
+.battle-random-throw{position:fixed;width:30px;height:30px;border-radius:50%;z-index:2147483000;pointer-events:none;background:linear-gradient(to bottom,#f65b51 0 46%,#182638 46% 55%,#f5faff 55% 100%);border:2px solid #0c1c2c;box-shadow:0 3px 12px #07111c99}
+.battle-random-ball-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border:3px solid #142234;background:#fff;border-radius:50%}
+.battle-random-throw.battle-random-open{animation:battleBallPop .2s ease-out forwards}
+@keyframes battleBallPop{to{opacity:0;filter:brightness(3);scale:1.9}}
+#battleModal .battle-fighter img.battle-random-appear{animation:battleRandomAppear .55s ease-out!important}
+@keyframes battleRandomAppear{from{opacity:0;filter:brightness(3)}to{opacity:1;filter:brightness(1)}}
 </style>
 </head>
 <body data-app-build="v175">
@@ -3698,7 +3707,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
-      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><button type="button" id="battleSpeed" class="battle-speed-toggle" onclick="battleCycleSpeed()" aria-label="Change battle speed" title="Battle speed: normal"><span class="battle-speed-chevrons">»</span><span class="battle-speed-label">1×</span></button></div>
+      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><button type="button" id="battleSpeed" class="battle-speed-toggle" onclick="battleCycleSpeed()" aria-label="Change battle speed" title="Battle speed: normal"><span class="battle-speed-chevrons">&gt;&gt;</span><span class="battle-speed-label">x1</span></button></div>
     </div>
 
 
@@ -14222,7 +14231,7 @@ const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms / battleSpeed))
 let battleSpeed=1;
 function battleCycleSpeed(){
  battleSpeed=({1:0.5,0.5:2,2:1})[battleSpeed]||1;
- const btn=battleEl('battleSpeed');if(btn){btn.querySelector('.battle-speed-label').textContent=battleSpeed+'×';btn.title='Battle speed: '+battleSpeed+'×';btn.setAttribute('aria-label',btn.title)}
+ const btn=battleEl('battleSpeed');if(btn){btn.querySelector('.battle-speed-chevrons').textContent=battleSpeed===0.5?'>':battleSpeed===2?'>>>':'>>';btn.querySelector('.battle-speed-label').textContent='x'+battleSpeed;btn.title='Battle speed: x'+battleSpeed;btn.setAttribute('aria-label',btn.title)}
  const modal=battleEl('battleModal');if(modal)modal.style.setProperty('--battle-speed',battleSpeed);
 }
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
@@ -14402,14 +14411,68 @@ async function battleSelectOwned(p){
  battleCloseOwned();
  await battlePreview(0);
 }
+// v196: sequential Poké Ball entrance for random selections.
+let battleRandomising=false;
+const battleEntranceWait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function battleRandomEntrance(slot,source){
+ const arena=document.querySelector('#battleModal .battle-arena');
+ const platform=battleEl(slot===0?'battleImg0':'battleImg1');
+ if(!arena||!platform||!source)return;
+ const a=source.getBoundingClientRect(),b=arena.getBoundingClientRect();
+ if(!a.width||!b.width)return;
+ const x=a.left+a.width/2,y=a.top+a.height/2;
+ const endX=b.left+b.width*(slot===0?.27:.76);
+ const endY=b.top+b.height*(slot===0?.83:.46);
+ const ball=document.createElement('div');ball.className='battle-random-throw';
+ ball.innerHTML='<span class="battle-random-ball-core"></span>';
+ ball.style.left=x+'px';ball.style.top=y+'px';
+ document.body.appendChild(ball);
+ try{
+  battleSfx('throw');
+  const dx=endX-x,dy=endY-y;
+  const anim=ball.animate([
+   {transform:'translate(-50%,-50%) translate(0,0) rotate(0deg) scale(.65)',offset:0},
+   {transform:`translate(-50%,-50%) translate(${dx*.5}px,${dy*.5-65}px) rotate(390deg) scale(1.2)`,offset:.52},
+   {transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(720deg) scale(.7)`,offset:1}
+  ],{duration:650,easing:'ease-in-out',fill:'forwards'});
+  await anim.finished.catch(()=>{});
+  ball.classList.add('battle-random-open');
+  battleSfx('release');
+  await battleEntranceWait(180);
+ }finally{ball.remove()}
+}
+async function battleRandomReveal(slot,source){
+ const img=battleEl('battleImg'+slot);
+ if(img)img.style.visibility='hidden';
+ await battleRandomEntrance(slot,source);
+ if(img){img.style.visibility='';img.classList.remove('battle-random-appear');void img.offsetWidth;img.classList.add('battle-random-appear');setTimeout(()=>img.classList.remove('battle-random-appear'),650)}
+ const value=battleEl('battlePick'+(slot+1)).value;
+ // PokéAPI's cry endpoint uses the numeric Pokémon identifier.
+ try{
+  const pokemon=await battleFetch(value);
+  if(battleSoundEnabled){
+   const cry=new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemon.id}.ogg`);
+   cry.volume=.55;cry.play().catch(()=>battleSfx('cry'));
+  }
+ }catch(_){battleSfx('cry')}
+ await battleEntranceWait(750);
+}
 async function battleRandomiseOne(slot){
+ if(battleRandomising)return;
+ battleAudioUnlock();
+ battleRandomising=true;
+ try{return await battleRandomiseOneImpl(slot)}finally{battleRandomising=false}
+}
+async function battleRandomiseOneImpl(slot){
  if(battleBusy)return;
  if(slot===0){
   const owned=battleOwnedEntries();
   if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
   const other=battleEl('battlePick2').value.trim().toLowerCase();
   const choices=owned.filter(p=>String(p.id)!==other&&p.name.toLowerCase()!==other);
+  const button=document.querySelector('#battleModal .battle-pick:first-child .battle-random');
   await battleSelectOwned((choices.length?choices:owned)[Math.floor(Math.random()*(choices.length||owned.length))]);
+  await battleRandomReveal(0,button);
   return;
  }
  const input=battleEl('battlePick2'),other=battleEl('battlePick1').value.trim().toLowerCase();
@@ -14422,23 +14485,27 @@ async function battleRandomiseOne(slot){
   }
   input.value=battleDisplayName(name);delete input.dataset.pokemonKey;
   await battlePreview(1);
+  await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
  }catch(err){battleSetMessage(err.message||'Unable to select opponent.')}
 }
 async function battleRandomise(){
- if(battleBusy)return;
+ if(battleBusy||battleRandomising)return;
+ battleAudioUnlock();battleRandomising=true;
  const button=battleEl('battleRandomBoth');button.disabled=true;
  try{
   const owned=battleOwnedEntries();
   if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
   const chosen=owned[Math.floor(Math.random()*owned.length)];
   await battleSelectOwned(chosen);
+  await battleRandomReveal(0,document.querySelector('#battleModal .battle-pick:first-child .battle-random'));
   let opponent=1+Math.floor(Math.random()*TOTAL);
   while(opponent===chosen.id)opponent=1+Math.floor(Math.random()*TOTAL);
   battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));delete battleEl('battlePick2').dataset.pokemonKey;
   await battlePreview(1);
+  await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
   battleSetMessage('Both Pokémon are ready. Press Battle!');
  }catch(err){battleSetMessage(err.message||'Unable to randomise Pokémon.')}
- finally{button.disabled=false}
+ finally{button.disabled=false;battleRandomising=false}
 }
 function battleResolve(value){
  const input=value.trim().toLowerCase();
@@ -14839,6 +14906,9 @@ function battleTone(freq,at,duration,kind='square',volume=.045,endFreq=null){
 function battleSfx(event,type='',effect=1){
  const ctx=battleAudioUnlock();if(!ctx||ctx.state!=='running')return;
  const t=ctx.currentTime+.012;
+ if(event==='throw'){battleTone(470,t,.13,'square',.032,720);return}
+ if(event==='release'){battleTone(950,t,.1,'triangle',.045,420);return}
+ if(event==='cry'){[390,520,440,660].forEach((f,i)=>battleTone(f,t+i*.075,.13,'square',.028));return}
  if(event==='toggle'){battleTone(660,t,.065);battleTone(880,t+.075,.09);return}
  if(event==='start'){
   [392,494,587,784].forEach((f,i)=>battleTone(f,t+i*.095,.12,'square',.035));return;
