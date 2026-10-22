@@ -3454,6 +3454,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .modal-head h3{flex:1;min-width:0}
 #battleModal .battle-sound-toggle{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;background:#28374e;color:#fff;border:1px solid #50647c;border-radius:50%;font-size:17px;cursor:pointer;padding:0}
 
+
+/* v198: three direct-select battle speed controls */
+#battleModal .battle-speed-options{position:absolute;left:calc(50% + 48px);top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;white-space:nowrap}
+#battleModal .battle-speed-option{min-width:34px;height:34px;padding:0 5px;border:1px solid #657b95;border-radius:8px;background:#243348;color:#d6e1ed;font-size:10px;font-weight:800;line-height:1;opacity:.42;cursor:pointer;transition:opacity .15s,background .15s,border-color .15s}
+#battleModal .battle-speed-option.selected{opacity:1;background:#425b75;border-color:#c4e5f3;color:#fff;box-shadow:0 0 0 1px #c4e5f355}
+#battleModal .battle-speed-option:focus-visible{outline:2px solid #f3e47b;outline-offset:2px}
+@media(max-width:370px){#battleModal .battle-speed-options{left:calc(50% + 43px);gap:3px}#battleModal .battle-speed-option{min-width:30px;padding:0 3px;font-size:9px}}
+
 /* v193: wheel-style speaker icon and in-battle tempo control */
 #battleModal .battle-sound-toggle{background:transparent;border:0;color:#e7f5fa;border-radius:9px}
 #battleModal .battle-sound-toggle svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -3707,7 +3715,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
-      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><button type="button" id="battleSpeed" class="battle-speed-toggle" onclick="battleCycleSpeed()" aria-label="Change battle speed" title="Battle speed: normal"><span class="battle-speed-chevrons">&gt;&gt;</span><span class="battle-speed-label">x1</span></button></div>
+      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><div class="battle-speed-options" role="group" aria-label="Battle speed"><button type="button" class="battle-speed-option" data-speed="0.5" onclick="battleSetSpeed(0.5)" aria-pressed="false">x0.5</button><button type="button" class="battle-speed-option selected" data-speed="1" onclick="battleSetSpeed(1)" aria-pressed="true">x1</button><button type="button" class="battle-speed-option" data-speed="2" onclick="battleSetSpeed(2)" aria-pressed="false">x2</button></div></div>
     </div>
 
 
@@ -14229,9 +14237,14 @@ let battleBusy=false,battleRun=0;
 const battleEl=id=>document.getElementById(id);
 const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms / battleSpeed));
 let battleSpeed=1;
-function battleCycleSpeed(){
- battleSpeed=({1:0.5,0.5:2,2:1})[battleSpeed]||1;
- const btn=battleEl('battleSpeed');if(btn){btn.querySelector('.battle-speed-chevrons').textContent=battleSpeed===0.5?'>':battleSpeed===2?'>>>':'>>';btn.querySelector('.battle-speed-label').textContent='x'+battleSpeed;btn.title='Battle speed: x'+battleSpeed;btn.setAttribute('aria-label',btn.title)}
+function battleSetSpeed(speed){
+ if(![0.5,1,2].includes(speed))return;
+ battleSpeed=speed;
+ document.querySelectorAll('#battleModal .battle-speed-option').forEach(btn=>{
+  const active=Number(btn.dataset.speed)===speed;
+  btn.classList.toggle('selected',active);
+  btn.setAttribute('aria-pressed',String(active));
+ });
  const modal=battleEl('battleModal');if(modal)modal.style.setProperty('--battle-speed',battleSpeed);
 }
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
