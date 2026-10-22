@@ -3453,6 +3453,20 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .modal-head{display:flex;align-items:center;gap:8px}
 #battleModal .modal-head h3{flex:1;min-width:0}
 #battleModal .battle-sound-toggle{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;background:#28374e;color:#fff;border:1px solid #50647c;border-radius:50%;font-size:17px;cursor:pointer;padding:0}
+
+/* v193: wheel-style speaker icon and in-battle tempo control */
+#battleModal .battle-sound-toggle{background:transparent;border:0;color:#e7f5fa;border-radius:9px}
+#battleModal .battle-sound-toggle svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#battleModal .battle-sound-toggle.muted .battle-sound-wave{display:none}
+#battleModal .battle-sound-toggle.muted{opacity:.45}
+#battleModal .battle-ball-row{position:relative;display:flex;justify-content:center;align-items:center}
+#battleModal .battle-speed-toggle{position:absolute;left:calc(50% + 50px);top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#293b52;border:1px solid #657b95;border-radius:12px;color:#f2f7ff;min-width:45px;height:45px;padding:3px 6px;cursor:pointer;font-weight:800}
+#battleModal .battle-speed-chevrons{font-size:23px;line-height:19px}
+#battleModal .battle-speed-label{font-size:11px;line-height:14px}
+#battleModal .battle-attack-fx.active{animation-duration:calc(.58s / var(--battle-speed,1))!important}
+#battleModal .battle-special-fx.active .battle-pixel{animation-duration:calc(.68s / var(--battle-speed,1))!important}
+#battleModal .battle-fighter.attacking img{animation-duration:calc(.45s / var(--battle-speed,1))!important}
+#battleModal .battle-fighter.hit img{animation-duration:calc(.4s / var(--battle-speed,1))!important}
 </style>
 <style>
 /* v186 fixes */
@@ -3666,7 +3680,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 </div>
 <div class="modal" id="battleModal" onclick="closeModal(event,'battleModal')">
   <div class="modal-body battle-body" onclick="event.stopPropagation()">
-    <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button type="button" id="battleSoundToggle" class="battle-sound-toggle" onclick="battleToggleSound()" aria-label="Mute battle sounds" title="Toggle battle sounds">🔊</button><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
+    <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button type="button" id="battleSoundToggle" class="battle-sound-toggle" onclick="battleToggleSound()" aria-label="Mute battle sounds" title="Toggle battle sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="battle-sound-wave" d="M15 9a4 4 0 0 1 0 6"/><path class="battle-sound-wave" d="M18 6a8 8 0 0 1 0 12"/></svg></button><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
     <div class="battle-arena" aria-label="Pokémon battle arena">
       <div class="battle-pixel-sky" aria-hidden="true"></div>
       <div class="battle-pixel-hills" aria-hidden="true"></div>
@@ -3684,7 +3698,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
-      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button></div>
+      <div class="battle-ball-row"><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><button type="button" id="battleSpeed" class="battle-speed-toggle" onclick="battleCycleSpeed()" aria-label="Change battle speed" title="Battle speed: normal"><span class="battle-speed-chevrons">»</span><span class="battle-speed-label">1×</span></button></div>
     </div>
 
 
@@ -14204,7 +14218,13 @@ const battleTypes = {
 };
 let battleBusy=false,battleRun=0;
 const battleEl=id=>document.getElementById(id);
-const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const battleSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms / battleSpeed));
+let battleSpeed=1;
+function battleCycleSpeed(){
+ battleSpeed=({1:0.5,0.5:2,2:1})[battleSpeed]||1;
+ const btn=battleEl('battleSpeed');if(btn){btn.querySelector('.battle-speed-label').textContent=battleSpeed+'×';btn.title='Battle speed: '+battleSpeed+'×';btn.setAttribute('aria-label',btn.title)}
+ const modal=battleEl('battleModal');if(modal)modal.style.setProperty('--battle-speed',battleSpeed);
+}
 const battleSprite=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 const battlePixelFallback=id=>`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 function battleStorageKey(){return 'pokeroulette_battle_wins_v170_'+(currentUser?.uid||'guest')}
@@ -14783,7 +14803,7 @@ let battleSoundEnabled=true;
 try{battleSoundEnabled=localStorage.getItem('pokeroulette_battle_sound')!=='off'}catch(_){}
 function battleUpdateSoundIcon(){
  const b=battleEl('battleSoundToggle');if(!b)return;
- b.textContent=battleSoundEnabled?'🔊':'🔇';
+ b.classList.toggle('muted',!battleSoundEnabled);
  b.setAttribute('aria-label',battleSoundEnabled?'Mute battle sounds':'Enable battle sounds');
  b.title=battleSoundEnabled?'Mute battle sounds':'Enable battle sounds';
 }
@@ -14854,6 +14874,23 @@ function battleSfx(event,type='',effect=1){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleUpdateSoundIcon);
 else battleUpdateSoundIcon();
+function battleClearResidualAnimations(){
+ if(battleBusy)return;
+ const modal=battleEl('battleModal');if(!modal)return;
+ ['battleAttackFx','battleSpecialFx'].forEach(id=>{const el=battleEl(id);if(el){el.classList.remove('active');el.style.animation='none';void el.offsetWidth;el.style.animation=''}});
+ modal.querySelectorAll('.battle-fighter').forEach(el=>el.classList.remove('attacking','hit'));
+ const canvas=battleEl('battleMoveCanvas');if(canvas){cancelAnimationFrame(battleMoveFrame);canvas.getContext('2d')?.clearRect(0,0,canvas.width,canvas.height)}
+ modal.classList.remove('battle-move-flash');
+}
+// Modal and dock visibility changes can restart CSS animations on iOS WebKit.
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleWatchReentry);
+else battleWatchReentry();
+function battleWatchReentry(){
+ const modal=battleEl('battleModal');if(!modal)return;
+ const observer=new MutationObserver(()=>{if(!battleBusy)battleClearResidualAnimations()});
+ observer.observe(modal,{attributes:true,attributeFilter:['class','style','hidden']});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)battleClearResidualAnimations()});
+}
 async function battleStart(){
  battleAudioUnlock();
  if(battleBusy)return;
@@ -14908,7 +14945,7 @@ async function battleStart(){
   battleRecordWinner(fighters,winner);
   battleSfx('win');
  }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
- finally{battleBusy=false;battleEl('battleStart').disabled=false}
+ finally{battleBusy=false;battleEl('battleStart').disabled=false;battleClearResidualAnimations()}
 }
 </script>
 </body>
