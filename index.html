@@ -3509,11 +3509,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 <style>
 #battleModal .battle-ball-row{position:relative}
 #battleModal .battle-record-trigger{position:absolute;right:calc(50% + 91px);top:50%;transform:translateY(-50%);border:1px solid #53667e;background:#26374d;color:#f2f6fc;border-radius:11px;padding:9px 6px;font-size:clamp(9px,2.2vw,12px);font-weight:700;max-width:100px;white-space:normal;line-height:1.15}
-#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice{display:flex;align-items:center;justify-content:center;min-height:88px;padding:8px}
-#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice img{width:75%;height:72px;object-fit:contain;image-rendering:pixelated}
-#battleOwnedGrid.battle-record-grid .battle-owned-choice{display:flex;flex-direction:column;justify-content:space-between;align-items:center;gap:4px;padding:8px 2px;min-height:100px;opacity:1}
+#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:88px;padding:6px 3px}
+#battleOwnedGrid:not(.battle-record-grid) .battle-owned-choice img{width:75%;height:57px;object-fit:contain;image-rendering:pixelated}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice{display:flex;flex-direction:column;justify-content:space-between;align-items:center;gap:4px;padding:8px 2px;min-height:108px;opacity:1}
 #battleOwnedGrid.battle-record-grid .battle-owned-choice img{height:53px;max-width:92%;object-fit:contain;image-rendering:pixelated}
-#battleOwnedGrid.battle-record-grid .battle-owned-choice small{font-size:clamp(9px,2vw,12px);white-space:nowrap;font-weight:650;color:#e4edf9}
+#battleOwnedGrid.battle-record-grid .battle-owned-choice small{font-size:clamp(9px,2vw,12px);white-space:nowrap;font-weight:700;color:#e4edf9}
+#battleOwnedGrid .battle-owned-name{font-size:clamp(10px,2.2vw,13px);font-weight:750;color:#f4f7fd;text-align:center;line-height:1.15;overflow-wrap:anywhere}
+#battleOwnedGrid .battle-record-won{color:#38d99b!important}
+#battleOwnedGrid .battle-record-lost{color:#ff777e!important}
 #battleOwnedGrid.battle-record-grid .battle-owned-choice:disabled{cursor:default}
 </style></head>
 <body data-app-build="v175">
@@ -14434,15 +14437,16 @@ function battleRenderOwned(){
   const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
   const img=document.createElement('img');img.src=p.sprite;img.alt=battleDisplayName(p.name);img.loading='lazy';
   button.title=battleDisplayName(p.name);
+  const nameLabel=document.createElement('span');nameLabel.className='battle-owned-name';nameLabel.textContent=battleDisplayName(p.name);
   if(battleOwnedMode==='record'){
    const record=records[String(p.id)]||{};
    const wins=Math.max(0,Number(record.wins)||0),battles=Math.max(0,Number(record.battles)||0);
-   const won=document.createElement('small');won.className='battle-record-won';won.textContent='Battles won: '+wins;
-   const lost=document.createElement('small');lost.className='battle-record-lost';lost.textContent='Battles lost: '+Math.max(0,battles-wins);
-   button.append(won,img,lost);
+   const won=document.createElement('small');won.className='battle-record-won';won.textContent='W: '+wins;
+   const lost=document.createElement('small');lost.className='battle-record-lost';lost.textContent='L: '+Math.max(0,battles-wins);
+   button.append(nameLabel,won,img,lost);
    button.disabled=true;
   }else{
-   button.append(img);
+   button.append(nameLabel,img);
    button.addEventListener('click',()=>battleSelectOwned(p,button));
   }
   grid.append(button);
@@ -14698,8 +14702,15 @@ function battleSuggest(i){
    const r=btn.getBoundingClientRect(),origin={x:r.left+r.width/2,y:r.top+r.height/2};
    input.value=battleDisplayName(name);input.dataset.pokemonKey=name;
    battleHideSuggest(i);clearTimeout(battlePreviewTimers[i]);input.blur();
-   await battlePreview(i);
-   await battleRandomReveal(i,origin);
+   // Run the throw regardless of a failed or delayed sprite preview (e.g. Mimikyu).
+   // Start both operations together, then reveal only after the Poké Ball lands.
+   const sprite=battleEl('battleImg'+i);
+   if(sprite)sprite.style.visibility='hidden';
+   const preview=battlePreview(i).catch(()=>{});
+   await battleRandomEntrance(i,origin);
+   await preview;
+   if(sprite){sprite.style.visibility='';sprite.classList.remove('battle-random-appear');void sprite.offsetWidth;sprite.classList.add('battle-random-appear');setTimeout(()=>sprite.classList.remove('battle-random-appear'),650)}
+   try{const pokemon=await battleFetch(input.dataset.pokemonKey||input.value);if(battleSoundEnabled){const cry=new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemon.id}.ogg`);cry.volume=.55;cry.play().catch(()=>battleSfx('cry'))}}catch(_){battleSfx('cry')}
   }finally{battleRandomising=false}
  });
   panel.append(btn);
