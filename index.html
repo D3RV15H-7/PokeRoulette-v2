@@ -3490,7 +3490,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-fighter img{scale:var(--battle-height-scale,1)!important;object-position:center bottom!important}
 </style>
 <style>
-/* v196: randomised Poké Ball travels from the clicked button to the platform. */
+/* v197: spinning Poké Ball entrance for Dex selection and randomisation. */
 .battle-random-throw{position:fixed;width:30px;height:30px;border-radius:50%;z-index:2147483000;pointer-events:none;background:linear-gradient(to bottom,#f65b51 0 46%,#182638 46% 55%,#f5faff 55% 100%);border:2px solid #0c1c2c;box-shadow:0 3px 12px #07111c99}
 .battle-random-ball-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border:3px solid #142234;background:#fff;border-radius:50%}
 .battle-random-throw.battle-random-open{animation:battleBallPop .2s ease-out forwards}
@@ -14400,16 +14400,18 @@ function battleRenderOwned(){
   const stats=document.createElement('small');stats.className='battle-owned-stats';
   stats.textContent='Battles '+(record.battles||0)+' · Wins '+(record.wins||0);
   button.append(img,name,stats);
-  button.addEventListener('click',()=>battleSelectOwned(p));
+  button.addEventListener('click',()=>battleSelectOwned(p,button));
   grid.append(button);
  }
 }
-async function battleSelectOwned(p){
+async function battleSelectOwned(p,source=null){
  if(!memCol.has(p.id)&&!memCol.has(String(p.id)))return;
+ const origin=source?(()=>{const r=source.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})():null;
  battleEl('battlePick1').value=String(p.id);
  battleEl('battleChooseOwned').textContent=battleDisplayName(p.name);
  battleCloseOwned();
  await battlePreview(0);
+ if(origin){battleAudioUnlock();await battleRandomReveal(0,origin)}
 }
 // v196: sequential Poké Ball entrance for random selections.
 let battleRandomising=false;
@@ -14418,9 +14420,10 @@ async function battleRandomEntrance(slot,source){
  const arena=document.querySelector('#battleModal .battle-arena');
  const platform=battleEl(slot===0?'battleImg0':'battleImg1');
  if(!arena||!platform||!source)return;
- const a=source.getBoundingClientRect(),b=arena.getBoundingClientRect();
- if(!a.width||!b.width)return;
- const x=a.left+a.width/2,y=a.top+a.height/2;
+ const b=arena.getBoundingClientRect();
+ const a=source.getBoundingClientRect?source.getBoundingClientRect():null;
+ if(!b.width||(!a&&!Number.isFinite(source.x)))return;
+ const x=a?a.left+a.width/2:source.x,y=a?a.top+a.height/2:source.y;
  const endX=b.left+b.width*(slot===0?.27:.76);
  const endY=b.top+b.height*(slot===0?.83:.46);
  const ball=document.createElement('div');ball.className='battle-random-throw';
@@ -14432,13 +14435,14 @@ async function battleRandomEntrance(slot,source){
   const dx=endX-x,dy=endY-y;
   const anim=ball.animate([
    {transform:'translate(-50%,-50%) translate(0,0) rotate(0deg) scale(.65)',offset:0},
-   {transform:`translate(-50%,-50%) translate(${dx*.5}px,${dy*.5-65}px) rotate(390deg) scale(1.2)`,offset:.52},
-   {transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(720deg) scale(.7)`,offset:1}
+   {transform:`translate(-50%,-50%) translate(${dx*.5}px,${dy*.5-65}px) rotate(540deg) scale(1.2)`,offset:.52},
+   {transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(1080deg) scale(.7)`,offset:1}
   ],{duration:650,easing:'ease-in-out',fill:'forwards'});
   await anim.finished.catch(()=>{});
-  ball.classList.add('battle-random-open');
+  // Fade at the landing point; never let the ball fly upward on removal.
+  const fade=ball.animate([{opacity:1,filter:'brightness(1)'},{opacity:0,filter:'brightness(2)'}],{duration:145,easing:'ease-out',fill:'forwards'});
   battleSfx('release');
-  await battleEntranceWait(180);
+  await fade.finished.catch(()=>{});
  }finally{ball.remove()}
 }
 async function battleRandomReveal(slot,source){
