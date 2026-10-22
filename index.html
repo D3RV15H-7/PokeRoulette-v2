@@ -3558,7 +3558,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedOverlay .battle-roster-scroll-wrap>.battle-owned-grid{flex:1;min-height:0;padding-right:19px;align-content:start}
 #battleOwnedOverlay .battle-roster-slider-wrap{position:absolute;right:-7px;top:0;bottom:0;width:27px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:3;pointer-events:none}
 #battleOwnedOverlay .battle-roster-slider-wrap[hidden]{display:none!important}
-#battleOwnedOverlay #battleRosterSlider{pointer-events:auto;appearance:slider-vertical;-webkit-appearance:slider-vertical;writing-mode:vertical-lr;direction:rtl;width:22px;height:calc(100% - 42px);min-height:80px;accent-color:#91d9ec;cursor:pointer;touch-action:none}
+#battleOwnedOverlay #battleRosterSlider{pointer-events:auto;appearance:slider-vertical;-webkit-appearance:slider-vertical;writing-mode:vertical-lr;direction:ltr;width:22px;height:calc(100% - 42px);min-height:80px;accent-color:#91d9ec;cursor:pointer;touch-action:none}
 #battleOwnedOverlay #battleRosterPosition{font-size:10px;font-weight:700;color:#a9c5dd;white-space:nowrap;margin-top:4px}
 #battleModal .battle-speed-option{padding:0!important;border-radius:8px!important}
 #battleModal .battle-speed-art{width:100%!important;height:100%!important;object-fit:cover!important;transform:scale(1.5);border-radius:0!important;pointer-events:none}
@@ -14497,8 +14497,9 @@ function battleRenderOwned(){
  // Large Pokédex lists are rendered in bounded pages to keep iPhone scrolling responsive.
  const sliderWrap=battleEl('battleRosterSliderWrap');const slider=battleEl('battleRosterSlider');
  sliderWrap.hidden=!opponent||matches.length<15;
- slider.max=String(matches.length);
- const start=opponent?Math.min(Math.max(0,battleRosterStart),Math.max(0,matches.length-1)):0;
+ const lastStart=opponent?Math.max(0,matches.length-16):0;
+ slider.max=String(Math.max(1,lastStart+1));
+ const start=opponent?Math.min(Math.max(0,battleRosterStart),lastStart):0;
  if(opponent){slider.value=String(start+1);battleEl('battleRosterPosition').textContent='#'+matches[start].id;}
  const shown=opponent?matches.slice(start,start+72):matches;
  for(const p of shown){
@@ -14522,7 +14523,7 @@ function battleRenderOwned(){
  if(opponent&&matches.length>shown.length){
   let cursor=start+shown.length;
   const appendMore=()=>{if(!grid.isConnected||battleOwnedMode!=='opponent')return;const end=Math.min(cursor+72,matches.length);for(let i=cursor;i<end;i++){const p=matches[i];const btn=document.createElement('button');btn.type='button';btn.className='battle-owned-choice';const label=document.createElement('span');label.className='battle-owned-name';label.textContent=battleDisplayName(p.name);const img=document.createElement('img');img.alt=label.textContent;img.loading='lazy';img.decoding='async';img.src=p.sprite||('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+p.id+'.png');btn.append(label,img);btn.addEventListener('click',()=>battleSelectOpponentFromGrid(p,btn));grid.append(btn);}cursor=end;};
-  grid.onscroll=()=>{if(grid.scrollTop+grid.clientHeight>=grid.scrollHeight-450&&cursor<matches.length)appendMore();const card=grid.querySelector('.battle-owned-choice');if(card){const rowHeight=card.getBoundingClientRect().height+6;const columns=4;const at=Math.min(matches.length-1,start+Math.floor(grid.scrollTop/Math.max(1,rowHeight))*columns);slider.value=String(at+1);battleEl('battleRosterPosition').textContent='#'+matches[at].id;}};
+  grid.onscroll=()=>{if(grid.scrollTop+grid.clientHeight>=grid.scrollHeight-450&&cursor<matches.length)appendMore();const card=grid.querySelector('.battle-owned-choice');if(card){const rowHeight=card.getBoundingClientRect().height+6;const columns=4;const at=Math.min(matches.length-1,start+Math.floor(grid.scrollTop/Math.max(1,rowHeight))*columns);slider.value=String(Math.min(lastStart,at)+1);battleEl('battleRosterPosition').textContent='#'+matches[at].id;}};
  }else grid.onscroll=null;
 }
 let battleRosterStart=0;
