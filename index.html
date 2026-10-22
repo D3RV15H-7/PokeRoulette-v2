@@ -14887,9 +14887,16 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else battleWatchReentry();
 function battleWatchReentry(){
  const modal=battleEl('battleModal');if(!modal)return;
- const observer=new MutationObserver(()=>{if(!battleBusy)battleClearResidualAnimations()});
- observer.observe(modal,{attributes:true,attributeFilter:['class','style','hidden']});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)battleClearResidualAnimations()});
+ // Only respond to the modal changing from closed to open. Do not observe
+ // style mutations: animation cleanup itself changes styles and would recurse.
+ let wasOpen=modal.classList.contains('open') || modal.classList.contains('show');
+ const observer=new MutationObserver(()=>{
+   const isOpen=modal.classList.contains('open') || modal.classList.contains('show');
+   if(isOpen && !wasOpen && !battleBusy)battleClearResidualAnimations();
+   wasOpen=isOpen;
+ });
+ observer.observe(modal,{attributes:true,attributeFilter:['class']});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden && !battleBusy)battleClearResidualAnimations()});
 }
 async function battleStart(){
  battleAudioUnlock();
