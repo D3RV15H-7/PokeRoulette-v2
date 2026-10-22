@@ -3517,6 +3517,8 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedGrid .battle-owned-name{font-size:clamp(10px,2.2vw,13px);font-weight:750;color:#f4f7fd;text-align:center;line-height:1.15;overflow-wrap:anywhere}
 #battleOwnedGrid .battle-record-won{color:#38d99b!important}
 #battleOwnedGrid .battle-record-lost{color:#ff777e!important}
+#battleOwnedGrid .battle-record-results{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;white-space:nowrap}
+#battleOwnedGrid .battle-record-results small{font-size:clamp(10px,2.1vw,12px)}
 #battleOwnedGrid.battle-record-grid .battle-owned-choice:disabled{cursor:default}
 </style></head>
 <body data-app-build="v175">
@@ -14443,7 +14445,8 @@ function battleRenderOwned(){
    const wins=Math.max(0,Number(record.wins)||0),battles=Math.max(0,Number(record.battles)||0);
    const won=document.createElement('small');won.className='battle-record-won';won.textContent='W: '+wins;
    const lost=document.createElement('small');lost.className='battle-record-lost';lost.textContent='L: '+Math.max(0,battles-wins);
-   button.append(nameLabel,won,img,lost);
+   const resultRow=document.createElement('span');resultRow.className='battle-record-results';resultRow.append(won,lost);
+   button.append(nameLabel,img,resultRow);
    button.disabled=true;
   }else{
    button.append(nameLabel,img);
@@ -14657,7 +14660,15 @@ function battleInitUI(){
   for(const eventName of ['pointerdown','touchstart','click'])input.addEventListener(eventName,e=>e.stopPropagation());
   input.addEventListener('blur',()=>{setTimeout(()=>battleHideSuggest(i),180);battleFocusEnd()});
   input.addEventListener('input',()=>{delete input.dataset.pokemonKey;battleQueuePreview(i);battleSuggest(i)});
-  input.addEventListener('change',()=>battleQueuePreview(i));
+  input.addEventListener('keydown',e=>{
+   if(e.key!=='Enter'||e.isComposing)return;
+   e.preventDefault();e.stopPropagation();
+   const suggestion=battleEl('battleSuggest'+(i+1))?.querySelector('button');
+   // Prefer the visible suggestion; otherwise resolve the exact typed name.
+   const chosen=suggestion?.textContent?.trim()||input.value.trim();
+   if(chosen)battleChooseOpponent(chosen,suggestion||input,i);
+  });
+  input.addEventListener('change',()=>{if(!battleRandomising)battleQueuePreview(i)});
   battleResetPreview(i);
  }
 }
@@ -14675,6 +14686,37 @@ async function battleLoadSpecies(){
  }catch(_){}
 }
 function battleHideSuggest(i){const el=battleEl('battleSuggest'+(i+1));if(el)el.classList.remove('open')}
+// v201: funnel suggestion taps and keyboard Enter through the same entrance sequence.
+async function battleChooseOpponent(name,source=null,slot=1){
+ if(battleBusy||battleRandomising)return;
+ const input=battleEl('battlePick'+(slot+1));
+ if(!input)return;
+ battleAudioUnlock();battleRandomising=true;
+ const r=(source||input).getBoundingClientRect();
+ const origin={x:r.left+r.width/2,y:r.top+r.height/2};
+ try{
+  clearTimeout(battlePreviewTimers[slot]);
+  ++battlePreviewTokens[slot]; // invalidate previews started while typing
+  input.value=battleDisplayName(name);
+  input.dataset.pokemonKey=name;
+  battleHideSuggest(slot);
+  input.blur();
+  const sprite=battleEl('battleImg'+slot);
+  if(sprite)sprite.style.visibility='hidden';
+  // Start loading during the throw, and reveal only once the ball has landed.
+  const preview=battlePreview(slot).catch(()=>{});
+  await battleRandomEntrance(slot,origin);
+  await preview;
+  if(sprite){
+   sprite.style.visibility='';
+   if(!sprite.hidden){sprite.classList.remove('battle-random-appear');void sprite.offsetWidth;sprite.classList.add('battle-random-appear');setTimeout(()=>sprite.classList.remove('battle-random-appear'),650)}
+  }
+  try{
+   const pokemon=await battleFetch(input.dataset.pokemonKey||input.value);
+   if(battleSoundEnabled){const cry=new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemon.id}.ogg`);cry.volume=.55;cry.play().catch(()=>battleSfx('cry'))}
+  }catch(_){battleSfx('cry')}
+ }finally{battleRandomising=false}
+}
 function battleSuggest(i){
  const input=battleEl('battlePick'+(i+1)),panel=battleEl('battleSuggest'+(i+1));
  if(!input||!panel)return;
@@ -14694,25 +14736,7 @@ function battleSuggest(i){
  ranked.forEach(({name})=>{
   const btn=document.createElement('button');btn.type='button';btn.textContent=battleDisplayName(name);
   btn.addEventListener('pointerdown',e=>e.preventDefault());
-  btn.addEventListener('click',async()=>{
-  if(battleBusy||battleRandomising)return;
-  battleAudioUnlock();
-  battleRandomising=true;
-  try{
-   const r=btn.getBoundingClientRect(),origin={x:r.left+r.width/2,y:r.top+r.height/2};
-   input.value=battleDisplayName(name);input.dataset.pokemonKey=name;
-   battleHideSuggest(i);clearTimeout(battlePreviewTimers[i]);input.blur();
-   // Run the throw regardless of a failed or delayed sprite preview (e.g. Mimikyu).
-   // Start both operations together, then reveal only after the Poké Ball lands.
-   const sprite=battleEl('battleImg'+i);
-   if(sprite)sprite.style.visibility='hidden';
-   const preview=battlePreview(i).catch(()=>{});
-   await battleRandomEntrance(i,origin);
-   await preview;
-   if(sprite){sprite.style.visibility='';sprite.classList.remove('battle-random-appear');void sprite.offsetWidth;sprite.classList.add('battle-random-appear');setTimeout(()=>sprite.classList.remove('battle-random-appear'),650)}
-   try{const pokemon=await battleFetch(input.dataset.pokemonKey||input.value);if(battleSoundEnabled){const cry=new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemon.id}.ogg`);cry.volume=.55;cry.play().catch(()=>battleSfx('cry'))}}catch(_){battleSfx('cry')}
-  }finally{battleRandomising=false}
- });
+  btn.addEventListener('click',()=>battleChooseOpponent(name,btn,i));
   panel.append(btn);
  });
  panel.classList.toggle('open',ranked.length>0);
