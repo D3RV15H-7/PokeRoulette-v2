@@ -3520,6 +3520,10 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedGrid .battle-record-results{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;white-space:nowrap}
 #battleOwnedGrid .battle-record-results small{font-size:clamp(10px,2.1vw,12px)}
 #battleOwnedGrid.battle-record-grid .battle-owned-choice:disabled{cursor:default}
+
+/* v203: centre Battle Record between the left edge and the Battle Pokéball. */
+#battleModal .battle-record-trigger{left:25%;right:auto;transform:translate(-50%,-50%);max-width:calc(50% - 92px);min-width:88px}
+@media(max-width:390px){#battleModal .battle-record-trigger{left:24%;min-width:78px;font-size:10px;padding:8px 4px}}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -14564,11 +14568,14 @@ async function battleRandomise(){
  finally{button.disabled=false;battleRandomising=false}
 }
 function battleResolve(value){
- const input=value.trim().toLowerCase();
+ const input=String(value||'').trim().toLowerCase()
+  .replace(/[’‘`´]/g,"'").replace(/♀/g,'-f').replace(/♂/g,'-m')
+  .replace(/[éèê]/g,'e').replace(/[.:]/g,'')
+  .replace(/['\u2019]/g,'').replace(/\s+/g,'-');
  if(/^\d+$/.test(input)){const id=Number(input);if(id>=1&&id<=TOTAL)return id}
  const names=typeof pokemonNames!=='undefined'?pokemonNames:null;
  if(Array.isArray(names)){const i=names.findIndex(n=>String(n).toLowerCase()===input);if(i>=0)return i+1}
- return input&&/^[a-z0-9 -]+$/.test(input)?input.replaceAll(' ','-'):null;
+ return input&&/^[a-z0-9-]+$/.test(input)?input:null;
 }
 async function battleFetch(value){
  const id=battleResolve(value);
@@ -14692,13 +14699,18 @@ async function battleChooseOpponent(name,source=null,slot=1){
  const input=battleEl('battlePick'+(slot+1));
  if(!input)return;
  battleAudioUnlock();battleRandomising=true;
- const r=(source||input).getBoundingClientRect();
- const origin={x:r.left+r.width/2,y:r.top+r.height/2};
+ // Suggestions pass a pre-captured point because iOS removes the dropdown on blur.
+ // Do not call getBoundingClientRect() on that point (it is not a DOM element).
+ const target=source||input;
+ const r=typeof target.getBoundingClientRect==='function'?target.getBoundingClientRect():null;
+ const origin=r?{x:r.left+r.width/2,y:r.top+r.height/2}:
+   (Number.isFinite(target.x)&&Number.isFinite(target.y)?{x:target.x,y:target.y}:
+    (()=>{const box=input.getBoundingClientRect();return {x:box.left+box.width/2,y:box.top+box.height/2}})());
  try{
   clearTimeout(battlePreviewTimers[slot]);
   ++battlePreviewTokens[slot]; // invalidate previews started while typing
   input.value=battleDisplayName(name);
-  input.dataset.pokemonKey=name;
+  input.dataset.pokemonKey=String(name).trim().toLowerCase().replace(/[’‘']/g,'').replace(/\s+/g,'-');
   battleHideSuggest(slot);
   input.blur();
   const sprite=battleEl('battleImg'+slot);
@@ -14735,8 +14747,22 @@ function battleSuggest(i){
  }).filter(x=>x.score<100).sort((a,b)=>a.score-b.score||a.name.length-b.name.length).slice(0,7);
  ranked.forEach(({name})=>{
   const btn=document.createElement('button');btn.type='button';btn.textContent=battleDisplayName(name);
-  btn.addEventListener('pointerdown',e=>e.preventDefault());
-  btn.addEventListener('click',()=>battleChooseOpponent(name,btn,i));
+  // iOS Safari can blur the input and remove suggestions before a click fires.
+  // Commit on pointerdown/touchend, while the suggestion is still mounted.
+  let committed=false;
+  const choose=e=>{
+   if(committed)return;
+   committed=true;
+   e.preventDefault();
+   e.stopPropagation();
+   const rect=btn.getBoundingClientRect();
+   const origin={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+   battleChooseOpponent(name,origin,i);
+  };
+  btn.addEventListener('pointerdown',choose);
+  btn.addEventListener('touchstart',choose,{passive:false});
+  btn.addEventListener('touchend',choose,{passive:false});
+  btn.addEventListener('click',choose);
   panel.append(btn);
  });
  panel.classList.toggle('open',ranked.length>0);
