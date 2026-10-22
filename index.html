@@ -3524,6 +3524,20 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 /* v203: centre Battle Record between the left edge and the Battle Pokéball. */
 #battleModal .battle-record-trigger{left:25%;right:auto;transform:translate(-50%,-50%);max-width:calc(50% - 92px);min-width:88px}
 @media(max-width:390px){#battleModal .battle-record-trigger{left:24%;min-width:78px;font-size:10px;padding:8px 4px}}
+</style><style>
+/* v204: balanced selection controls and minimalist battle toolbar */
+#battleModal .battle-owned-trigger{border:2px solid #586c86!important;background:#202d41!important;color:#f6f8ff!important;font-size:clamp(11px,2.85vw,14px)!important;font-weight:650!important;letter-spacing:-.15px;box-shadow:none!important}
+#battleModal .battle-choices{gap:10px!important}
+#battleModal .battle-pick{min-width:0!important}
+#battleModal .battle-random{width:100%!important;justify-self:stretch!important;min-width:0!important;font-size:clamp(11px,2.8vw,14px)!important}
+#battleModal .battle-generate-row{margin-top:6px!important}
+#battleModal .battle-random-both{border-radius:9px!important;min-height:31px!important;font-size:clamp(11px,2.8vw,13px)!important}
+#battleModal .battle-ball-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center!important;column-gap:8px!important;margin-top:8px!important}
+#battleModal .battle-record-trigger{position:static!important;transform:none!important;max-width:100%!important;min-width:0!important;justify-self:center!important;width:fit-content!important;padding:9px 8px!important;font-size:clamp(10px,2.4vw,12px)!important}
+#battleModal .battle-pokeball{grid-column:2;grid-row:1;justify-self:center}
+#battleModal .battle-speed-options{position:static!important;transform:none!important;grid-column:3;grid-row:1;justify-self:center;display:flex!important;gap:4px!important;max-width:100%}
+#battleModal .battle-speed-option{min-width:0!important;padding:6px 4px!important;font-size:clamp(9px,2.35vw,12px)!important}
+.battle-roster-note{font-size:12px;color:#b8c7dc;text-align:center;margin:3px 0 0}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -3728,8 +3742,8 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
     <div class="battle-panel battle-log" id="battleLog" role="status" aria-live="polite">Select one of your collected Pokémon and choose an opponent to begin.</div>
     <div class="battle-panel">
       <div class="battle-choices">
-        <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Select Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
-        <div class="battle-pick"><label for="battlePick2">OPPONENT</label><input id="battlePick2" placeholder="Type or Randomise" autocomplete="off" autocorrect="off" spellcheck="false"><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Choose your Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
+        <div class="battle-pick"><label for="battleChooseOpponent">OPPONENT</label><input id="battlePick2" type="hidden" autocomplete="off"><button type="button" id="battleChooseOpponent" class="battle-owned-trigger" onclick="battleOpenOpponent()">Choose opponent Pokémon</button><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
       </div>
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" onclick="battleRandomise()">🎲 Both</button></div>
@@ -14413,10 +14427,22 @@ let battleOwnedMode='select';
 function battleOpenOwned(){
  if(battleBusy)return;
  battleOwnedMode='select';
+ battleEl('battleOwnedSearch').placeholder='Search your collected Pokémon';
  battleEl('battleOwnedTitle').textContent='Your Dex Pokémon';
  battleEl('battleOwnedOverlay').hidden=false;
  battleEl('battleOwnedSearch').value='';
  battleRenderOwned();
+}
+async function battleOpenOpponent(){
+ if(battleBusy||battleRandomising)return;
+ battleOwnedMode='opponent';
+ battleEl('battleOwnedTitle').textContent='Choose Opponent Pokémon';
+ battleEl('battleOwnedSearch').placeholder='Search all Pokémon by name or number';
+ battleEl('battleOwnedOverlay').hidden=false;
+ battleEl('battleOwnedSearch').value='';
+ battleRenderOwned();
+ await battleLoadSpecies();
+ if(battleOwnedMode==='opponent'&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
 }
 function battleOpenRecord(){
  if(battleBusy)return;
@@ -14428,18 +14454,21 @@ function battleOpenRecord(){
 }
 function battleCloseOwned(){battleEl('battleOwnedOverlay').hidden=true}
 function battleRenderOwned(){
- const all=battleOwnedEntries(),q=battleEl('battleOwnedSearch').value.trim().toLowerCase();
+ const opponent=battleOwnedMode==='opponent';
+ const all=opponent?battleOpponentEntries():battleOwnedEntries();
+ const q=battleEl('battleOwnedSearch').value.trim().toLowerCase();
  const records=battleWins();
  const matches=all.filter(p=>p.name.toLowerCase().includes(q)||String(p.id).includes(q));
- if(battleOwnedMode==='record'){
-  matches.sort((a,b)=>(Number(records[String(b.id)]?.wins)||0)-(Number(records[String(a.id)]?.wins)||0)||a.id-b.id);
- }
+ if(battleOwnedMode==='record')matches.sort((a,b)=>(Number(records[String(b.id)]?.wins)||0)-(Number(records[String(a.id)]?.wins)||0)||a.id-b.id);
+ document.querySelectorAll('.battle-roster-note').forEach(n=>n.remove());
  const grid=battleEl('battleOwnedGrid');grid.replaceChildren();
  grid.classList.toggle('battle-record-grid',battleOwnedMode==='record');
- battleEl('battleOwnedCount').textContent=all.length+' Pokémon collected'+(q?' · '+matches.length+' matching':'');
- if(!all.length){grid.textContent='Your Dex has no collected Pokémon yet. Add a Pokémon to your Dex first.';return}
- if(!matches.length){grid.textContent='No matching Pokémon in your Dex.';return}
- for(const p of matches){
+ battleEl('battleOwnedCount').textContent=(opponent?all.length+' Pokémon available':all.length+' Pokémon collected')+(q?' · '+matches.length+' matching':'');
+ if(!all.length){grid.textContent=opponent?'Loading Pokémon…':'Your Dex has no collected Pokémon yet. Add a Pokémon to your Dex first.';return}
+ if(!matches.length){grid.textContent='No matching Pokémon found.';return}
+ // Large Pokédex lists are rendered in bounded pages to keep iPhone scrolling responsive.
+ const shown=opponent?matches.slice(0,100):matches;
+ for(const p of shown){
   const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
   const img=document.createElement('img');img.src=p.sprite;img.alt=battleDisplayName(p.name);img.loading='lazy';
   button.title=battleDisplayName(p.name);
@@ -14450,14 +14479,29 @@ function battleRenderOwned(){
    const won=document.createElement('small');won.className='battle-record-won';won.textContent='W: '+wins;
    const lost=document.createElement('small');lost.className='battle-record-lost';lost.textContent='L: '+Math.max(0,battles-wins);
    const resultRow=document.createElement('span');resultRow.className='battle-record-results';resultRow.append(won,lost);
-   button.append(nameLabel,img,resultRow);
-   button.disabled=true;
+   button.append(nameLabel,img,resultRow);button.disabled=true;
   }else{
    button.append(nameLabel,img);
-   button.addEventListener('click',()=>battleSelectOwned(p,button));
+   button.addEventListener('click',()=>opponent?battleSelectOpponentFromGrid(p,button):battleSelectOwned(p,button));
   }
   grid.append(button);
  }
+ if(opponent&&matches.length>shown.length){const note=document.createElement('p');note.className='battle-roster-note';note.textContent='Showing first 100 results — search to find more Pokémon.';grid.after(note);}
+ document.querySelectorAll('.battle-roster-note').forEach(n=>{if(!opponent||matches.length<=shown.length)n.remove()});
+}
+function battleOpponentEntries(){
+ const names=battleSpeciesNames.length?battleSpeciesNames:(typeof pokemonNames!=='undefined'?pokemonNames:[]);
+ return names.map((name,i)=>{
+  const local=(typeof pokemonNames!=='undefined'&&Array.isArray(pokemonNames))?pokemonNames.findIndex(n=>String(n).toLowerCase()===String(name).toLowerCase()):-1;
+  const id=local>=0?local+1:null;
+  return {id:id||String(name),name:String(name),sprite:id?battlePixelFallback(id):'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/'+String(name).toLowerCase()+'.gif'};
+ }).filter(p=>p.name).sort((a,b)=>{const an=Number(a.id),bn=Number(b.id);return Number.isFinite(an)&&Number.isFinite(bn)?an-bn:Number.isFinite(an)?-1:Number.isFinite(bn)?1:a.name.localeCompare(b.name)});
+}
+async function battleSelectOpponentFromGrid(p,source){
+ const r=source.getBoundingClientRect();const origin={x:r.left+r.width/2,y:r.top+r.height/2};
+ battleCloseOwned();
+ battleEl('battleChooseOpponent').textContent=battleDisplayName(p.name);
+ await battleChooseOpponent(p.name,origin,1);
 }
 async function battleSelectOwned(p,source=null){
  if(!memCol.has(p.id)&&!memCol.has(String(p.id)))return;
@@ -14544,6 +14588,7 @@ async function battleRandomiseOneImpl(slot){
    id=1+Math.floor(Math.random()*TOTAL);
   }
   input.value=battleDisplayName(name);delete input.dataset.pokemonKey;
+  battleEl('battleChooseOpponent').textContent=input.value;
   await battlePreview(1);
   await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
  }catch(err){battleSetMessage(err.message||'Unable to select opponent.')}
@@ -14561,6 +14606,7 @@ async function battleRandomise(){
   let opponent=1+Math.floor(Math.random()*TOTAL);
   while(opponent===chosen.id)opponent=1+Math.floor(Math.random()*TOTAL);
   battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));delete battleEl('battlePick2').dataset.pokemonKey;
+  battleEl('battleChooseOpponent').textContent=battleEl('battlePick2').value;
   await battlePreview(1);
   await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
   battleSetMessage('Both Pokémon are ready. Press Battle!');
@@ -14710,6 +14756,7 @@ async function battleChooseOpponent(name,source=null,slot=1){
   clearTimeout(battlePreviewTimers[slot]);
   ++battlePreviewTokens[slot]; // invalidate previews started while typing
   input.value=battleDisplayName(name);
+  if(battleEl('battleChooseOpponent'))battleEl('battleChooseOpponent').textContent=battleDisplayName(name);
   input.dataset.pokemonKey=String(name).trim().toLowerCase().replace(/[’‘']/g,'').replace(/\s+/g,'-');
   battleHideSuggest(slot);
   input.blur();
