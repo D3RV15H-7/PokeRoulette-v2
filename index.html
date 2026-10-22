@@ -3448,6 +3448,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
  transform-origin:center bottom!important;
 }
 #battleModal .battle-fighter.left img{bottom:11%!important;transform-origin:center bottom!important}
+
+/* v192: battle audio control */
+#battleModal .modal-head{display:flex;align-items:center;gap:8px}
+#battleModal .modal-head h3{flex:1;min-width:0}
+#battleModal .battle-sound-toggle{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;background:#28374e;color:#fff;border:1px solid #50647c;border-radius:50%;font-size:17px;cursor:pointer;padding:0}
 </style>
 <style>
 /* v186 fixes */
@@ -3661,7 +3666,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 </div>
 <div class="modal" id="battleModal" onclick="closeModal(event,'battleModal')">
   <div class="modal-body battle-body" onclick="event.stopPropagation()">
-    <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
+    <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button type="button" id="battleSoundToggle" class="battle-sound-toggle" onclick="battleToggleSound()" aria-label="Mute battle sounds" title="Toggle battle sounds">🔊</button><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
     <div class="battle-arena" aria-label="Pokémon battle arena">
       <div class="battle-pixel-sky" aria-hidden="true"></div>
       <div class="battle-pixel-hills" aria-hidden="true"></div>
@@ -14395,7 +14400,7 @@ async function battleRandomiseOne(slot){
    if(String(id)!==other)break;
    id=1+Math.floor(Math.random()*TOTAL);
   }
-  input.value=battleDisplayName(name);
+  input.value=battleDisplayName(name);delete input.dataset.pokemonKey;
   await battlePreview(1);
  }catch(err){battleSetMessage(err.message||'Unable to select opponent.')}
 }
@@ -14409,7 +14414,7 @@ async function battleRandomise(){
   await battleSelectOwned(chosen);
   let opponent=1+Math.floor(Math.random()*TOTAL);
   while(opponent===chosen.id)opponent=1+Math.floor(Math.random()*TOTAL);
-  battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));
+  battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));delete battleEl('battlePick2').dataset.pokemonKey;
   await battlePreview(1);
   battleSetMessage('Both Pokémon are ready. Press Battle!');
  }catch(err){battleSetMessage(err.message||'Unable to randomise Pokémon.')}
@@ -14425,8 +14430,19 @@ function battleResolve(value){
 async function battleFetch(value){
  const id=battleResolve(value);
  if(!id)throw Error('Enter a valid Pokémon name or Pokédex number.');
- const response=await fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(id));
- if(!response.ok)throw Error('Could not find Pokémon: '+value);
+ let response=await fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(id));
+ // The species endpoint lists names (e.g. Mimikyu) that aren't always valid
+ // /pokemon identifiers (Mimikyu's default variety is mimikyu-disguised).
+ // Resolve those species to their actual default Pokémon variety.
+ if(response.status===404){
+  const speciesResponse=await fetch('https://pokeapi.co/api/v2/pokemon-species/'+encodeURIComponent(id));
+  if(speciesResponse.ok){
+   const species=await speciesResponse.json();
+   const variety=species.varieties?.find(v=>v.is_default)?.pokemon?.name||species.varieties?.[0]?.pokemon?.name;
+   if(variety)response=await fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(variety));
+  }
+ }
+ if(!response.ok)throw Error('Could not load Pokémon: '+value+'. Try selecting another suggestion.');
  const data=await response.json();
  const stats=Object.fromEntries(data.stats.map(s=>[s.stat.name,s.base_stat]));
  return {id:data.id,name:data.species?.name||data.name,heightDm:data.height,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
@@ -14441,7 +14457,7 @@ function battleSetSprite(img,id){
 let battlePreviewTokens=[0,0],battlePreviewTimers=[null,null];
 async function battlePreview(slot){
  const token=++battlePreviewTokens[slot],input=battleEl('battlePick'+(slot+1));
- const value=input.value.trim(),img=battleEl('battleImg'+slot);
+ const value=(input.dataset.pokemonKey||input.value).trim(),img=battleEl('battleImg'+slot);
  if(!value){battleResetPreview(slot);return}
  try{
   const p=await battleFetch(value);
@@ -14449,7 +14465,7 @@ async function battlePreview(slot){
   p.hp=p.maxHp;
   battlePaint(p,slot);
   battleEl('battleLog').textContent='Pokémon selected. Choose an opponent and press Battle!';
- }catch(_){if(token===battlePreviewTokens[slot]&&!battleBusy)battleResetPreview(slot)}
+ }catch(err){if(token===battlePreviewTokens[slot]&&!battleBusy){battleResetPreview(slot);battleSetMessage(err.message||'Could not load this Pokémon.')}}
 }
 function battleResetPreview(slot){
  battleVisualHeights[slot]=null;battleApplyRelativeSpriteSizes();
@@ -14500,7 +14516,7 @@ function battleInitUI(){
   input.addEventListener('focus',()=>{input.disabled=false;input.readOnly=false;battleFocusStart();requestAnimationFrame(()=>{try{input.select()}catch(_){}})});
   for(const eventName of ['pointerdown','touchstart','click'])input.addEventListener(eventName,e=>e.stopPropagation());
   input.addEventListener('blur',()=>{setTimeout(()=>battleHideSuggest(i),180);battleFocusEnd()});
-  input.addEventListener('input',()=>{battleQueuePreview(i);battleSuggest(i)});
+  input.addEventListener('input',()=>{delete input.dataset.pokemonKey;battleQueuePreview(i);battleSuggest(i)});
   input.addEventListener('change',()=>battleQueuePreview(i));
   battleResetPreview(i);
  }
@@ -14538,7 +14554,7 @@ function battleSuggest(i){
  ranked.forEach(({name})=>{
   const btn=document.createElement('button');btn.type='button';btn.textContent=battleDisplayName(name);
   btn.addEventListener('pointerdown',e=>e.preventDefault());
-  btn.addEventListener('click',()=>{input.value=battleDisplayName(name);battleHideSuggest(i);battleQueuePreview(i);input.blur()});
+  btn.addEventListener('click',()=>{input.value=battleDisplayName(name);input.dataset.pokemonKey=name;battleHideSuggest(i);clearTimeout(battlePreviewTimers[i]);battlePreview(i);input.blur()});
   panel.append(btn);
  });
  panel.classList.toggle('open',ranked.length>0);
@@ -14761,10 +14777,88 @@ function battleSetMessage(first,second=''){
  log.append(top);
  if(second){const bottom=document.createElement('div');bottom.className='battle-message-line';bottom.textContent=second;log.append(bottom)}
 }
+// v192: synthesised retro audio, unlocked by user gestures on iOS.
+let battleAudioContext=null;
+let battleSoundEnabled=true;
+try{battleSoundEnabled=localStorage.getItem('pokeroulette_battle_sound')!=='off'}catch(_){}
+function battleUpdateSoundIcon(){
+ const b=battleEl('battleSoundToggle');if(!b)return;
+ b.textContent=battleSoundEnabled?'🔊':'🔇';
+ b.setAttribute('aria-label',battleSoundEnabled?'Mute battle sounds':'Enable battle sounds');
+ b.title=battleSoundEnabled?'Mute battle sounds':'Enable battle sounds';
+}
+function battleAudioUnlock(){
+ if(!battleSoundEnabled)return null;
+ try{
+  const AudioCtor=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtor)return null;
+  if(!battleAudioContext)battleAudioContext=new AudioCtor();
+  if(battleAudioContext.state==='suspended')battleAudioContext.resume().catch(()=>{});
+  return battleAudioContext;
+ }catch(_){return null}
+}
+function battleToggleSound(){
+ battleSoundEnabled=!battleSoundEnabled;
+ try{localStorage.setItem('pokeroulette_battle_sound',battleSoundEnabled?'on':'off')}catch(_){}
+ battleUpdateSoundIcon();
+ if(battleSoundEnabled){battleAudioUnlock();battleSfx('toggle')}
+}
+function battleTone(freq,at,duration,kind='square',volume=.045,endFreq=null){
+ const ctx=battleAudioContext;
+ if(!battleSoundEnabled||!ctx||ctx.state!=='running')return;
+ try{
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=kind;o.frequency.setValueAtTime(Math.max(35,freq),at);
+  if(endFreq)o.frequency.exponentialRampToValueAtTime(Math.max(35,endFreq),at+duration);
+  g.gain.setValueAtTime(.0001,at);
+  g.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),at+.008);
+  g.gain.exponentialRampToValueAtTime(.0001,at+duration);
+  o.connect(g);g.connect(ctx.destination);o.start(at);o.stop(at+duration+.02);
+ }catch(_){}
+}
+function battleSfx(event,type='',effect=1){
+ const ctx=battleAudioUnlock();if(!ctx||ctx.state!=='running')return;
+ const t=ctx.currentTime+.012;
+ if(event==='toggle'){battleTone(660,t,.065);battleTone(880,t+.075,.09);return}
+ if(event==='start'){
+  [392,494,587,784].forEach((f,i)=>battleTone(f,t+i*.095,.12,'square',.035));return;
+ }
+ if(event==='win'){
+  [523,659,784,1047,784,1047].forEach((f,i)=>battleTone(f,t+i*.12,i===5?.28:.12,'square',.048));return;
+ }
+ if(event==='faint'){
+  [440,370,294,220,147].forEach((f,i)=>battleTone(f,t+i*.095,.15,'triangle',.05));return;
+ }
+ if(event==='attack'){
+  if(type==='fire'){
+   for(let i=0;i<9;i++)battleTone(130+i*34,t+i*.035,.075,i%2?'sawtooth':'square',.019,85+i*12);
+  }else if(type==='electric'){
+   for(let i=0;i<7;i++)battleTone(i%2?120:1050,t+i*.035,.048,'square',.03,i%2?950:150);
+  }else if(type==='water'){
+   for(let i=0;i<6;i++)battleTone(330+i*48,t+i*.055,.09,'sine',.045,170+i*20);
+  }else if(type==='ice'){
+   [880,1175,988,1318].forEach((f,i)=>battleTone(f,t+i*.065,.13,'triangle',.03));
+  }else if(type==='psychic'||type==='ghost'){
+   battleTone(310,t,.26,'sine',.04,710);battleTone(630,t+.06,.21,'triangle',.02,240);
+  }else{
+   battleTone(290,t,.08,'square',.035,170);battleTone(420,t+.07,.08,'square',.028,230);
+  }
+  return;
+ }
+ if(event==='hit'){
+  if(effect===0)return;
+  const v=effect>1?.075:effect<1?.025:.048;
+  battleTone(effect>1?195:145,t,.11,'square',v,70);
+  if(effect>1)battleTone(420,t+.04,.14,'sawtooth',.035,110);
+ }
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleUpdateSoundIcon);
+else battleUpdateSoundIcon();
 async function battleStart(){
+ battleAudioUnlock();
  if(battleBusy)return;
  if(currentUser&&db&&!battleStatsReady){battleSetMessage('Loading your account battle statistics. Please try again shortly.');return}
- const a=battleEl('battlePick1').value,b=battleEl('battlePick2').value;
+ const a=battleEl('battlePick1').value,b=battleEl('battlePick2').dataset.pokemonKey||battleEl('battlePick2').value;
  if(!a.trim()||!b.trim()){battleSetMessage('Choose your Pokémon and an opponent first.');return}
  if(!battleOwnedEntries().some(p=>String(p.id)===a.trim())){battleSetMessage('Your Pokémon must be in your Dex collection.');return}
  battleBusy=true;const token=++battleRun;battleEl('battleStart').disabled=true;
@@ -14775,6 +14869,7 @@ async function battleStart(){
   await Promise.all(fighters.map(battlePrepareMoves));
   fighters.forEach((p,i)=>{p.hp=p.maxHp;battlePaint(p,i)});
   battleRecordStart(fighters);
+  battleSfx('start');
   await battleSleep(650);
   let turn=0;
   while(fighters.every(p=>p.hp>0)&&turn<70&&token===battleRun){
@@ -14787,10 +14882,12 @@ async function battleStart(){
     const node=battleEl('battleFighter'+i);
     node.classList.add('attacking');
     battleSetMessage(battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!');
+    battleSfx('attack',result.type);
     if(result.special)battleSpecialEffect(result,i);
     else battleProjectile(result.type,i);
     await battleSleep(590);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
+    battleSfx('hit',result.type,result.effect);
     battlePaint(defender,1-i);
     battleEl('battleFighter'+(1-i)).classList.add('hit');
     battleSetMessage(
@@ -14800,7 +14897,7 @@ async function battleStart(){
       result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':''
     );
     await battleSleep(820);battleEl('battleFighter'+(1-i)).classList.remove('hit');
-    if(defender.hp<=0){battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
+    if(defender.hp<=0){battleSfx('faint');battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
    }
    turn++;
   }
@@ -14809,6 +14906,7 @@ async function battleStart(){
   const champ=fighters[winner];
   battleSetMessage('🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!',turn>=70?'Won on remaining HP.':'The opponent fainted!');
   battleRecordWinner(fighters,winner);
+  battleSfx('win');
  }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
  finally{battleBusy=false;battleEl('battleStart').disabled=false}
 }
