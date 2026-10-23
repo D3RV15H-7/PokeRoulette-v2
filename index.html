@@ -3563,6 +3563,15 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-speed-option{padding:0!important;border-radius:8px!important}
 #battleModal .battle-speed-art{width:100%!important;height:100%!important;object-fit:cover!important;transform:scale(1.5);border-radius:0!important;pointer-events:none}
 #battleModal .battle-speed-option{isolation:isolate}
+</style><style>
+/* v208: equal four-column roster, with a floating overlay rail */
+#battleOwnedOverlay .battle-owned-dialog{box-sizing:border-box}
+#battleOwnedOverlay .battle-roster-scroll-wrap{width:100%;min-width:0;position:relative}
+#battleOwnedOverlay .battle-roster-scroll-wrap>.battle-owned-grid{box-sizing:border-box;width:100%;padding:0!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;column-gap:7px!important;row-gap:7px!important;align-content:start}
+#battleOwnedOverlay .battle-owned-choice{box-sizing:border-box;width:100%;min-width:0;overflow:hidden;justify-content:flex-start}
+#battleOwnedOverlay .battle-roster-slider-wrap{right:0!important;width:25px!important;background:linear-gradient(90deg,transparent,#101a2bb8 50%);border-radius:14px;z-index:8}
+#battleOwnedOverlay #battleRosterSlider{width:22px!important}
+#battleModal .battle-move-canvas{mix-blend-mode:screen}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -14975,100 +14984,68 @@ function battleProjectile(type,from){
  void fx.offsetWidth;fx.classList.add('active');
 }
 
+// v208: move-specific pixel animation engine; all attacks have a visible effect.
 let battleMoveFrame=0;
 function battleNamedMoveEffect(result,from){
- const canvas=battleEl('battleMoveCanvas');
- if(!canvas)return false;
- const move=result.move||'';
- const fire=['flamethrower','fire-blast','ember','heat-wave','flame-burst'];
- const electric=['thunderbolt','thunder','thunder-shock','discharge'];
- const water=['hydro-pump','water-pulse','water-gun','surf'];
- const ice=['ice-beam','blizzard','icy-wind'];
- const style=fire.includes(move)?'flame':electric.includes(move)?'bolt':water.includes(move)?'water':ice.includes(move)?'ice':null;
- if(!style)return false;
+ const canvas=battleEl('battleMoveCanvas');if(!canvas)return false;
+ const arena=canvas.parentElement,rect=arena.getBoundingClientRect();
+ if(rect.width<1||rect.height<1)return false;
  cancelAnimationFrame(battleMoveFrame);
- const arena=canvas.parentElement;
- const rect=arena.getBoundingClientRect();
- canvas.width=Math.max(120,Math.round(rect.width/3));canvas.height=Math.max(100,Math.round(rect.height/3));
- const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
- const W=canvas.width,H=canvas.height;
- const start=from===0?[W*.3,H*.73]:[W*.72,H*.39];
- const end=from===0?[W*.72,H*.39]:[W*.3,H*.73];
- const palettes={
-  flame:['#ffeb72','#ff9d26','#ef5128','#a62b37'],
-  bolt:['#fffce1','#fff476','#f7cb29','#d68c1b'],
-  water:['#d9ffff','#75d8ff','#238de4','#1756b0'],
-  ice:['#ffffff','#d3faff','#83dbef','#70a4dc']
- };
- const seed=(n)=>{const x=Math.sin(n*127.1+move.length*53.3)*43758.5453;return x-Math.floor(x)};
- let startTime=null;
- function draw(t){
-  if(startTime===null)startTime=t;
-  const p=Math.min(1,(t-startTime)/850);
-  ctx.clearRect(0,0,W,H);
-  const dx=end[0]-start[0],dy=end[1]-start[1];
-  const colors=palettes[style];
-  const count=style==='flame'?55:style==='bolt'?15:style==='water'?35:30;
-  for(let k=0;k<count;k++){
-   const trail=style==='bolt'?k/count:seed(k+11)*.36;
-   const q=Math.max(0,Math.min(1,p*1.35-trail));
-   if(q<=0||q>=1)continue;
-   const jitter=style==='bolt'?(seed(k+3)-.5)*28:(seed(k+19)-.5)*(style==='flame'?22:16);
-   const x=start[0]+dx*q+jitter;
-   const y=start[1]+dy*q+(seed(k+29)-.5)*(style==='bolt'?25:17);
-   const size=style==='flame'?3+Math.floor(seed(k+40)*5):style==='bolt'?4:3+Math.floor(seed(k+51)*3);
-   ctx.fillStyle=colors[k%4];
-   if(style==='bolt'){
-    // Zig-zag lightning segments, with bright pixel core.
-    ctx.fillRect(Math.round(x),Math.round(y),size+3,3);
-    ctx.fillRect(Math.round(x+size),Math.round(y-5),3,8);
-   }else if(style==='ice'){
-    ctx.fillRect(Math.round(x),Math.round(y),size,2);
-    ctx.fillRect(Math.round(x+size/2),Math.round(y-size/2),2,size);
-   }else if(style==='water'){
-    ctx.fillRect(Math.round(x),Math.round(y),size,size);
-    ctx.fillStyle='#c7f6ff';ctx.fillRect(Math.round(x+1),Math.round(y),2,2);
-   }else{
-    // A tapered flowing stream of overlapping flame pixels.
-    ctx.fillRect(Math.round(x),Math.round(y),size+4,size);
-    ctx.fillStyle=colors[(k+1)%4];ctx.fillRect(Math.round(x+2),Math.round(y-3),size,3);
-   }
+ const scale=2.5,W=Math.round(rect.width/scale),H=Math.round(rect.height/scale);
+ canvas.width=W;canvas.height=H;
+ const ctx=canvas.getContext('2d');if(!ctx)return false;ctx.imageSmoothingEnabled=false;
+ const type=result.type||'normal',move=(result.move||'').toLowerCase();
+ const palettes={fire:['#ffef8d','#ff9d29','#f44824'],water:['#d9faff','#64d6ff','#247bdb'],electric:['#fff','#ffe75c','#ffab13'],grass:['#e0ffad','#75df5a','#269e51'],ice:['#fff','#b4faff','#69bce8'],psychic:['#ffd4fb','#fa7ce5','#a06cf3'],ghost:['#d3baff','#9570e2','#5c429a'],dark:['#aaa4cb','#6e658c','#39354d'],dragon:['#e7b6ff','#a981fa','#5b55d4'],fighting:['#ffe0b1','#f79c54','#d85b43'],rock:['#eee0b6','#bfa67d','#887253'],ground:['#e9d5a2','#bd9861','#866741'],steel:['#fff','#c1d8df','#7295ac'],bug:['#eaff9c','#a5d54c','#568d3e'],poison:['#f0b7ff','#b66ee6','#7b3ea5'],fairy:['#fff0fb','#ff9bd6','#dc69ad'],flying:['#f3ffff','#a8e6ff','#7bb4dc'],normal:['#fff','#dce7f0','#a6b5c5']};
+ const colors=palettes[type]||palettes.normal;
+ const start=from===0?{x:W*.29,y:H*.75}:{x:W*.76,y:H*.44};
+ const end=from===0?{x:W*.76,y:H*.44}:{x:W*.29,y:H*.75};
+ const seed=n=>{const v=Math.sin(n*127.1+move.length*79.7)*43758.5453;return v-Math.floor(v)};
+ const isBeam=/beam|flamethrower|hydro-pump|water-gun|thunderbolt|solar|pulse|cannon|blast|shock/.test(move);
+ const isSlash=/slash|claw|cut|scratch|blade|chop|swipe|strike|peck|wing-attack|iron-head/.test(move);
+ const isWave=/wave|surf|earthquake|discharge|blizzard|heat-wave|hurricane|explosion/.test(move);
+ const isOrb=/ball|sphere|bomb|shadow|pulse|meteor|seed/.test(move);
+ const duration=(result.special?1020:750)/Math.max(.5,Number(battleSpeed)||1);
+ let initial=null;
+ const box=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))};
+ const line=(x1,y1,x2,y2,thick,c)=>{const dx=x2-x1,dy=y2-y1,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/3));for(let k=0;k<=steps;k++){const t=k/steps;box(x1+dx*t,y1+dy*t,thick,thick,c)}};
+ function frame(now){
+  if(initial===null)initial=now;
+  const t=Math.min(1,(now-initial)/duration),travel=Math.min(1,t*1.4),fade=t>.76?(1-t)/.24:1;
+  ctx.clearRect(0,0,W,H);ctx.globalAlpha=Math.max(0,Math.min(1,fade));
+  const dx=end.x-start.x,dy=end.y-start.y;
+  if(isSlash){
+   const progress=Math.min(1,t*1.7),cx=end.x,cy=end.y;
+   for(let n=0;n<3;n++){const off=(n-1)*13,extent=30*progress;
+    line(cx-extent+off,cy-extent*.65,cx+extent+off,cy+extent*.65,4,colors[n%3]);
+    line(cx-extent+off+2,cy-extent*.65,cx+extent+off+2,cy+extent*.65,2,'#fff');}
+  }else if(isWave){
+   for(let n=0;n<46;n++){const u=n/46,rad=8+u*54*t,angle=u*Math.PI*5+t*8;
+    box(end.x+Math.cos(angle)*rad,end.y+Math.sin(angle)*rad*.45,3+seed(n)*5,3+seed(n+4)*4,colors[n%3]);}
+  }else if(isBeam){
+   const head={x:start.x+dx*travel,y:start.y+dy*travel};
+   for(let n=0;n<5;n++){const off=(n-2)*2.5;line(start.x,start.y+off,head.x,head.y+off,2+n%2,colors[n%3]);}
+   for(let n=0;n<32;n++){const u=seed(n+10)*travel;const x=start.x+dx*u,y=start.y+dy*u;
+    box(x+(seed(n+31)-.5)*18,y+(seed(n+41)-.5)*18,2+seed(n)*4,2+seed(n+1)*4,colors[n%3]);}
+  }else{
+   const cx=start.x+dx*travel,cy=start.y+dy*travel;
+   if(isOrb){for(let n=0;n<18;n++){const a=n*Math.PI*2/18+t*8,r=8+seed(n)*5;box(cx+Math.cos(a)*r,cy+Math.sin(a)*r,4,4,colors[n%3]);}}
+   for(let n=0;n<42;n++){const lag=seed(n+6)*.35,u=Math.max(0,Math.min(1,travel-lag));if(u<=0)continue;
+    const x=start.x+dx*u+(seed(n+30)-.5)*22,y=start.y+dy*u+(seed(n+60)-.5)*22;
+    const size=2+Math.floor(seed(n+90)*6);box(x,y,size,size,colors[n%3]);}
   }
-  if(p<1)battleMoveFrame=requestAnimationFrame(draw);else ctx.clearRect(0,0,W,H);
+  // Distinct impact burst on the defending sprite, after the projectile arrives.
+  if(t>.5){const burst=Math.min(1,(t-.5)*3);for(let n=0;n<24;n++){
+   const a=n*Math.PI*2/24,r=(7+seed(n)*27)*burst;
+   box(end.x+Math.cos(a)*r,end.y+Math.sin(a)*r,3+seed(n+8)*5,3+seed(n+12)*5,colors[n%3]);
+  }}
+  ctx.globalAlpha=1;
+  if(t<1)battleMoveFrame=requestAnimationFrame(frame);else ctx.clearRect(0,0,W,H);
  }
- battleMoveFrame=requestAnimationFrame(draw);
+ battleMoveFrame=requestAnimationFrame(frame);
  return true;
 }
-function battleSpecialEffect(result,from){
- if(battleNamedMoveEffect(result,from))return;
- const layer=battleEl('battleSpecialFx');if(!layer)return;
- layer.replaceChildren();
- const kind=result.type;
- layer.className='battle-special-fx special-'+kind+(from===0?' fx-left':' fx-right');
- // Pixel particles form recognisable fire, electricity, water, ice and other type attacks.
- const palettes={
-  fire:['#fff5a0','#ffb52d','#f05b2a','#bd283b'],electric:['#ffffff','#fff37b','#facc15','#dba400'],
-  water:['#d9faff','#78dcff','#2993e8','#1754b0'],ice:['#ffffff','#b9f4ff','#6ad5ed','#8faaf4'],
-  grass:['#d5ff9a','#76df67','#319f50','#155b3b'],psychic:['#ffb8fb','#ee6edb','#a14be0','#6235aa'],
-  ghost:['#c9b9ff','#9876d7','#6045a5','#322766'],dragon:['#f4aaff','#aa78f7','#6648cb','#37318a']
- };
- const colors=palettes[kind]||['#fff','#e4dc8d','#a9b4cf','#607b9c'];
- const count=kind==='electric'?17:kind==='fire'?28:kind==='water'?19:22;
- for(let n=0;n<count;n++){
-  const px=document.createElement('span');
-  px.className='battle-pixel';
-  px.style.setProperty('--i',n);
-  px.style.setProperty('--x',((n%7)-3)*11+'px');
-  px.style.setProperty('--y',(Math.floor(n/7)-2)*13+'px');
-  px.style.setProperty('--delay',(n%6)*35+'ms');
-  px.style.background=colors[n%colors.length];
-  if(kind==='electric')px.style.clipPath='polygon(38% 0,100% 0,65% 43%,100% 43%,15% 100%,39% 51%,0 51%)';
-  if(kind==='ice')px.style.clipPath='polygon(50% 0,65% 36%,100% 50%,65% 64%,50% 100%,35% 64%,0 50%,35% 36%)';
-  if(kind==='water')px.style.borderRadius='50% 50% 55% 55%';
-  layer.append(px);
- }
- layer.classList.remove('active');void layer.offsetWidth;layer.classList.add('active');
-}
+function battleProjectile(type,from){battleNamedMoveEffect({type,move:'tackle',special:false},from)}
+function battleSpecialEffect(result,from){battleNamedMoveEffect(result,from)}
 function battleSetMessage(first,second=''){
  const log=battleEl('battleLog');if(!log)return;
  log.replaceChildren();
@@ -15211,7 +15188,7 @@ async function battleStart(){
     battleSetMessage(battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!');
     battleSfx('attack',result.type);
     if(result.special)battleSpecialEffect(result,i);
-    else battleProjectile(result.type,i);
+    else battleNamedMoveEffect(result,i);
     await battleSleep(590);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
     battleSfx('hit',result.type,result.effect);
