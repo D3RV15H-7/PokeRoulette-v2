@@ -3606,6 +3606,12 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedOverlay #battleRosterSlider{width:20px!important;max-width:20px!important;pointer-events:auto!important;accent-color:#d4eaf7!important;filter:drop-shadow(0 0 2px #07101d)}
 #battleOwnedOverlay #battleRosterPosition{font-size:10px!important;transform:none!important;color:#c5d9e8!important;text-shadow:0 1px 2px #091323}
 #battleOwnedOverlay .battle-drag-handle{width:52px!important;height:7px!important;z-index:30!important;touch-action:none!important}
+</style><style>/* v212: consistent roster rails and full-range jump */
+#battleOwnedOverlay .battle-roster-slider-wrap{display:flex!important;visibility:visible!important}
+#battleOwnedOverlay #battleRosterSlider:disabled{opacity:.48!important;filter:none!important}
+#battleOwnedOverlay .battle-roster-slider-wrap:has(#battleRosterSlider:disabled){opacity:.58!important}
+#battleOwnedOverlay .battle-owned-dialog{touch-action:pan-y}
+#battleOwnedOverlay .battle-drag-handle{touch-action:none}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -14539,11 +14545,12 @@ function battleRenderOwned(){
  if(!matches.length){grid.textContent='No matching Pokémon found.';return}
  // Large Pokédex lists are rendered in bounded pages to keep iPhone scrolling responsive.
  const sliderWrap=battleEl('battleRosterSliderWrap');const slider=battleEl('battleRosterSlider');
- sliderWrap.hidden=!opponent||matches.length<15;
- const lastStart=opponent?Math.max(0,matches.length-16):0;
+ sliderWrap.hidden=false;
+ slider.disabled=!opponent||matches.length<=20;
+ const lastStart=opponent?Math.max(0,matches.length-20):0;
  slider.max=String(Math.max(1,lastStart+1));
- const start=opponent?Math.min(Math.max(0,battleRosterStart),Math.max(0,matches.length-72)):0;
- if(opponent){slider.value=String(start+1);battleEl('battleRosterPosition').textContent='#'+matches[start].id;}
+ const start=opponent?Math.min(Math.max(0,battleRosterStart),lastStart):0;
+ slider.value=String(start+1);battleEl('battleRosterPosition').textContent=opponent?'#'+matches[start].id:'';
  const shown=opponent?matches.slice(start,start+72):matches;
  for(const p of shown){
   const button=document.createElement('button');button.type='button';button.className='battle-owned-choice';
@@ -14584,42 +14591,44 @@ function battleRenderOwned(){
 }
 
 (function(){
- const handle=document.getElementById('battleOwnedDragHandle');
- if(!handle)return;
- let startY=null, pointerId=null;
- const dialog=handle.closest('.battle-owned-dialog');
- function reset(){startY=null;pointerId=null;dialog.style.transform='';dialog.style.transition='';}
- handle.addEventListener('pointerdown',e=>{
-   if(!e.isPrimary)return;
-   pointerId=e.pointerId;startY=e.clientY;
-   handle.setPointerCapture?.(e.pointerId);
-   dialog.style.transition='none';
-   e.preventDefault();
- });
- handle.addEventListener('pointermove',e=>{
-   if(startY===null||e.pointerId!==pointerId)return;
-   const distance=Math.max(0,e.clientY-startY);
-   dialog.style.transform='translateY('+Math.min(distance,230)+'px)';
-   e.preventDefault();
- });
- function finish(e){
-   if(startY===null||e.pointerId!==pointerId)return;
-   const distance=e.clientY-startY;
-   reset();
-   if(distance>55)battleCloseOwned();
- }
- handle.addEventListener('pointerup',finish);
- handle.addEventListener('pointercancel',reset);
- // iOS Safari fallback when pointer capture is unavailable.
- let touchStart=null;
- handle.addEventListener('touchstart',e=>{touchStart=e.touches[0]?.clientY??null;},{passive:true});
- handle.addEventListener('touchmove',e=>{if(touchStart!==null)e.preventDefault();},{passive:false});
- handle.addEventListener('touchend',e=>{
-   if(touchStart===null)return;
-   const delta=(e.changedTouches[0]?.clientY??touchStart)-touchStart;
-   touchStart=null;
-   if(delta>55){reset();battleCloseOwned();}
+ // Drag the handle or pull down on any non-interactive part of the sheet
+ // when the Pokémon list is already scrolled to the top.
+ const overlay=document.getElementById('battleOwnedOverlay');
+ const dialog=overlay?.querySelector('.battle-owned-dialog');
+ const grid=document.getElementById('battleOwnedGrid');
+ if(!dialog||!grid)return;
+ let initialY=null,initialX=null,dragging=false,startedOnHandle=false;
+ function reset(){initialY=null;initialX=null;dragging=false;startedOnHandle=false;dialog.style.transform='';dialog.style.transition='';}
+ dialog.addEventListener('touchstart',e=>{
+  if(overlay.hidden||e.touches.length!==1)return;
+  const target=e.target;
+  if(target.closest('input,button,.battle-roster-slider-wrap'))return;
+  if(grid.contains(target)&&grid.scrollTop>2)return;
+  startedOnHandle=!!target.closest('.battle-drag-handle');
+  initialY=e.touches[0].clientY;initialX=e.touches[0].clientX;dragging=false;
  },{passive:true});
+ dialog.addEventListener('touchmove',e=>{
+  if(initialY===null||e.touches.length!==1)return;
+  const dy=e.touches[0].clientY-initialY,dx=e.touches[0].clientX-initialX;
+  if(!dragging&&(dy<9||Math.abs(dx)>Math.abs(dy)))return;
+  if(!startedOnHandle&&grid.scrollTop>2){reset();return;}
+  dragging=true;dialog.style.transition='none';dialog.style.transform='translateY('+Math.min(Math.max(0,dy),280)+'px)';
+  e.preventDefault();
+ },{passive:false});
+ dialog.addEventListener('touchend',e=>{
+  if(initialY===null)return;
+  const dy=(e.changedTouches[0]?.clientY??initialY)-initialY;
+  const close=dragging&&dy>75;
+  reset();if(close)battleCloseOwned();
+ },{passive:true});
+ dialog.addEventListener('touchcancel',reset,{passive:true});
+ // Mouse/desktop pointer support for the handle.
+ const handle=document.getElementById('battleOwnedDragHandle');
+ let down=null;
+ handle?.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;down=e.clientY;handle.setPointerCapture?.(e.pointerId);});
+ handle?.addEventListener('pointermove',e=>{if(down===null)return;dialog.style.transform='translateY('+Math.min(Math.max(0,e.clientY-down),280)+'px)';});
+ handle?.addEventListener('pointerup',e=>{if(down===null)return;const close=e.clientY-down>75;down=null;reset();if(close)battleCloseOwned();});
+ handle?.addEventListener('pointercancel',()=>{down=null;reset();});
 })();
 
 let battleRosterStart=0;
