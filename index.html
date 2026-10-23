@@ -3572,6 +3572,22 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedOverlay .battle-roster-slider-wrap{right:0!important;width:25px!important;background:linear-gradient(90deg,transparent,#101a2bb8 50%);border-radius:14px;z-index:8}
 #battleOwnedOverlay #battleRosterSlider{width:22px!important}
 #battleModal .battle-move-canvas{mix-blend-mode:screen}
+</style><style>
+/* v209: fixed-height roster dialog and hidden native scrollbar; retain jump rail. */
+#battleOwnedOverlay .battle-owned-dialog{
+ height:min(75dvh,720px)!important;
+ max-height:min(75dvh,720px)!important;
+ min-height:0!important;
+ overflow:hidden!important;
+}
+#battleOwnedOverlay .battle-roster-scroll-wrap{flex:1 1 0!important;min-height:0!important;overflow:hidden!important}
+#battleOwnedOverlay #battleOwnedGrid{
+ overflow-y:auto!important;
+ scrollbar-width:none!important;
+ -ms-overflow-style:none!important;
+}
+#battleOwnedOverlay #battleOwnedGrid::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+#battleOwnedOverlay .battle-roster-slider-wrap{z-index:9!important}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -14937,16 +14953,17 @@ async function battlePrepareMoves(p){
  // A single signature special attack per Pokémon, chosen from moves it can learn.
  const specials=p.battleMoves.filter(m=>m.category==='special');
  p.signatureMove=specials.sort((a,b)=>(battleMovePriority.indexOf(a.name)<0?999:battleMovePriority.indexOf(a.name)<0? -999:0)||b.power-a.power)[0]||null;
- p.signatureUsed=false;
+ p.lastSignatureAt=-Infinity;
  p.regularMoves=p.battleMoves.filter(m=>m.category!=='special');
  if(!p.regularMoves.length)p.regularMoves=[{name:'tackle',type:'normal',category:'physical',power:40,accuracy:100}];
 
 }
 function battleAttack(attacker,defender){
- const useSignature=!!attacker.signatureMove&&!attacker.signatureUsed&&(Math.random()<.35||attacker.hp<attacker.maxHp*.4);
+ const now=performance.now();
+ const useSignature=!!attacker.signatureMove&&(now-(attacker.lastSignatureAt??-Infinity)>=10000)&&(Math.random()<.55||attacker.hp<attacker.maxHp*.4);
  const candidates=attacker.regularMoves||attacker.battleMoves||[];
  const move=useSignature?attacker.signatureMove:(candidates[Math.floor(Math.random()*candidates.length)]||{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100});
- if(useSignature)attacker.signatureUsed=true;
+ if(useSignature)attacker.lastSignatureAt=now;
  const effect=battleEffectiveness(move.type,defender);
  const attack=attacker.stats[move.category==='special'?'special-attack':'attack'];
  const defense=defender.stats[move.category==='special'?'special-defense':'defense'];
