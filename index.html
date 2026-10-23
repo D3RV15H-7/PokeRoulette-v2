@@ -3598,6 +3598,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-random-both{display:flex!important;align-items:center!important;justify-content:center!important;letter-spacing:-5px!important;padding:0 5px 0 0!important;text-indent:0!important;line-height:1!important}
 #battleOwnedOverlay .battle-owned-dialog{position:relative;padding-top:25px!important}
 #battleOwnedOverlay .battle-drag-handle{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:44px;height:5px;border-radius:6px;background:#5b6b83;touch-action:none;cursor:grab}
+</style><style>
+/* v211: dedicated visible rail beside (not over) the card grid */
+#battleOwnedOverlay .battle-roster-scroll-wrap{padding-right:23px!important;box-sizing:border-box!important;overflow:visible!important}
+#battleOwnedOverlay .battle-roster-scroll-wrap>.battle-owned-grid{width:100%!important;min-width:0!important}
+#battleOwnedOverlay .battle-roster-slider-wrap{right:-1px!important;top:0!important;bottom:0!important;width:20px!important;opacity:.9!important;background:transparent!important;z-index:20!important;pointer-events:none!important}
+#battleOwnedOverlay #battleRosterSlider{width:20px!important;max-width:20px!important;pointer-events:auto!important;accent-color:#d4eaf7!important;filter:drop-shadow(0 0 2px #07101d)}
+#battleOwnedOverlay #battleRosterPosition{font-size:10px!important;transform:none!important;color:#c5d9e8!important;text-shadow:0 1px 2px #091323}
+#battleOwnedOverlay .battle-drag-handle{width:52px!important;height:7px!important;z-index:30!important;touch-action:none!important}
 </style></head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -14578,11 +14586,40 @@ function battleRenderOwned(){
 (function(){
  const handle=document.getElementById('battleOwnedDragHandle');
  if(!handle)return;
- let initialY=null;
- handle.addEventListener('touchstart',e=>{initialY=e.touches[0]?.clientY??null;},{passive:true});
- handle.addEventListener('touchend',e=>{if(initialY!==null&&e.changedTouches[0].clientY-initialY>55)battleCloseOwned();initialY=null;},{passive:true});
- handle.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')initialY=e.clientY;});
- handle.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&initialY!==null&&e.clientY-initialY>55)battleCloseOwned();initialY=null;});
+ let startY=null, pointerId=null;
+ const dialog=handle.closest('.battle-owned-dialog');
+ function reset(){startY=null;pointerId=null;dialog.style.transform='';dialog.style.transition='';}
+ handle.addEventListener('pointerdown',e=>{
+   if(!e.isPrimary)return;
+   pointerId=e.pointerId;startY=e.clientY;
+   handle.setPointerCapture?.(e.pointerId);
+   dialog.style.transition='none';
+   e.preventDefault();
+ });
+ handle.addEventListener('pointermove',e=>{
+   if(startY===null||e.pointerId!==pointerId)return;
+   const distance=Math.max(0,e.clientY-startY);
+   dialog.style.transform='translateY('+Math.min(distance,230)+'px)';
+   e.preventDefault();
+ });
+ function finish(e){
+   if(startY===null||e.pointerId!==pointerId)return;
+   const distance=e.clientY-startY;
+   reset();
+   if(distance>55)battleCloseOwned();
+ }
+ handle.addEventListener('pointerup',finish);
+ handle.addEventListener('pointercancel',reset);
+ // iOS Safari fallback when pointer capture is unavailable.
+ let touchStart=null;
+ handle.addEventListener('touchstart',e=>{touchStart=e.touches[0]?.clientY??null;},{passive:true});
+ handle.addEventListener('touchmove',e=>{if(touchStart!==null)e.preventDefault();},{passive:false});
+ handle.addEventListener('touchend',e=>{
+   if(touchStart===null)return;
+   const delta=(e.changedTouches[0]?.clientY??touchStart)-touchStart;
+   touchStart=null;
+   if(delta>55){reset();battleCloseOwned();}
+ },{passive:true});
 })();
 
 let battleRosterStart=0;
