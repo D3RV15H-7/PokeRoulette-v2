@@ -3631,11 +3631,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModePicker small{display:block;margin-top:8px;font-size:10px;color:#afc3d4;line-height:1.3}
 #battleTeamModeRow{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;color:#a9bdce;font-size:11px;font-weight:800}
 #battleTeamModeRow button{background:transparent;border:1px solid #425871;color:#bfd3e4;border-radius:8px;padding:4px 8px;font:inherit;font-size:10px;cursor:pointer}
-.battle-team-balls{position:absolute;z-index:8;display:flex;flex-wrap:nowrap;align-items:center;gap:5px;width:43%;pointer-events:none}
-#battleTeamBalls1{left:4%;top:25%;justify-content:flex-start}
-#battleTeamBalls0{right:4%;top:73%;justify-content:flex-end}
-.battle-team-ball{position:relative;display:block;flex:0 0 15px;width:15px;height:15px;box-sizing:border-box;border:1px solid #0b1725;border-radius:50%;background:linear-gradient(#f85654 0 44%,#122031 44% 56%,#f4f8fc 56%);box-shadow:0 1px 2px #0009}
-.battle-team-ball:after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:5px;height:5px;box-sizing:border-box;background:#fff;border:1px solid #122031;border-radius:50%}
+.battle-team-balls{position:absolute;z-index:8;display:flex;flex-wrap:nowrap;align-items:center;gap:4px;width:43%;pointer-events:none}
+#battleTeamBalls1{left:4%;top:25%;justify-content:center}
+#battleTeamBalls0{right:4%;top:72%;justify-content:center}
+.battle-team-ball{position:relative;display:block;flex:0 0 12px;width:12px;height:12px;box-sizing:border-box;border:1px solid #0b1725;border-radius:50%;background:linear-gradient(#f85654 0 44%,#122031 44% 56%,#f4f8fc 56%);box-shadow:0 1px 2px #0009}
+.battle-team-ball:after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;box-sizing:border-box;background:#fff;border:1px solid #122031;border-radius:50%}
 .battle-team-ball.is-fainted{filter:grayscale(1);opacity:.32}
 .battle-team-ball.is-active{outline:1px solid #77e8cf;outline-offset:2px;box-shadow:0 0 7px #5be7b9}
 #battleOwnedGrid .battle-owned-choice{position:relative}
@@ -3659,7 +3659,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal button:disabled{cursor:default}
 #battleModal .battle-owned-trigger:disabled,#battleModal .battle-random:disabled,#battleRandomBoth:disabled{opacity:.5}
 #battleStart:disabled{opacity:.58}
-@media(max-width:360px){.battle-team-balls{gap:4px}.battle-team-ball{flex-basis:13px;width:13px;height:13px}}
+@media(max-width:360px){.battle-team-balls{gap:4px}.battle-team-ball{flex-basis:11px;width:11px;height:11px}}
 </style>
 <style>
 /* v218: keep Randomise Both aligned with the side buttons as team controls appear. */
@@ -14607,7 +14607,6 @@ function battleRecordDeltas(fighters,field){
 function battleRecordDelta(p,field){battleRecordDeltas([p],field);}
 function battleRecordStart(fighters){battleRecordDeltas(fighters,'battles');}
 function battleRecordWinner(fighters,winner){if(fighters[winner])battleRecordDeltas([fighters[winner]],'wins');}
-function battleRecordTeamWinner(team){battleRecordDeltas(team,'wins');}
 function battleRenderLeaderboard(){
  if(!battleEl('battleLeaderboard'))return;
  const entries=Object.entries(battleWins()).sort((a,b)=>b[1].wins-a[1].wins||Number(a[0])-Number(b[0])).slice(0,10);
@@ -15629,10 +15628,14 @@ async function battleStart(){
   // Reuse the move cache and limit concurrent move preparation to two Pokémon.
   for(let i=0;i<roster.length;i+=2){await Promise.all(roster.slice(i,i+2).map(battlePrepareMoves));if(token!==battleRun)return;}
   battleTeams.forEach((team,slot)=>{battleSetActiveTeamInput(slot,team[0]);battlePaint(team[0],slot);});
-  battleRenderTeamIndicators();battleRecordStart(roster);battleSfx('start');await battleSleep(650);
-  let turns=0;
+  battleRenderTeamIndicators();battleSfx('start');await battleSleep(650);
+  let turns=0,lastPair='';
   while(battleTeams.every((team,slot)=>battleTeamActive[slot]<team.length)&&token===battleRun){
    const fighters=battleTeams.map((team,slot)=>team[battleTeamActive[slot]]);
+   // Count a new individual matchup only when the active pair changes.
+   // A survivor facing three opponents therefore has three battles, not one.
+   const pair=battleTeamActive.join(':');
+   if(pair!==lastPair){battleRecordStart(fighters);lastPair=pair;}
    const speeds=fighters.map(p=>p.stats.speed);
    const first=speeds[0]===speeds[1]?(Math.random()<.5?0:1):(speeds[0]>speeds[1]?0:1);
    let switched=false;
@@ -15653,14 +15656,14 @@ async function battleStart(){
     battleSetMessage(result.missed?battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage!',
      result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':'');
     await battleSleep(820);battleEl('battleFighter'+(1-side)).classList.remove('hit');
-    if(defender.hp<=0){await battleTeamFaint(1-side);switched=true;turns=0;break;}
+    if(defender.hp<=0){battleRecordWinner(fighters,side);await battleTeamFaint(1-side);switched=true;turns=0;break;}
    }
    if(!switched&&++turns>=70){
     // Resolve immunity/stalemate pairs so every team battle can finish.
     const ratios=fighters.map(p=>p.hp/p.maxHp);
     const loser=ratios[0]===ratios[1]?(Math.random()<.5?0:1):(ratios[0]<ratios[1]?0:1);
     battleSetMessage(battleDisplayName(fighters[1-loser].name)+' wins this round on remaining HP.');await battleSleep(800);
-    await battleTeamFaint(loser);turns=0;
+    battleRecordWinner(fighters,1-loser);await battleTeamFaint(loser);turns=0;
    }
   }
   if(token!==battleRun)return;
@@ -15669,8 +15672,7 @@ async function battleStart(){
   const champ=battleTeams[winner][battleTeamActive[winner]];
   battleSetMessage(battleTeamSize===1?'🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!':winner===0?'🏆 YOUR TEAM WINS!':'🏆 OPPONENT TEAM WINS!',
    battleTeamSize===1?'The opponent fainted!':survivors+' Pokémon remaining.');
-  // One match per selected Pokémon; every member of the winning team earns a win.
-  battleRecordTeamWinner(battleTeams[winner]);
+  // Individual wins were recorded at each knockout; no extra team-victory win.
   battleSfx('win');
  }catch(err){battleSetMessage(err.message||'Battle could not start. Try again.');}
  finally{
