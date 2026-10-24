@@ -3478,6 +3478,8 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 
 /* Small autoplay control for the main card variations strip. */
 #pokeCard .tcg-strip-stage { position: relative; min-width: 0; }
+/* Snapping cancels the small per-frame movements used during playback. */
+#pokeCard .tcg-scroll-strip.is-autoplaying { scroll-snap-type: none; scroll-behavior: auto; }
 #pokeCard .tcg-autoplay-btn { position:absolute; right:0.45rem; bottom:0.55rem; z-index:5; display:flex; align-items:center; justify-content:center; width:29px; height:29px; padding:0; border:1px solid rgba(180,204,228,.72); border-radius:50%; background:rgba(12,25,45,.86); color:#e8f8ff; font-size:13px; line-height:1; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.4); -webkit-tap-highlight-color:transparent; }
 #pokeCard .tcg-autoplay-btn.is-playing { color:#37e0ca; border-color:#37e0ca; }
 #pokeCard .tcg-autoplay-btn:disabled { opacity:.35; cursor:default; }
@@ -12282,6 +12284,7 @@ function stopTcgAutoplay() {
   tcgAutoplayActive = false;
   if (tcgAutoplayFrame) cancelAnimationFrame(tcgAutoplayFrame);
   tcgAutoplayFrame = 0; tcgAutoplayLastTime = 0;
+  document.getElementById('tcgStrip')?.classList.remove('is-autoplaying');
   const btn = document.getElementById('tcgAutoplayBtn');
   if (btn) { btn.classList.remove('is-playing'); btn.setAttribute('aria-label','Automatically scroll card variations'); btn.title='Play card slideshow'; }
   const icon = document.getElementById('tcgAutoplayIcon');
@@ -12292,6 +12295,10 @@ function toggleTcgAutoplay() {
   const strip = document.getElementById('tcgStrip');
   if (!strip || strip.scrollWidth <= strip.clientWidth + 3) return;
   tcgAutoplayActive = true; tcgAutoplayLastTime = 0;
+  strip.classList.add('is-autoplaying');
+  // Keep fractional progress independent of scrollLeft: browsers may round it
+  // to whole pixels, especially at 120 Hz where each step is below one pixel.
+  let position = Math.max(0, strip.scrollLeft);
   const btn = document.getElementById('tcgAutoplayBtn');
   if (btn) { btn.classList.add('is-playing'); btn.setAttribute('aria-label','Pause card slideshow'); btn.title='Pause card slideshow'; }
   const icon = document.getElementById('tcgAutoplayIcon');
@@ -12301,8 +12308,10 @@ function toggleTcgAutoplay() {
     if (tcgAutoplayLastTime) {
       const elapsed = Math.min(time - tcgAutoplayLastTime, 70);
       const end = strip.scrollWidth - strip.clientWidth;
-      if (strip.scrollLeft >= end - 2) strip.scrollLeft = 0;
-      else strip.scrollLeft = Math.min(end, strip.scrollLeft + elapsed * 0.022);
+      if (end <= 3) { stopTcgAutoplay(); return; }
+      if (position >= end - 2) position = 0;
+      else position = Math.min(end, position + elapsed * 0.022);
+      strip.scrollLeft = position;
     }
     tcgAutoplayLastTime = time;
     tcgAutoplayFrame = requestAnimationFrame(step);
