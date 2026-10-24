@@ -3620,7 +3620,48 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleOwnedOverlay .battle-roster-slider-wrap:has(#battleRosterSlider:disabled){opacity:.58!important}
 #battleOwnedOverlay .battle-owned-dialog{touch-action:pan-y}
 #battleOwnedOverlay .battle-drag-handle{touch-action:none}
-</style></head>
+</style><style>
+/* v217: team-size picker, team Pokéballs and ordered multi-selection. */
+#battleModePicker{position:absolute;z-index:15;left:50%;top:48%;transform:translate(-50%,-50%);width:min(225px,76%);padding:13px 12px;border:2px solid #6c9eae;border-radius:15px;background:#101d30f5;box-shadow:0 7px 25px #0008;text-align:center;color:#f2f7ff;box-sizing:border-box}
+#battleModePicker[hidden],#battleTeamModeRow[hidden],.battle-team-balls[hidden],#battleTeamPickerFooter[hidden],#battleTeamConfirm[hidden]{display:none!important}
+#battleModePicker strong{display:block;font-size:13px;margin-bottom:9px}
+.battle-team-size-options{display:flex;gap:7px;justify-content:center}
+.battle-team-size-options button{flex:1;min-width:0;border:1px solid #637b94;background:#23334c;color:#e9f4ff;border-radius:9px;padding:8px 3px;font:inherit;font-size:13px;font-weight:850;cursor:pointer}
+.battle-team-size-options button.selected{background:#13624e;border-color:#43dfad;box-shadow:inset 0 0 0 1px #43dfad;color:#fff}
+#battleModePicker small{display:block;margin-top:8px;font-size:10px;color:#afc3d4;line-height:1.3}
+#battleTeamModeRow{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;color:#a9bdce;font-size:11px;font-weight:800}
+#battleTeamModeRow button{background:transparent;border:1px solid #425871;color:#bfd3e4;border-radius:8px;padding:4px 8px;font:inherit;font-size:10px;cursor:pointer}
+.battle-team-balls{position:absolute;z-index:8;display:flex;flex-wrap:nowrap;align-items:center;gap:5px;width:43%;pointer-events:none}
+#battleTeamBalls1{left:4%;top:25%;justify-content:flex-start}
+#battleTeamBalls0{right:4%;top:73%;justify-content:flex-end}
+.battle-team-ball{position:relative;display:block;flex:0 0 15px;width:15px;height:15px;box-sizing:border-box;border:1px solid #0b1725;border-radius:50%;background:linear-gradient(#f85654 0 44%,#122031 44% 56%,#f4f8fc 56%);box-shadow:0 1px 2px #0009}
+.battle-team-ball:after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:5px;height:5px;box-sizing:border-box;background:#fff;border:1px solid #122031;border-radius:50%}
+.battle-team-ball.is-fainted{filter:grayscale(1);opacity:.32}
+.battle-team-ball.is-active{outline:1px solid #77e8cf;outline-offset:2px;box-shadow:0 0 7px #5be7b9}
+#battleOwnedGrid .battle-owned-choice{position:relative}
+#battleOwnedGrid .battle-owned-choice.team-selected{border-color:#36dca3!important;box-shadow:inset 0 0 0 1px #36dca3;background:#153a34!important}
+.battle-team-tick{display:none;position:absolute;right:2px;top:2px;border:1px solid #8ff5cd;border-radius:8px;background:#119664;color:white;padding:1px 4px;font-size:10px;font-weight:900;line-height:15px;z-index:2}
+.team-selected .battle-team-tick{display:block}
+#battleTeamPickerFooter{flex:0 0 auto;border-top:1px solid #41546b;padding-top:9px}
+#battleTeamPickerFooter .battle-team-picker-controls{display:flex;gap:8px;align-items:center}
+#battleTeamSelectionCount{font-size:12px;font-weight:800;color:#9be7ca;flex:1}
+#battleTeamPickerFooter button,.battle-team-confirm-card button{border:1px solid #6c829a;border-radius:9px;background:#26394e;color:#fff;padding:9px 14px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+#battleTeamDraftReady,#battleTeamConfirmReady{background:#14654d!important;border-color:#3cddaa!important}
+#battleTeamPickerFooter button:disabled,.battle-team-confirm-card button:disabled{opacity:.4;cursor:default}
+#battleTeamPickerStatus{font-size:11px;color:#ffc66d;min-height:0;margin-top:5px;line-height:1.3}
+#battleTeamPickerStatus:empty{display:none}
+#battleTeamConfirm{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:#06101edb;border-radius:16px;padding:16px;box-sizing:border-box}
+.battle-team-confirm-card{width:100%;max-width:310px;max-height:100%;overflow-y:auto;padding:18px;border:2px solid #618f9b;border-radius:15px;background:#152337;box-shadow:0 12px 35px #0008;box-sizing:border-box}
+.battle-team-confirm-card h4{font-size:16px;margin:0 0 8px;color:#eff8ff}
+.battle-team-confirm-card p{font-size:12px;color:#b9cfdf;line-height:1.4;margin:0 0 8px}
+#battleTeamConfirmList{margin:8px 0 14px;padding-left:24px;font-size:13px;line-height:1.7;color:#c9f5e5;max-height:32dvh;overflow:auto}
+.battle-team-confirm-actions{display:flex;justify-content:flex-end;gap:9px}
+#battleModal button:disabled{cursor:default}
+#battleModal .battle-owned-trigger:disabled,#battleModal .battle-random:disabled,#battleRandomBoth:disabled{opacity:.5}
+#battleStart:disabled{opacity:.58}
+@media(max-width:360px){.battle-team-balls{gap:4px}.battle-team-ball{flex-basis:13px;width:13px;height:13px}}
+</style>
+</head>
 <body data-app-build="v175">
 <div class="viewport">
   <header id="appRefreshHandle">
@@ -3816,6 +3857,16 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   <div class="modal-body battle-body" onclick="event.stopPropagation()">
     <div class="modal-head"><h3 style="font-size:1.15rem;font-weight:900"><span id="battleHeaderIcon" aria-hidden="true"></span> Pokémon Battle</h3><button type="button" id="battleSoundToggle" class="battle-sound-toggle" onclick="battleToggleSound()" aria-label="Mute battle sounds" title="Toggle battle sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path class="battle-sound-wave" d="M15 9a4 4 0 0 1 0 6"/><path class="battle-sound-wave" d="M18 6a8 8 0 0 1 0 12"/></svg></button><button class="btn-header-action" onclick="closeModal(null,'battleModal')">✕</button></div>
     <div class="battle-arena" aria-label="Pokémon battle arena">
+      <div id="battleModePicker" role="group" aria-label="Battle size">
+        <strong>Choose your battle</strong>
+        <div class="battle-team-size-options" role="radiogroup" aria-label="Pokémon per team" onkeydown="battleTeamSizeKeydown(event)">
+          <button type="button" data-battle-team-size="1" role="radio" aria-checked="true" class="selected" onclick="battleSetTeamSize(1)">1v1</button>
+          <button type="button" data-battle-team-size="3" role="radio" aria-checked="false" onclick="battleSetTeamSize(3)">3v3</button>
+          <button type="button" data-battle-team-size="6" role="radio" aria-checked="false" onclick="battleSetTeamSize(6)">6v6</button>
+        </div><small>Choose a size, then select both teams below.</small>
+      </div>
+      <div id="battleTeamBalls1" class="battle-team-balls" role="group" aria-label="Opponent team" hidden></div>
+      <div id="battleTeamBalls0" class="battle-team-balls" role="group" aria-label="Your team" hidden></div>
       <div class="battle-pixel-sky" aria-hidden="true"></div>
       <div class="battle-pixel-hills" aria-hidden="true"></div>
       <div class="battle-ground battle-ground-back" aria-hidden="true"></div>
@@ -3826,6 +3877,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
     </div>
     <div class="battle-panel battle-log" id="battleLog" role="status" aria-live="polite">Select one of your collected Pokémon and choose an opponent to begin.</div>
     <div class="battle-panel">
+      <div id="battleTeamModeRow" hidden><span id="battleTeamModeLabel">1v1</span><button type="button" id="battleResetTeams" onclick="battleResetTeams()">Reset teams</button></div>
       <div class="battle-choices">
         <div class="battle-pick"><label for="battleChooseOwned">YOUR POKÉMON</label><input id="battlePick1" type="hidden"><button type="button" id="battleChooseOwned" class="battle-owned-trigger" onclick="battleOpenOwned()">Choose Pokémon</button><button class="battle-random" onclick="battleRandomiseOne(0)">🎲 Randomise</button></div>
         <div class="battle-pick"><label for="battleChooseOpponent">OPPONENT</label><input id="battlePick2" type="hidden" autocomplete="off"><button type="button" id="battleChooseOpponent" class="battle-owned-trigger" onclick="battleOpenOpponent()">Choose Pokémon</button><div class="battle-suggest" id="battleSuggest2"></div><button class="battle-random" onclick="battleRandomiseOne(1)">🎲 Randomise</button></div>
@@ -3844,6 +3896,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   <input id="battleOwnedSearch" placeholder="Search your collected Pokémon" autocomplete="off" oninput="battleRenderOwned()">
   <div id="battleOwnedCount" class="battle-owned-count"></div>
   <div class="battle-roster-scroll-wrap"><div id="battleOwnedGrid" class="battle-owned-grid"></div><div id="battleRosterSliderWrap" class="battle-roster-slider-wrap" hidden><input type="range" id="battleRosterSlider" min="1" max="1025" value="1" step="1" aria-label="Jump to Pokémon Pokédex number" oninput="battleRosterJump(this.value)"><span id="battleRosterPosition">#1</span></div></div>
+  <div id="battleTeamPickerFooter" hidden>
+   <div class="battle-team-picker-controls"><span id="battleTeamSelectionCount" role="status" aria-live="polite">0 / 1 selected</span><button type="button" onclick="battleCloseOwned()">Cancel</button><button type="button" id="battleTeamDraftReady" onclick="battleShowTeamConfirmation()" disabled>Ready</button></div>
+   <div id="battleTeamPickerStatus" role="status" aria-live="polite"></div>
+  </div>
+  <div id="battleTeamConfirm" hidden onkeydown="battleTeamConfirmKeydown(event)" role="alertdialog" aria-modal="true" aria-labelledby="battleTeamConfirmTitle" aria-describedby="battleTeamConfirmDescription">
+   <div class="battle-team-confirm-card"><h4 id="battleTeamConfirmTitle">Your team ready?</h4><p id="battleTeamConfirmDescription">Your Pokémon enter in this order.</p><ol id="battleTeamConfirmList"></ol><div class="battle-team-confirm-actions"><button type="button" id="battleTeamConfirmCancel" onclick="battleCancelTeamConfirmation()">Cancel</button><button type="button" id="battleTeamConfirmReady" onclick="battleConfirmTeam()">Ready</button></div></div>
+  </div>
  </div>
 </div>
 <div class="tcg-zoom-modal" id="tcgZoomModal" onclick="closeTcgZoom()">
@@ -14512,25 +14571,36 @@ async function battleInitAccountStats(uid){
   if(currentUser?.uid===uid){battleStatsReady=true;battlePersistStats()}
  }
 }
-function battleRecordDelta(p,field){
- const id=String(Number(p.id));if(!/^\d+$/.test(id))return;
- const owner=battleStatsCurrentOwner();
- const records=battleWins(),old=records[id]||{name:p.name,battles:0,wins:0};
- records[id]={...old,name:p.name,[field]:(Number(old[field])||0)+1};
+let battleStatsWriteQueue=Promise.resolve();
+function battleRecordDeltas(fighters,field){
+ const changes=new Map();
+ for(const p of fighters){
+  const id=String(Number(p.id));if(!/^\d+$/.test(id))continue;
+  const previous=changes.get(id);changes.set(id,{name:p.name,count:(previous?.count||0)+1});
+ }
+ if(!changes.size)return;
+ const owner=battleStatsCurrentOwner(),records=battleWins();
+ for(const [id,change] of changes){
+  const old=records[id]||{name:change.name,battles:0,wins:0};
+  records[id]={...old,name:change.name,[field]:(Number(old[field])||0)+change.count};
+ }
  battlePersistStats();
  if(owner==='guest'||!db)return;
  const ref=battleStatsCloudRef(owner);
- // Firestore transaction prevents lost increments across multiple devices.
- db.runTransaction(async tx=>{
-  const snap=await tx.get(ref);
-  const cloud=battleNormaliseStats(snap.data()?.battleStats);
-  const previous=cloud[id]||{name:p.name,battles:0,wins:0};
-  cloud[id]={...previous,name:p.name,[field]:(Number(previous[field])||0)+1};
+ // Team changes share one transaction; serialize match-start and result writes.
+ battleStatsWriteQueue=battleStatsWriteQueue.then(()=>db.runTransaction(async tx=>{
+  const snap=await tx.get(ref),cloud=battleNormaliseStats(snap.data()?.battleStats);
+  for(const [id,change] of changes){
+   const old=cloud[id]||{name:change.name,battles:0,wins:0};
+   cloud[id]={...old,name:change.name,[field]:(Number(old[field])||0)+change.count};
+  }
   tx.set(ref,{battleStats:cloud,battleStatsUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
- }).catch(err=>console.warn('Battle stat cloud save failed; saved locally',err));
+ })).catch(err=>console.warn('Battle stat cloud save failed; saved locally',err));
 }
-function battleRecordStart(fighters){for(const p of fighters)battleRecordDelta(p,'battles')}
-function battleRecordWinner(fighters,winner){if(fighters[winner])battleRecordDelta(fighters[winner],'wins')}
+function battleRecordDelta(p,field){battleRecordDeltas([p],field);}
+function battleRecordStart(fighters){battleRecordDeltas(fighters,'battles');}
+function battleRecordWinner(fighters,winner){if(fighters[winner])battleRecordDeltas([fighters[winner]],'wins');}
+function battleRecordTeamWinner(team){battleRecordDeltas(team,'wins');}
 function battleRenderLeaderboard(){
  if(!battleEl('battleLeaderboard'))return;
  const entries=Object.entries(battleWins()).sort((a,b)=>b[1].wins-a[1].wins||Number(a[0])-Number(b[0])).slice(0,10);
@@ -14565,36 +14635,37 @@ function battleOwnedEntries(){
 }
 let battleOwnedMode='select';
 function battleOpenOwned(){
- if(battleBusy)return;
- battleOwnedMode='select';
+ if(battleBusy||battleRandomising)return;
+ battleOwnedMode='select';battleRosterStart=0;battleBeginTeamDraft(0);
  battleEl('battleOwnedSearch').placeholder='Search your collected Pokémon';
- battleEl('battleOwnedTitle').textContent='Your Dex Pokémon';
- battleEl('battleOwnedOverlay').hidden=false;
- battleEl('battleOwnedSearch').value='';
- battleRenderOwned();
+ battleEl('battleOwnedTitle').textContent=battleTeamSize===1?'Your Dex Pokémon':'Choose your '+battleTeamSize+' Pokémon';
+ battleEl('battleOwnedOverlay').hidden=false;battleEl('battleOwnedSearch').value='';
+ battleRenderOwned();battleRefreshDraftUI();
+ if(battleOwnedEntries().length<battleTeamSize)battleEl('battleTeamPickerStatus').textContent='You need at least '+battleTeamSize+' collected Pokémon for this battle size.';
 }
 async function battleOpenOpponent(){
  if(battleBusy||battleRandomising)return;
- battleOwnedMode='opponent';battleRosterStart=0;
- battleEl('battleOwnedTitle').textContent='Choose Opponent Pokémon';
+ battleOwnedMode='opponent';battleRosterStart=0;battleBeginTeamDraft(1);
+ battleEl('battleOwnedTitle').textContent=battleTeamSize===1?'Choose Opponent Pokémon':'Choose '+battleTeamSize+' opponent Pokémon';
  battleEl('battleOwnedSearch').placeholder='Search Pokémon by name';
- battleEl('battleOwnedOverlay').hidden=false;
- battleEl('battleOwnedSearch').value='';
- battleRenderOwned();
+ battleEl('battleOwnedOverlay').hidden=false;battleEl('battleOwnedSearch').value='';
+ battleRenderOwned();battleRefreshDraftUI();
  await battleLoadSpecies();
- if(battleOwnedMode==='opponent'&&!battleEl('battleOwnedOverlay').hidden)battleRenderOwned();
+ if(battleOwnedMode==='opponent'&&!battleEl('battleOwnedOverlay').hidden){battleRenderOwned();battleRefreshDraftUI();}
 }
 function battleOpenRecord(){
- if(battleBusy)return;
- battleOwnedMode='record';
- battleEl('battleOwnedTitle').textContent='Battle Record';
- battleEl('battleOwnedOverlay').hidden=false;
- battleEl('battleOwnedSearch').value='';
- battleRenderOwned();
+ if(battleBusy||battleRandomising)return;
+ battleTeamDraft=null;battleOwnedMode='record';battleEl('battleTeamPickerFooter').hidden=true;battleEl('battleTeamConfirm').hidden=true;
+ battleEl('battleOwnedTitle').textContent='Battle Record';battleEl('battleOwnedSearch').placeholder='Search your collected Pokémon';
+ battleEl('battleOwnedOverlay').hidden=false;battleEl('battleOwnedSearch').value='';battleRenderOwned();
 }
-function battleCloseOwned(){battleEl('battleOwnedOverlay').hidden=true}
+function battleCloseOwned(){
+ if(battleRandomising)return;
+ battleTeamDraft=null;battleEl('battleTeamConfirm').hidden=true;battleEl('battleOwnedOverlay').hidden=true;
+}
 function battleRenderOwned(){
  const opponent=battleOwnedMode==='opponent';
+ if(battleOwnedMode!=='record')battleRefreshDraftUI();
  const all=opponent?battleOpponentEntries():battleOwnedEntries();
  const q=battleEl('battleOwnedSearch').value.trim().toLowerCase();
  if(q&&opponent)battleRosterStart=0;
@@ -14630,14 +14701,14 @@ function battleRenderOwned(){
    button.append(nameLabel,img,resultRow);button.disabled=true;
   }else{
    button.append(nameLabel,img);
-   button.addEventListener('click',()=>opponent?battleSelectOpponentFromGrid(p,button):battleSelectOwned(p,button));
+   battleBindTeamChoice(button,p,opponent?1:0);
   }
   grid.append(button);
  }
  if(opponent&&matches.length>shown.length){
   let cursor=start+shown.length;
   let firstLoaded=start;
-  const appendMore=()=>{if(!grid.isConnected||battleOwnedMode!=='opponent')return;const end=Math.min(cursor+72,matches.length);for(let i=cursor;i<end;i++){const p=matches[i];const btn=document.createElement('button');btn.type='button';btn.className='battle-owned-choice';const label=document.createElement('span');label.className='battle-owned-name';label.textContent=battleDisplayName(p.name);const img=document.createElement('img');img.alt=label.textContent;img.loading='lazy';img.decoding='async';img.src=p.sprite||('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+p.id+'.png');btn.append(label,img);btn.addEventListener('click',()=>battleSelectOpponentFromGrid(p,btn));grid.append(btn);}cursor=end;};
+  const appendMore=()=>{if(!grid.isConnected||battleOwnedMode!=='opponent')return;const end=Math.min(cursor+72,matches.length);for(let i=cursor;i<end;i++){const p=matches[i];const btn=document.createElement('button');btn.type='button';btn.className='battle-owned-choice';const label=document.createElement('span');label.className='battle-owned-name';label.textContent=battleDisplayName(p.name);const img=document.createElement('img');img.alt=label.textContent;img.loading='lazy';img.decoding='async';img.src=p.sprite||('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+p.id+'.png');btn.append(label,img);battleBindTeamChoice(btn,p,1);grid.append(btn);}cursor=end;};
   grid.onscroll=()=>{
    if(grid.scrollTop<90&&firstLoaded>0){
     const previous=Math.max(0,firstLoaded-48),before=grid.scrollHeight;
@@ -14646,7 +14717,7 @@ function battleRenderOwned(){
      const p=matches[i],btn=document.createElement('button');btn.type='button';btn.className='battle-owned-choice';
      const label=document.createElement('span');label.className='battle-owned-name';label.textContent=battleDisplayName(p.name);
      const img=document.createElement('img');img.alt=label.textContent;img.loading='lazy';img.decoding='async';img.src=p.sprite||('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+p.id+'.png');
-     btn.append(label,img);btn.addEventListener('click',()=>battleSelectOpponentFromGrid(p,btn));fragment.append(btn);
+     btn.append(label,img);battleBindTeamChoice(btn,p,1);fragment.append(btn);
     }
     grid.prepend(fragment);firstLoaded=previous;grid.scrollTop+=grid.scrollHeight-before;
    }
@@ -14709,25 +14780,239 @@ function battleOpponentEntries(){
   return {id:id||normalized,name:String(name),sprite:id?battlePixelFallback(id):''};
  }).filter(p=>p.name&&Number.isInteger(p.id)).sort((a,b)=>a.id-b.id);
 }
-async function battleSelectOpponentFromGrid(p,source){
- const r=source.getBoundingClientRect();const origin={x:r.left+r.width/2,y:r.top+r.height/2};
- battleCloseOwned();
- battleEl('battleChooseOpponent').textContent=battleDisplayName(p.name);
- await battleChooseOpponent(p.name,origin,1);
-}
-async function battleSelectOwned(p,source=null){
- if(!memCol.has(p.id)&&!memCol.has(String(p.id)))return;
- const origin=source?(()=>{const r=source.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})():null;
- battleEl('battlePick1').value=String(p.id);
- battleEl('battleChooseOwned').textContent=battleDisplayName(p.name);
- battleCloseOwned();
- await battlePreview(0);
- if(origin){battleAudioUnlock();await battleRandomReveal(0,origin)}
-}
+async function battleSelectOpponentFromGrid(p,source){battleToggleTeamChoice(p,1,source);}
+async function battleSelectOwned(p,source=null){battleToggleTeamChoice(p,0,source);}
 // v196: sequential Poké Ball entrance for random selections.
 let battleRandomising=false;
+// Team battles: committed teams are separate from the current picker draft.
+let battleTeamSize=1;
+let battleTeams=[[],[]];
+let battleTeamActive=[0,0];
+let battleTeamDraft=null;
+function battleTeamOrigin(source){
+ if(source&&typeof source.getBoundingClientRect==='function'){
+  const r=source.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};
+ }
+ return source&&Number.isFinite(source.x)?source:null;
+}
+function battleSyncTeamUI(){
+ const selected=battleTeams.some(team=>team.length);
+ const picker=battleEl('battleModePicker');if(picker)picker.hidden=selected;
+ const modeRow=battleEl('battleTeamModeRow');if(modeRow)modeRow.hidden=!selected;
+ const label=battleEl('battleTeamModeLabel');if(label)label.textContent=battleTeamSize+'v'+battleTeamSize;
+ document.querySelectorAll('[data-battle-team-size]').forEach(btn=>{
+  const active=Number(btn.dataset.battleTeamSize)===battleTeamSize;
+  btn.classList.toggle('selected',active);btn.setAttribute('aria-checked',String(active));btn.tabIndex=active?0:-1;btn.disabled=battleBusy||battleRandomising;
+ });
+ for(let slot=0;slot<2;slot++){
+  const trigger=battleEl(slot===0?'battleChooseOwned':'battleChooseOpponent');
+  if(trigger){const team=battleTeams[slot];trigger.textContent=team.length?(battleTeamSize===1?battleDisplayName(team[0].name):team.length+' Pokémon selected'):(battleTeamSize===1?'Choose Pokémon':'Choose '+battleTeamSize+' Pokémon');trigger.title=team.map(p=>battleDisplayName(p.name)).join(', ');trigger.disabled=battleBusy||battleRandomising;}
+ }
+ document.querySelectorAll('#battleModal .battle-random, #battleRandomBoth, #battleResetTeams').forEach(btn=>btn.disabled=battleBusy||battleRandomising);
+ const start=battleEl('battleStart');if(start)start.disabled=battleBusy||battleRandomising||!battleTeams.every(team=>team.length===battleTeamSize);
+ battleRenderTeamIndicators();
+}
+function battleRenderTeamIndicators(){
+ for(let slot=0;slot<2;slot++){
+  const rail=battleEl('battleTeamBalls'+slot);if(!rail)continue;
+  rail.replaceChildren();rail.hidden=!battleTeams[slot].length;
+  battleTeams[slot].forEach((p,index)=>{
+   const ball=document.createElement('span');ball.className='battle-team-ball';
+   const fainted=p.hp<=0;
+   ball.classList.toggle('is-fainted',fainted);ball.classList.toggle('is-active',!fainted&&index===battleTeamActive[slot]);
+   ball.setAttribute('role','img');ball.setAttribute('aria-label',battleDisplayName(p.name)+(fainted?' — defeated':index===battleTeamActive[slot]?' — active':' — ready'));
+   ball.title=(index+1)+'. '+battleDisplayName(p.name)+(fainted?' (defeated)':'');rail.append(ball);
+  });
+ }
+}
+function battleSetTeamSize(size){
+ if(battleBusy||battleRandomising||![1,3,6].includes(Number(size)))return;
+ if(battleTeams.some(team=>team.length))return;
+ battleTeamSize=Number(size);battleSyncTeamUI();battleUpdateReadyMessage();
+}
+function battleTeamSizeKeydown(event){
+ const keys=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+ if(!keys.includes(event.key)||battleBusy||battleRandomising)return;
+ event.preventDefault();
+ const sizes=[1,3,6],index=sizes.indexOf(battleTeamSize);
+ const next=event.key==='Home'?1:event.key==='End'?6:sizes[(index+(['ArrowRight','ArrowDown'].includes(event.key)?1:2))%3];
+ battleSetTeamSize(next);document.querySelector('[data-battle-team-size="'+battleTeamSize+'"]')?.focus();
+}
+function battleTeamConfirmKeydown(event){
+ if(event.key==='Escape'){event.preventDefault();event.stopPropagation();battleCancelTeamConfirmation();}
+ if(event.key==='Tab'){
+  event.preventDefault();const ready=battleEl('battleTeamConfirmReady'),cancel=battleEl('battleTeamConfirmCancel');
+  (document.activeElement===ready?cancel:ready).focus();
+ }
+}
+function battleResetTeams(){
+ if(battleBusy||battleRandomising)return;
+ battleTeams=[[],[]];battleTeamActive=[0,0];battleTeamDraft=null;
+ for(let i=0;i<2;i++){
+  ++battlePreviewTokens[i];clearTimeout(battlePreviewTimers[i]);
+  const input=battleEl('battlePick'+(i+1));input.value='';delete input.dataset.pokemonKey;
+  battleResetPreview(i);
+ }
+ battleSyncTeamUI();battleUpdateReadyMessage();
+}
+function battleBeginTeamDraft(slot){
+ battleTeamDraft={slot,entries:battleTeams[slot].map(p=>({id:p.speciesId||p.id,name:p.name})),origin:null};
+ battleEl('battleTeamConfirm').hidden=true;battleEl('battleTeamPickerStatus').textContent='';
+ battleEl('battleTeamPickerFooter').hidden=false;
+}
+function battleBindTeamChoice(button,p,slot){
+ button.dataset.teamId=String(p.id);button.setAttribute('aria-pressed','false');
+ const tick=document.createElement('span');tick.className='battle-team-tick';tick.textContent='✓';tick.setAttribute('aria-hidden','true');button.append(tick);
+ button.addEventListener('click',()=>battleToggleTeamChoice(p,slot,button));
+ battlePaintTeamChoice(button);
+}
+function battlePaintTeamChoice(button){
+ const index=battleTeamDraft?.entries.findIndex(p=>String(p.id)===button.dataset.teamId)??-1;
+ button.classList.toggle('team-selected',index>=0);button.setAttribute('aria-pressed',String(index>=0));
+ const tick=button.querySelector('.battle-team-tick');if(tick)tick.textContent=index>=0?'✓ '+(index+1):'✓';
+}
+function battleRefreshDraftUI(){
+ const draft=battleTeamDraft;if(!draft)return;
+ document.querySelectorAll('#battleOwnedGrid [data-team-id]').forEach(battlePaintTeamChoice);
+ battleEl('battleTeamSelectionCount').textContent=draft.entries.length+' / '+battleTeamSize+' selected';
+ battleEl('battleTeamDraftReady').disabled=draft.entries.length!==battleTeamSize||battleRandomising;
+}
+function battleToggleTeamChoice(p,slot,source){
+ const draft=battleTeamDraft;
+ if(battleBusy||battleRandomising||!draft||draft.slot!==slot)return;
+ if(slot===0&&!battleOwnedEntries().some(entry=>Number(entry.id)===Number(p.id)))return;
+ const index=draft.entries.findIndex(entry=>Number(entry.id)===Number(p.id));
+ if(index>=0)draft.entries.splice(index,1);
+ else{
+  if(draft.entries.length>=battleTeamSize){battleEl('battleTeamPickerStatus').textContent='Untick a Pokémon to change your team.';return;}
+  draft.entries.push({id:Number(p.id),name:p.name});
+ }
+ draft.origin=battleTeamOrigin(source);battleEl('battleTeamPickerStatus').textContent='';battleRefreshDraftUI();
+ if(draft.entries.length===battleTeamSize)battleShowTeamConfirmation();
+}
+function battleShowTeamConfirmation(){
+ const draft=battleTeamDraft;if(!draft||draft.entries.length!==battleTeamSize||battleRandomising)return;
+ battleEl('battleTeamConfirmTitle').textContent=draft.slot===0?'Your team ready?':'Opponent team ready?';
+ const summary=battleEl('battleTeamConfirmList');summary.replaceChildren();
+ draft.entries.forEach(p=>{const row=document.createElement('li');row.textContent=battleDisplayName(p.name);summary.append(row)});
+ battleEl('battleTeamConfirm').hidden=false;battleEl('battleTeamConfirmReady').focus();
+}
+function battleCancelTeamConfirmation(){
+ if(battleRandomising)return;
+ battleEl('battleTeamConfirm').hidden=true;
+ battleEl('battleOwnedGrid').querySelector('[aria-pressed="true"]')?.focus();
+}
+function battleValidateTeamEntries(slot,entries){
+ if(entries.length!==battleTeamSize)throw Error('Choose exactly '+battleTeamSize+' Pokémon.');
+ if(new Set(entries.map(p=>String(p.id))).size!==battleTeamSize)throw Error('Choose different Pokémon within each team.');
+ if(slot===0){const owned=new Set(battleOwnedEntries().map(p=>Number(p.id)));if(entries.some(p=>!owned.has(Number(p.id))))throw Error('Your team must use Pokémon in your Dex collection.');}
+}
+async function battleLoadTeam(slot,entries){
+ battleValidateTeamEntries(slot,entries);
+ const loaded=await Promise.all(entries.map(async entry=>({...await battleFetch(String(entry.id)),speciesId:Number(entry.id)})));
+ if(new Set(loaded.map(p=>p.id)).size!==battleTeamSize)throw Error('Choose different Pokémon within each team.');
+ battleValidateTeamEntries(slot,entries); // Collection may have changed while fetching.
+ return loaded.map(p=>({...p,hp:p.maxHp}));
+}
+function battleApplyTeam(slot,team){
+ // Choosing a new team prepares a fresh match on both sides.
+ battleTeams[slot]=team;
+ for(let side=0;side<2;side++){
+  battleTeamActive[side]=0;
+  for(const p of battleTeams[side])p.hp=p.maxHp;
+  const first=battleTeams[side][0];
+  battlePreviewReady[side]=!!first;
+  if(first){battleSetActiveTeamInput(side,first);if(side!==slot)battlePaint(first,side);}
+ }
+ ++battlePreviewTokens[slot];clearTimeout(battlePreviewTimers[slot]);
+ battleSyncTeamUI();battleUpdateReadyMessage();
+}
+function battleSetActiveTeamInput(slot,p){
+ const input=battleEl('battlePick'+(slot+1));input.value=String(p.speciesId||p.id);input.dataset.pokemonKey=String(p.id);
+}
+async function battleSendOut(slot,origin=null){
+ const p=battleTeams[slot][battleTeamActive[slot]];if(!p)return;
+ const img=battleEl('battleImg'+slot);
+ battleSetActiveTeamInput(slot,p);img.style.visibility='hidden';battlePaint(p,slot);battleRenderTeamIndicators();
+ try{
+  if(!battleSkipRequested){
+   const source=origin||battleTeamOrigin(battleEl('battleTeamBalls'+slot))||battleTeamOrigin(battleEl(slot===0?'battleChooseOwned':'battleChooseOpponent'));
+   await battleRandomEntrance(slot,source);
+  }
+ }finally{img.style.visibility='';}
+ if(battleSkipRequested)return;
+ img.classList.remove('battle-random-appear');void img.offsetWidth;img.classList.add('battle-random-appear');
+ setTimeout(()=>img.classList.remove('battle-random-appear'),650);
+ if(battleSoundEnabled){try{const cry=new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${p.id}.ogg`);cry.volume=.55;cry.play().catch(()=>battleSfx('cry'))}catch(_){battleSfx('cry')}}
+ await battleSleep(500);
+}
+async function battleConfirmTeam(){
+ const draft=battleTeamDraft;if(!draft||battleRandomising||battleBusy)return;
+ battleRandomising=true;battleAudioUnlock();battleSyncTeamUI();
+ battleEl('battleTeamConfirmReady').disabled=true;battleEl('battleTeamConfirmCancel').disabled=true;
+ battleEl('battleTeamPickerStatus').textContent='Preparing team…';
+ try{
+  const team=await battleLoadTeam(draft.slot,draft.entries);
+  if(battleTeamDraft!==draft)return;
+  battleApplyTeam(draft.slot,team);
+  battleTeamDraft=null;battleEl('battleOwnedOverlay').hidden=true;battleEl('battleTeamConfirm').hidden=true;
+  await battleSendOut(draft.slot,draft.origin);
+ }catch(err){battleEl('battleTeamConfirm').hidden=true;battleEl('battleTeamPickerStatus').textContent=err.message||'Unable to load team. Please try again.';}
+ finally{
+  battleRandomising=false;battleEl('battleTeamConfirmReady').disabled=false;battleEl('battleTeamConfirmCancel').disabled=false;
+  battleSyncTeamUI();battleRefreshDraftUI();
+ }
+}
+function battleSampleTeam(entries){
+ if(entries.length<battleTeamSize)throw Error('You need at least '+battleTeamSize+' collected Pokémon for '+battleTeamSize+'v'+battleTeamSize+'.');
+ const pool=[...entries];
+ for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+ return pool.slice(0,battleTeamSize);
+}
+async function battleRandomiseOne(slot){
+ if(battleBusy||battleRandomising)return;
+ battleAudioUnlock();battleRandomising=true;battleSyncTeamUI();
+ try{
+  if(slot===1)await battleLoadSpecies();
+  const entries=battleSampleTeam(slot===0?battleOwnedEntries():battleOpponentEntries());
+  const team=await battleLoadTeam(slot,entries);battleApplyTeam(slot,team);
+  await battleSendOut(slot,battleTeamOrigin(document.querySelector('#battleModal .battle-pick:nth-child('+(slot+1)+') .battle-random')));
+ }catch(err){battleSetMessage(err.message||'Unable to select team.');}
+ finally{battleRandomising=false;battleSyncTeamUI();}
+}
+async function battleRandomise(){
+ if(battleBusy||battleRandomising)return;
+ battleAudioUnlock();battleRandomising=true;battleSyncTeamUI();
+ try{
+  const ownEntries=battleSampleTeam(battleOwnedEntries());
+  await battleLoadSpecies();
+  const opponentEntries=battleSampleTeam(battleOpponentEntries());
+  // Prepare both sides before replacing either existing team.
+  const teams=await Promise.all([battleLoadTeam(0,ownEntries),battleLoadTeam(1,opponentEntries)]);
+  battleApplyTeam(0,teams[0]);battleApplyTeam(1,teams[1]);
+  await battleSendOut(0,battleTeamOrigin(battleEl('battleRandomBoth')));
+  await battleSendOut(1,battleTeamOrigin(battleEl('battleRandomBoth')));
+  battleUpdateReadyMessage();
+ }catch(err){battleSetMessage(err.message||'Unable to randomise teams.');}
+ finally{battleRandomising=false;battleSyncTeamUI();}
+}
+async function battleTeamFaint(slot){
+ const p=battleTeams[slot][battleTeamActive[slot]];p.hp=0;
+ battlePaint(p,slot);battleEl('battleFighter'+slot).classList.add('fainted');
+ if(!battleSkipRequested)battleSfx('faint');battleRenderTeamIndicators();
+ battleSetMessage(battleDisplayName(p.name)+' fainted!');await battleSleep(650);
+ battleTeamActive[slot]++;
+ if(battleTeamActive[slot]<battleTeams[slot].length){
+  const next=battleTeams[slot][battleTeamActive[slot]];
+  battleSetMessage((slot===0?'Go, ':'Opponent sent out ')+battleDisplayName(next.name)+'!');
+  await battleSendOut(slot);
+ }
+ battleRenderTeamIndicators();
+}
+
 const battleEntranceWait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function battleRandomEntrance(slot,source){
+ if(battleSkipRequested)return;
  const arena=document.querySelector('#battleModal .battle-arena');
  const platform=battleEl(slot===0?'battleImg0':'battleImg1');
  if(!arena||!platform||!source)return;
@@ -14748,10 +15033,10 @@ async function battleRandomEntrance(slot,source){
    {transform:'translate(-50%,-50%) translate(0,0) rotate(0deg) scale(.65)',offset:0},
    {transform:`translate(-50%,-50%) translate(${dx*.5}px,${dy*.5-65}px) rotate(540deg) scale(1.2)`,offset:.52},
    {transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(1080deg) scale(.7)`,offset:1}
-  ],{duration:650,easing:'ease-in-out',fill:'forwards'});
+  ],{duration:650/(battleBusy?battleSpeed:1),easing:'ease-in-out',fill:'forwards'});
   await anim.finished.catch(()=>{});
   // Fade at the landing point; never let the ball fly upward on removal.
-  const fade=ball.animate([{opacity:1,filter:'brightness(1)'},{opacity:0,filter:'brightness(2)'}],{duration:145,easing:'ease-out',fill:'forwards'});
+  const fade=ball.animate([{opacity:1,filter:'brightness(1)'},{opacity:0,filter:'brightness(2)'}],{duration:145/(battleBusy?battleSpeed:1),easing:'ease-out',fill:'forwards'});
   battleSfx('release');
   await fade.finished.catch(()=>{});
  }finally{ball.remove()}
@@ -14773,58 +15058,7 @@ async function battleRandomReveal(slot,source){
  }catch(_){battleSfx('cry')}
  await battleEntranceWait(750);
 }
-async function battleRandomiseOne(slot){
- if(battleRandomising)return;
- battleAudioUnlock();
- battleRandomising=true;
- try{return await battleRandomiseOneImpl(slot)}finally{battleRandomising=false}
-}
-async function battleRandomiseOneImpl(slot){
- if(battleBusy)return;
- if(slot===0){
-  const owned=battleOwnedEntries();
-  if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
-  const other=battleEl('battlePick2').value.trim().toLowerCase();
-  const choices=owned.filter(p=>String(p.id)!==other&&p.name.toLowerCase()!==other);
-  const button=document.querySelector('#battleModal .battle-pick:first-child .battle-random');
-  await battleSelectOwned((choices.length?choices:owned)[Math.floor(Math.random()*(choices.length||owned.length))]);
-  await battleRandomReveal(0,button);
-  return;
- }
- const input=battleEl('battlePick2'),other=battleEl('battlePick1').value.trim().toLowerCase();
- try{
-  let id=1+Math.floor(Math.random()*TOTAL),name='';
-  for(let tries=0;tries<20;tries++){
-   name=await battleNameFor(id);
-   if(String(id)!==other)break;
-   id=1+Math.floor(Math.random()*TOTAL);
-  }
-  input.value=battleDisplayName(name);delete input.dataset.pokemonKey;
-  battleEl('battleChooseOpponent').textContent=input.value;
-  await battlePreview(1);
-  await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
- }catch(err){battleSetMessage(err.message||'Unable to select opponent.')}
-}
-async function battleRandomise(){
- if(battleBusy||battleRandomising)return;
- battleAudioUnlock();battleRandomising=true;
- const button=battleEl('battleRandomBoth');button.disabled=true;
- try{
-  const owned=battleOwnedEntries();
-  if(!owned.length){battleSetMessage('No collected Pokémon available.','Add a Pokémon to your Dex first.');return}
-  const chosen=owned[Math.floor(Math.random()*owned.length)];
-  await battleSelectOwned(chosen);
-  await battleRandomReveal(0,document.querySelector('#battleModal .battle-pick:first-child .battle-random'));
-  let opponent=1+Math.floor(Math.random()*TOTAL);
-  while(opponent===chosen.id)opponent=1+Math.floor(Math.random()*TOTAL);
-  battleEl('battlePick2').value=battleDisplayName(await battleNameFor(opponent));delete battleEl('battlePick2').dataset.pokemonKey;
-  battleEl('battleChooseOpponent').textContent=battleEl('battlePick2').value;
-  await battlePreview(1);
-  await battleRandomReveal(1,document.querySelector('#battleModal .battle-pick:nth-child(2) .battle-random'));
-  battleSetMessage('Both Pokémon are ready. Press Battle!');
- }catch(err){battleSetMessage(err.message||'Unable to randomise Pokémon.')}
- finally{button.disabled=false;battleRandomising=false}
-}
+
 function battleResolve(value){
  const input=String(value||'').trim().toLowerCase()
   .replace(/[’‘`´]/g,"'").replace(/♀/g,'-f').replace(/♂/g,'-m')
@@ -14907,10 +15141,11 @@ function battleSetSprite(img,id,name='',animatedSprite=''){
 const battlePreviewReady=[false,false];
 function battleUpdateReadyMessage(){
  if(battleBusy)return;
- if(battlePreviewReady[0]&&battlePreviewReady[1])battleSetMessage('Both Pokémon are ready. Press Battle!');
- else if(battlePreviewReady[1])battleSetMessage('Opponent ready. Please choose your Pokémon and press Battle.');
- else if(battlePreviewReady[0])battleSetMessage('Your Pokémon is ready. Please choose an opponent and press Battle.');
- else battleSetMessage('Select one of your collected Pokémon and choose an opponent to begin.');
+ const ready=battleTeams.map(team=>team.length===battleTeamSize);
+ if(ready[0]&&ready[1])battleSetMessage(battleTeamSize===1?'Both Pokémon are ready. Press Battle!':'Both teams are ready. Press Battle!');
+ else if(ready[1])battleSetMessage(battleTeamSize===1?'Opponent ready. Please choose your Pokémon and press Battle.':'Opponent team ready. Please choose your '+battleTeamSize+' Pokémon and press Battle.');
+ else if(ready[0])battleSetMessage(battleTeamSize===1?'Your Pokémon is ready. Please choose an opponent and press Battle.':'Your team is ready. Please choose '+battleTeamSize+' opponent Pokémon and press Battle.');
+ else battleSetMessage(battleTeamSize===1?'Select one of your collected Pokémon and choose an opponent to begin.':'Choose '+battleTeamSize+' Pokémon from your Dex, then '+battleTeamSize+' for the opponent.');
 }
 let battlePreviewTokens=[0,0],battlePreviewTimers=[null,null];
 async function battlePreview(slot){
@@ -14991,7 +15226,7 @@ function battleInitUI(){
   battleResetPreview(i);
  }
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',battleInitUI);else battleInitUI();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{battleInitUI();battleSyncTeamUI()});else{battleInitUI();battleSyncTeamUI();}
 
 let battleSpeciesNames=[];
 let battleSpeciesIds=new Map();
@@ -15374,61 +15609,68 @@ function battleWatchReentry(){
 }
 async function battleStart(){
  battleAudioUnlock();
- if(battleBusy)return;
- if(currentUser&&db&&!battleStatsReady){battleSetMessage('Loading your account battle statistics. Please try again shortly.');return}
- const a=battleEl('battlePick1').value,b=battleEl('battlePick2').dataset.pokemonKey||battleEl('battlePick2').value;
- if(!a.trim()||!b.trim()){battleSetMessage('Choose your Pokémon and an opponent first.');return}
- if(!battleOwnedEntries().some(p=>String(p.id)===a.trim())){battleSetMessage('Your Pokémon must be in your Dex collection.');return}
- battleSkipRequested=false;
- battleBusy=true;const token=++battleRun;battleEl('battleStart').disabled=true;
+ if(battleBusy||battleRandomising)return;
+ if(currentUser&&db&&!battleStatsReady){battleSetMessage('Loading your account battle statistics. Please try again shortly.');return;}
+ if(!battleTeams.every(team=>team.length===battleTeamSize)){battleSetMessage('Choose '+battleTeamSize+' Pokémon for each team first.');return;}
+ try{battleValidateTeamEntries(0,battleTeams[0].map(p=>({id:p.speciesId||p.id})));}catch(err){battleSetMessage(err.message);return;}
+ battleSkipRequested=false;battleBusy=true;const token=++battleRun;battleSyncTeamUI();
  try{
-  battleEl('battleLog').textContent='Preparing your Pokémon…';
-  const fighters=await Promise.all([battleFetch(a),battleFetch(b)]);
-  if(fighters[0].id===fighters[1].id)throw Error('Choose two different Pokémon.');
-  await Promise.all(fighters.map(battlePrepareMoves));
-  fighters.forEach((p,i)=>{p.hp=p.maxHp;battlePaint(p,i)});
-  battleRecordStart(fighters);
-  battleSfx('start');
-  await battleSleep(650);
-  let turn=0;
-  while(fighters.every(p=>p.hp>0)&&turn<70&&token===battleRun){
-   const speed0=fighters[0].stats.speed,speed1=fighters[1].stats.speed;
-   const first=speed0===speed1?(Math.random()<.5?0:1):(speed0>speed1?0:1);
-   for(const i of [first,1-first]){
-    const attacker=fighters[i],defender=fighters[1-i];
+  battleSetMessage(battleTeamSize===1?'Preparing your Pokémon…':'Preparing both teams…');
+  battleTeamActive=[0,0];
+  for(let slot=0;slot<2;slot++)for(const p of battleTeams[slot])p.hp=p.maxHp;
+  const roster=battleTeams.flat();
+  // Reuse the move cache and limit concurrent move preparation to two Pokémon.
+  for(let i=0;i<roster.length;i+=2){await Promise.all(roster.slice(i,i+2).map(battlePrepareMoves));if(token!==battleRun)return;}
+  battleTeams.forEach((team,slot)=>{battleSetActiveTeamInput(slot,team[0]);battlePaint(team[0],slot);});
+  battleRenderTeamIndicators();battleRecordStart(roster);battleSfx('start');await battleSleep(650);
+  let turns=0;
+  while(battleTeams.every((team,slot)=>battleTeamActive[slot]<team.length)&&token===battleRun){
+   const fighters=battleTeams.map((team,slot)=>team[battleTeamActive[slot]]);
+   const speeds=fighters.map(p=>p.stats.speed);
+   const first=speeds[0]===speeds[1]?(Math.random()<.5?0:1):(speeds[0]>speeds[1]?0:1);
+   let switched=false;
+   for(const side of [first,1-first]){
+    if(token!==battleRun)return;
+    const attacker=fighters[side],defender=fighters[1-side];
     if(attacker.hp<=0||defender.hp<=0)break;
-    const result=battleAttack(attacker,defender);
-    const node=battleEl('battleFighter'+i);
-    node.classList.add('attacking');
+    const result=battleAttack(attacker,defender),node=battleEl('battleFighter'+side);
+    if(!battleSkipRequested){
+     node.classList.add('attacking');battleSfx('attack',result.type);
+     if(result.special)battleSpecialEffect(result,side);else battleNamedMoveEffect(result,side);
+    }
     battleSetMessage(battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+'!');
-    battleSfx('attack',result.type);
-    if(result.special)battleSpecialEffect(result,i);
-    else battleNamedMoveEffect(result,i);
     await battleSleep(590);node.classList.remove('attacking');
     defender.hp=Math.max(0,defender.hp-result.damage);
-    battleSfx('hit',result.type,result.effect);
-    battlePaint(defender,1-i);
-    battleEl('battleFighter'+(1-i)).classList.add('hit');
-    battleSetMessage(
-      result.missed
-        ? battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!'
-        : battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage!',
-      result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':''
-    );
-    await battleSleep(820);battleEl('battleFighter'+(1-i)).classList.remove('hit');
-    if(defender.hp<=0){battleSfx('faint');battleEl('battleFighter'+(1-i)).classList.add('fainted');break}
+    if(!battleSkipRequested)battleSfx('hit',result.type,result.effect);
+    battlePaint(defender,1-side);battleEl('battleFighter'+(1-side)).classList.add('hit');
+    battleSetMessage(result.missed?battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage!',
+     result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':'');
+    await battleSleep(820);battleEl('battleFighter'+(1-side)).classList.remove('hit');
+    if(defender.hp<=0){await battleTeamFaint(1-side);switched=true;turns=0;break;}
    }
-   turn++;
+   if(!switched&&++turns>=70){
+    // Resolve immunity/stalemate pairs so every team battle can finish.
+    const ratios=fighters.map(p=>p.hp/p.maxHp);
+    const loser=ratios[0]===ratios[1]?(Math.random()<.5?0:1):(ratios[0]<ratios[1]?0:1);
+    battleSetMessage(battleDisplayName(fighters[1-loser].name)+' wins this round on remaining HP.');await battleSleep(800);
+    await battleTeamFaint(loser);turns=0;
+   }
   }
   if(token!==battleRun)return;
-  const winner=fighters[0].hp===fighters[1].hp?(Math.random()<.5?0:1):(fighters[0].hp>fighters[1].hp?0:1);
-  const champ=fighters[winner];
-  battleSetMessage('🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!',turn>=70?'Won on remaining HP.':'The opponent fainted!');
-  battleRecordWinner(fighters,winner);
+  const winner=battleTeamActive[0]<battleTeams[0].length?0:1;
+  const survivors=battleTeams[winner].filter(p=>p.hp>0).length;
+  const champ=battleTeams[winner][battleTeamActive[winner]];
+  battleSetMessage(battleTeamSize===1?'🏆 '+battleDisplayName(champ.name).toUpperCase()+' WINS!':winner===0?'🏆 YOUR TEAM WINS!':'🏆 OPPONENT TEAM WINS!',
+   battleTeamSize===1?'The opponent fainted!':survivors+' Pokémon remaining.');
+  // One match per selected Pokémon; every member of the winning team earns a win.
+  battleRecordTeamWinner(battleTeams[winner]);
   battleSfx('win');
- }catch(err){battleEl('battleLog').textContent=err.message||'Battle could not start. Try again.'}
- finally{battleBusy=false;battleSkipRequested=false;battleEl('battleStart').disabled=false;battleClearResidualAnimations();battleSetSpeed(1)}
+ }catch(err){battleSetMessage(err.message||'Battle could not start. Try again.');}
+ finally{
+  battleBusy=false;battleSkipRequested=false;battleSyncTeamUI();battleClearResidualAnimations();battleSetSpeed(1);
+ }
 }
+
 </script>
 </body>
 </html>
