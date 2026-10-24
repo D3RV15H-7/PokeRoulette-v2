@@ -14539,7 +14539,7 @@ function battleRenderLeaderboard(){
  entries.forEach(([id,record],i)=>{
   const row=document.createElement('div');row.className='battle-leader-row';
   const rank=document.createElement('span');rank.textContent='#'+(i+1);
-  const img=document.createElement('img');img.src=battleSprite(id);img.loading='lazy';img.alt='';
+  const img=document.createElement('img');img.loading='lazy';img.alt='';battleSetSprite(img,id,record.name);
   const name=document.createElement('span');name.textContent=record.name;
   const wins=document.createElement('strong');wins.textContent=record.wins+' wins';
   row.append(rank,img,name,wins);battleEl('battleLeaderboard').append(row);
@@ -14853,18 +14853,69 @@ async function battleFetch(value){
  if(!response.ok)throw Error('Could not load Pokémon: '+value+'. Try selecting another suggestion.');
  const data=await response.json();
  const stats=Object.fromEntries(data.stats.map(s=>[s.stat.name,s.base_stat]));
- return {id:data.id,name:data.species?.name||data.name,heightDm:data.height,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
+ return {id:data.id,name:data.species?.name||data.name,spriteName:data.name,animatedSprite:data.sprites?.other?.showdown?.front_default||'',heightDm:data.height,types:data.types.map(t=>t.type.name),stats,weight:data.weight,
  maxHp:Math.max(35,Math.floor(65+data.stats[0].base_stat*1.8)),hp:0,moves:data.moves.map(m=>({name:m.move.name,url:m.move.url,details:m.version_group_details}))};
 }
-function battleSetSprite(img,id){
+// Keep existing retro animations; try additional animated sources before a still image.
+const battleSpriteSources=new Map();
+function battleSpriteSlugs(name){
+ const raw=String(name||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9-]/g,'');
+ const aliases={
+  'deoxys-normal':'deoxys','wormadam-plant':'wormadam','giratina-altered':'giratina',
+  'shaymin-land':'shaymin','basculin-red-striped':'basculin','darmanitan-standard':'darmanitan',
+  'tornadus-incarnate':'tornadus','thundurus-incarnate':'thundurus','landorus-incarnate':'landorus',
+  'keldeo-ordinary':'keldeo','meloetta-aria':'meloetta','meowstic-male':'meowstic',
+  'aegislash-shield':'aegislash','pumpkaboo-average':'pumpkaboo','gourgeist-average':'gourgeist',
+  'zygarde-50':'zygarde','oricorio-baile':'oricorio','lycanroc-midday':'lycanroc',
+  'wishiwashi-solo':'wishiwashi','minior-red-meteor':'minior-meteor','mimikyu-disguised':'mimikyu',
+  'toxtricity-amped':'toxtricity','eiscue-ice':'eiscue','indeedee-male':'indeedee',
+  'morpeko-full-belly':'morpeko','urshifu-single-strike':'urshifu','basculegion-male':'basculegion',
+  'enamorus-incarnate':'enamorus','oinkologne-male':'oinkologne',
+  'maushold-family-of-four':'maushold','squawkabilly-green-plumage':'squawkabilly',
+  'palafin-zero':'palafin','tatsugiri-curly':'tatsugiri','dudunsparce-two-segment':'dudunsparce',
+  'tauros-paldea-combat-breed':'tauros-paldeacombat','tauros-paldea-blaze-breed':'tauros-paldeablaze',
+  'tauros-paldea-aqua-breed':'tauros-paldeaaqua'
+ };
+ const slug=aliases[raw]||raw.replace(/-(alola|galar|hisui|paldea)n$/, '-$1');
+ // Showdown joins multiword species (Iron Hands, Mr. Mime, etc.).
+ return [...new Set([slug,slug.replace(/-/g,'')])].filter(Boolean);
+}
+function battleSetSprite(img,id,name='',animatedSprite=''){
+ const key=String(id)+':'+name;
+ if(img.dataset.battleSpriteKey===key&&img.getAttribute('src'))return;
+ img.dataset.battleSpriteKey=key;
  img.hidden=false;
- img.onerror=()=>{if(!img.dataset.fallback){img.dataset.fallback='1';img.src=battlePixelFallback(id)}else{img.hidden=true}};
- img.dataset.fallback='';
- img.src=battleSprite(id);
+ const slugs=battleSpriteSlugs(name);
+ const sources=[
+  battleSpriteSources.get(key),
+  Number(id)<=649?battleSprite(id):null,
+  ...slugs.map(slug=>`https://play.pokemonshowdown.com/sprites/gen5ani/${slug}.gif`),
+  animatedSprite,
+  ...slugs.map(slug=>`https://play.pokemonshowdown.com/sprites/ani/${slug}.gif`),
+  battlePixelFallback(id)
+ ].filter(Boolean);
+ const candidates=[...new Set(sources)];
+ let index=0;
+ img.onload=()=>{if(img.dataset.battleSpriteKey===key)battleSpriteSources.set(key,candidates[index])};
+ img.onerror=()=>{
+  if(img.dataset.battleSpriteKey!==key)return;
+  if(++index<candidates.length)img.src=candidates[index];
+  else{img.onerror=null;img.onload=null;img.hidden=true}
+ };
+ img.src=candidates[index];
+}
+const battlePreviewReady=[false,false];
+function battleUpdateReadyMessage(){
+ if(battleBusy)return;
+ if(battlePreviewReady[0]&&battlePreviewReady[1])battleSetMessage('Both Pokémon are ready. Press Battle!');
+ else if(battlePreviewReady[1])battleSetMessage('Opponent ready. Please choose your Pokémon and press Battle.');
+ else if(battlePreviewReady[0])battleSetMessage('Your Pokémon is ready. Please choose an opponent and press Battle.');
+ else battleSetMessage('Select one of your collected Pokémon and choose an opponent to begin.');
 }
 let battlePreviewTokens=[0,0],battlePreviewTimers=[null,null];
 async function battlePreview(slot){
  const token=++battlePreviewTokens[slot],input=battleEl('battlePick'+(slot+1));
+ battlePreviewReady[slot]=false;
  const value=(input.dataset.pokemonKey||input.value).trim(),img=battleEl('battleImg'+slot);
  if(!value){battleResetPreview(slot);return}
  try{
@@ -14872,15 +14923,18 @@ async function battlePreview(slot){
   if(token!==battlePreviewTokens[slot]||battleBusy)return;
   p.hp=p.maxHp;
   battlePaint(p,slot);
-  battleEl('battleLog').textContent='Pokémon selected. Choose an opponent and press Battle!';
+  battlePreviewReady[slot]=true;
+  battleUpdateReadyMessage();
  }catch(err){if(token===battlePreviewTokens[slot]&&!battleBusy){battleResetPreview(slot);battleSetMessage(err.message||'Could not load this Pokémon.')}}
 }
 function battleResetPreview(slot){
+ battlePreviewReady[slot]=false;
  battleVisualHeights[slot]=null;battleApplyRelativeSpriteSizes();
- const img=battleEl('battleImg'+slot);img.hidden=true;img.removeAttribute('src');
+ const img=battleEl('battleImg'+slot);img.onerror=null;img.onload=null;delete img.dataset.battleSpriteKey;img.hidden=true;img.removeAttribute('src');
  battleEl('battleName'+slot).textContent=slot===0?'Your Pokémon':'Opponent';
  battleEl('battleHP'+slot).textContent='—';
  battleEl('battleBar'+slot).style.width='0%';
+ battleUpdateReadyMessage();
 }
 function battleQueuePreview(slot){
  if(battleBusy)return;
@@ -15061,7 +15115,7 @@ function battleApplyRelativeSpriteSizes(){
 }
 function battlePaint(p,i){
  battleEl('battleName'+i).textContent=battleDisplayName(p.name);
- battleSetSprite(battleEl('battleImg'+i),p.id);
+ battleSetSprite(battleEl('battleImg'+i),p.id,p.spriteName||p.name,p.animatedSprite);
  battleEl('battleImg'+i).alt=p.name;
  // Scale both participants together from PokéAPI species height, not independently.
  // This keeps e.g. 0.6m Oricorio visibly larger than 0.3m Dewpider,
