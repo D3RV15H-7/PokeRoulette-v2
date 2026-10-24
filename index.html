@@ -12280,11 +12280,13 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
 let tcgAutoplayFrame = 0;
 let tcgAutoplayLastTime = 0;
 let tcgAutoplayActive = false;
-function stopTcgAutoplay() {
+function stopTcgAutoplay(resetScrollSnap = false) {
   tcgAutoplayActive = false;
   if (tcgAutoplayFrame) cancelAnimationFrame(tcgAutoplayFrame);
   tcgAutoplayFrame = 0; tcgAutoplayLastTime = 0;
-  document.getElementById('tcgStrip')?.classList.remove('is-autoplaying');
+  // Keep snapping off while paused so the row stays exactly where it stopped.
+  // Restore normal swipe snapping when the row is replaced or touched.
+  if (resetScrollSnap) document.getElementById('tcgStrip')?.classList.remove('is-autoplaying');
   const btn = document.getElementById('tcgAutoplayBtn');
   if (btn) { btn.classList.remove('is-playing'); btn.setAttribute('aria-label','Automatically scroll card variations'); btn.title='Play card slideshow'; }
   const icon = document.getElementById('tcgAutoplayIcon');
@@ -12294,6 +12296,8 @@ function toggleTcgAutoplay() {
   if (tcgAutoplayActive) { stopTcgAutoplay(); return; }
   const strip = document.getElementById('tcgStrip');
   if (!strip || strip.scrollWidth <= strip.clientWidth + 3) return;
+  const end = strip.scrollWidth - strip.clientWidth;
+  if (strip.scrollLeft >= end - 0.5) return;
   tcgAutoplayActive = true; tcgAutoplayLastTime = 0;
   strip.classList.add('is-autoplaying');
   // Keep fractional progress independent of scrollLeft: browsers may round it
@@ -12309,20 +12313,20 @@ function toggleTcgAutoplay() {
       const elapsed = Math.min(time - tcgAutoplayLastTime, 70);
       const end = strip.scrollWidth - strip.clientWidth;
       if (end <= 3) { stopTcgAutoplay(); return; }
-      if (position >= end - 2) position = 0;
-      else position = Math.min(end, position + elapsed * 0.022);
+      position = Math.min(end, position + elapsed * 0.036);
       strip.scrollLeft = position;
+      if (position >= end) { stopTcgAutoplay(); return; }
     }
     tcgAutoplayLastTime = time;
     tcgAutoplayFrame = requestAnimationFrame(step);
   };
   tcgAutoplayFrame = requestAnimationFrame(step);
 }
-document.getElementById('tcgStrip')?.addEventListener('touchstart', () => { if (tcgAutoplayActive) stopTcgAutoplay(); }, {passive:true});
-document.getElementById('tcgStrip')?.addEventListener('pointerdown', () => { if (tcgAutoplayActive) stopTcgAutoplay(); }, {passive:true});
+document.getElementById('tcgStrip')?.addEventListener('touchstart', () => { stopTcgAutoplay(true); }, {passive:true});
+document.getElementById('tcgStrip')?.addEventListener('pointerdown', () => { stopTcgAutoplay(true); }, {passive:true});
 
 function renderTcgCards(cards) {
-  stopTcgAutoplay();
+  stopTcgAutoplay(true);
   const strip = document.getElementById('tcgStrip');
   const countText = document.getElementById('tcgCountText');
   if (!strip) return;
