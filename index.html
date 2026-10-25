@@ -3666,6 +3666,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #battleModal .battle-choices-stage{position:relative}
 #battleModal .battle-choices-stage>.battle-generate-row{top:auto!important;bottom:2px!important;margin:0!important}
 </style>
+<style>
+/* v221: preview slideshow control, aligned beside the collection action. */
+.zoom-preview-actions{position:relative;width:100%;min-height:34px;display:flex;align-items:center;justify-content:center}
+#zoomAutoplayBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #96abc2;border-radius:50%;padding:0;background:#17283de8;color:#e8f8ff;font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 8px #0006;-webkit-tap-highlight-color:transparent}
+#zoomAutoplayBtn.is-playing{color:#37e0ca;border-color:#37e0ca}
+#zoomAutoplayBtn:disabled{opacity:.35;cursor:default}
+</style>
 </head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -3916,13 +3923,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   <div class="tcg-zoom-content" id="zoomContainer" onclick="event.stopPropagation()">
     <div class="tcg-zoom-toolbar">
       <div class="zoom-left-actions">
-        <button type="button" class="zoom-share-button" id="zoomShareBtn" onclick="shareZoomCard(event)" aria-label="Share card image" title="Share card image">
+        <button type="button" class="zoom-share-button" id="zoomShareBtn" onclick="stopZoomAutoplay();shareZoomCard(event)" aria-label="Share card image" title="Share card image">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-4 4 4-4 4 4M6 11H4v10h16V11h-2"/></svg>
           <span id="zoomShareLabel">Share</span>
         </button>
       </div>
       <div class="tcg-zoom-counter" id="tcgZoomCounter">1 / 1</div>
-      <button type="button" class="zoom-share-button zoom-versions-button" id="zoomVersionsBtn" onclick="toggleZoomVersions(event)" aria-expanded="false" aria-haspopup="dialog" aria-controls="zoomVersionsPopup">Versions</button>
+      <button type="button" class="zoom-share-button zoom-versions-button" id="zoomVersionsBtn" onclick="stopZoomAutoplay();toggleZoomVersions(event)" aria-expanded="false" aria-haspopup="dialog" aria-controls="zoomVersionsPopup">Versions</button>
     </div>
     <div class="tcg-zoom-view-area" id="zoomViewArea">
       <div class="tcg-zoom-title" id="tcgZoomTitle">Card Title</div>
@@ -3948,9 +3955,12 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
         <img class="tcg-zoom-img" alt="Later card" />
       </div>
     </div>
+    <div class="zoom-preview-actions">
     <div class="zoom-dex-action-row" id="zoomDexActionRow">
       <button type="button" class="zoom-check-circle" id="zoomCheckCircle" onclick="toggleZoomCardOwned(event)" aria-pressed="false"><span id="zoomCheckLabel">Add to Dex</span><span class="zoom-check-box" aria-hidden="true">✓</span></button>
     </div>
+    <button type="button" id="zoomAutoplayBtn" class="zoom-autoplay-btn" aria-label="Play card slideshow" aria-pressed="false" title="Play card slideshow" onclick="toggleZoomAutoplay(event)"><span id="zoomAutoplayIcon" aria-hidden="true">▶</span></button>
+    </div><!-- zoom-preview-actions -->
     <div id="zoomVersionsPopup" class="zoom-versions-popup" hidden role="dialog" aria-labelledby="zoomVersionsTitle" tabindex="-1">
       <div class="zoom-versions-popup-header"><h2 id="zoomVersionsTitle">Card Variations</h2></div>
       <ul id="zoomVersionsList" class="zoom-versions-list"></ul>
@@ -12184,6 +12194,9 @@ function getPokemonCardArtPriority(card){
  if(/special (?:illustration|art)|alternate art|alt art/.test(rarity))return 4;
  if(/illustration rare|(?:^|\s)art rare|trainer gallery|galarian gallery|character (?:rare|super)/.test(rarity))return 3;
  if(/full art|ultra rare|rare ultra|secret|rainbow|hyper rare/.test(rarity))return 2;
+ const setName=String(card?.setName||card?.set?.name||'');
+ const setId=String(card?.artworkTcgDexSetId||card?.artworkPokemonSetId||card?.set?.id||String(card?.id||'').split('-')[0]).toLowerCase();
+ if(/promo/.test(rarity)||/\bpromos?\b/i.test(setName)||['basep','dpp','hsp','hgssp','bwp','xyp','smp','swshp','svp','mep','wp'].includes(setId))return 2;
  return Number(card?._artPriorityHint)||0;
 }
 function getPokemonCardArtHint(card){
@@ -12383,20 +12396,29 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
 let tcgAutoplayFrame = 0;
 let tcgAutoplayLastTime = 0;
 let tcgAutoplayActive = false;
+let tcgAutoplaySpeed = 1;
+function paintTcgAutoplayButton() {
+  const btn=document.getElementById('tcgAutoplayBtn');
+  const label=tcgAutoplayActive?(tcgAutoplaySpeed===1?'Speed up card scrolling':'Pause card slideshow'):'Play card slideshow';
+  if(btn){btn.classList.toggle('is-playing',tcgAutoplayActive);btn.setAttribute('aria-pressed',String(tcgAutoplayActive));btn.setAttribute('aria-label',label);btn.title=label;}
+  const icon=document.getElementById('tcgAutoplayIcon');
+  if(icon){icon.textContent=tcgAutoplayActive?(tcgAutoplaySpeed===1?'▶▶':'Ⅱ'):'▶';icon.style.fontSize=tcgAutoplayActive&&tcgAutoplaySpeed===1?'10px':'';}
+}
 function stopTcgAutoplay(resetScrollSnap = false) {
-  tcgAutoplayActive = false;
+  tcgAutoplayActive = false; tcgAutoplaySpeed = 1;
   if (tcgAutoplayFrame) cancelAnimationFrame(tcgAutoplayFrame);
   tcgAutoplayFrame = 0; tcgAutoplayLastTime = 0;
   // Keep snapping off while paused so the row stays exactly where it stopped.
   // Restore normal swipe snapping when the row is replaced or touched.
   if (resetScrollSnap) document.getElementById('tcgStrip')?.classList.remove('is-autoplaying');
-  const btn = document.getElementById('tcgAutoplayBtn');
-  if (btn) { btn.classList.remove('is-playing'); btn.setAttribute('aria-label','Automatically scroll card variations'); btn.title='Play card slideshow'; }
-  const icon = document.getElementById('tcgAutoplayIcon');
-  if (icon) icon.textContent = '▶';
+  paintTcgAutoplayButton();
 }
 function toggleTcgAutoplay() {
-  if (tcgAutoplayActive) { stopTcgAutoplay(); return; }
+  if (tcgAutoplayActive) {
+    if(tcgAutoplaySpeed===1){tcgAutoplaySpeed=2;paintTcgAutoplayButton();}
+    else stopTcgAutoplay();
+    return;
+  }
   const strip = document.getElementById('tcgStrip');
   if (!strip || strip.scrollWidth <= strip.clientWidth + 3) return;
   const end = strip.scrollWidth - strip.clientWidth;
@@ -12406,17 +12428,14 @@ function toggleTcgAutoplay() {
   // Keep fractional progress independent of scrollLeft: browsers may round it
   // to whole pixels, especially at 120 Hz where each step is below one pixel.
   let position = Math.max(0, strip.scrollLeft);
-  const btn = document.getElementById('tcgAutoplayBtn');
-  if (btn) { btn.classList.add('is-playing'); btn.setAttribute('aria-label','Pause card slideshow'); btn.title='Pause card slideshow'; }
-  const icon = document.getElementById('tcgAutoplayIcon');
-  if (icon) icon.textContent = 'Ⅱ';
+  paintTcgAutoplayButton();
   const step = time => {
     if (!tcgAutoplayActive || !strip.isConnected || !strip.querySelector('.tcg-card-item')) { stopTcgAutoplay(); return; }
     if (tcgAutoplayLastTime) {
       const elapsed = Math.min(time - tcgAutoplayLastTime, 70);
       const end = strip.scrollWidth - strip.clientWidth;
       if (end <= 3) { stopTcgAutoplay(); return; }
-      position = Math.min(end, position + elapsed * 0.036);
+      position = Math.min(end, position + elapsed * 0.036 * tcgAutoplaySpeed);
       strip.scrollLeft = position;
       if (position >= end) { stopTcgAutoplay(); return; }
     }
@@ -12739,7 +12758,52 @@ async function openZoomCardSet(event) {
   }
 }
 
+// Full-card preview slideshow uses the existing animated swipe carousel.
+let zoomAutoplayActive=false,zoomAutoplayTimer=null,zoomAutoplayMoving=false,zoomAutoplaySpeed=1;
+function paintZoomAutoplayButton(){
+ const button=document.getElementById('zoomAutoplayBtn');if(!button)return;
+ const atEnd=currentZoomIndex>=currentCardsList.length-1;
+ button.disabled=currentCardsList.length<2||atEnd;
+ button.classList.toggle('is-playing',zoomAutoplayActive);
+ button.setAttribute('aria-pressed',String(zoomAutoplayActive));
+ const label=zoomAutoplayActive?(zoomAutoplaySpeed===1?'Speed up card slideshow':'Pause card slideshow'):'Play card slideshow';
+ button.setAttribute('aria-label',label);button.title=label;
+ const icon=document.getElementById('zoomAutoplayIcon');if(icon){icon.textContent=zoomAutoplayActive?(zoomAutoplaySpeed===1?'▶▶':'Ⅱ'):'▶';icon.style.fontSize=zoomAutoplayActive&&zoomAutoplaySpeed===1?'10px':'';}
+}
+function stopZoomAutoplay(){
+ const wasMoving=zoomAutoplayActive&&zoomAutoplayMoving;
+ zoomAutoplayActive=false;zoomAutoplayMoving=false;zoomAutoplaySpeed=1;clearTimeout(zoomAutoplayTimer);zoomAutoplayTimer=null;
+ if(wasMoving){cancelZoomCarousel();paintZoomCarousel(0);}
+ paintZoomAutoplayButton();
+}
+function syncZoomAutoplay(){
+ zoomAutoplayMoving=false;clearTimeout(zoomAutoplayTimer);zoomAutoplayTimer=null;
+ if(document.getElementById('tcgZoomModal')?.style.display!=='flex'||currentZoomIndex>=currentCardsList.length-1||currentCardsList.length<2){stopZoomAutoplay();return;}
+ paintZoomAutoplayButton();
+ if(!zoomAutoplayActive)return;
+ const cards=currentCardsList;
+ zoomAutoplayTimer=setTimeout(()=>{
+  zoomAutoplayTimer=null;
+  if(!zoomAutoplayActive||cards!==currentCardsList||document.getElementById('tcgZoomModal')?.style.display!=='flex'){stopZoomAutoplay();return;}
+  if(zoomCarousel.animating||zoomCarousel.pointer){stopZoomAutoplay();return;}
+  zoomAutoplayMoving=true;navigateZoomCard(1,true);
+ },3000/zoomAutoplaySpeed);
+}
+function toggleZoomAutoplay(event){
+ event?.stopPropagation();
+ if(zoomAutoplayActive){
+  if(zoomAutoplaySpeed===1){zoomAutoplaySpeed=2;paintZoomAutoplayButton();if(!zoomAutoplayMoving)syncZoomAutoplay();}
+  else stopZoomAutoplay();
+  return;
+ }
+ if(document.getElementById('tcgZoomModal')?.style.display!=='flex'||currentCardsList.length<2||currentZoomIndex>=currentCardsList.length-1)return;
+ zoomAutoplayActive=true;syncZoomAutoplay();
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopZoomAutoplay();});
+
 function openTcgZoom(index, fromModal = false) {
+  stopZoomAutoplay();
+  stopTcgAutoplay();
   cancelZoomCarousel();
   openedFromDexModal = fromModal;
   currentZoomIndex = index;
@@ -12934,9 +12998,11 @@ function updateZoomModalContent() {
   if (rightArrow) rightArrow.style.display = currentZoomIndex < currentCardsList.length - 1 ? 'flex' : 'none';
   refreshZoomVersions();
   renderZoomCarousel();
+  syncZoomAutoplay();
 }
 
 function toggleZoomCardOwned(e) {
+  stopZoomAutoplay();
   if (e) e.stopPropagation();
   if (!currentCardsList.length) return;
   const card = currentCardsList[currentZoomIndex];
@@ -12985,6 +13051,7 @@ function toggleZoomCardOwned(e) {
 }
 
 function jumpToZoomCardEnd(direction) {
+  stopZoomAutoplay();
   if (zoomCarousel.animating || ![-1, 1].includes(direction) || !currentCardsList.length) return;
   const target = direction < 0 ? 0 : currentCardsList.length - 1;
   if (target === currentZoomIndex) return;
@@ -12994,7 +13061,8 @@ function jumpToZoomCardEnd(direction) {
   updateZoomModalContent();
 }
 
-function navigateZoomCard(d) {
+function navigateZoomCard(d, autoplay = false) {
+  if (!autoplay) stopZoomAutoplay();
   if (zoomCarousel.animating || ![-1, 1].includes(d)) return;
   const next = currentZoomIndex + d;
   if (next < 0 || next >= currentCardsList.length) return;
@@ -13145,6 +13213,7 @@ function settleZoomCarousel(direction) {
 }
 
 function beginZoomSwipe(x, y, id) {
+  stopZoomAutoplay();
   if (zoomCarousel.animating || currentCardsList.length < 2) return;
   zoomCarousel.pointer = { x, y, id, startedAt: performance.now(), horizontal: false, dx: 0 };
 }
@@ -13260,6 +13329,7 @@ if (zoomViewArea) {
 
 installZoomVersionsDismissal();
 function closeTcgZoom() {
+  stopZoomAutoplay();
   closeZoomVersions(false);
   resetZoomShare();
   ++zoomSetNavigation.requestId;
