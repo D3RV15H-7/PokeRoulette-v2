@@ -5226,7 +5226,8 @@ function paintSetCardOwnershipIndicator(node, card) {
   if (categories.length > 1) {
     const stops = categories.map((category, i) =>
       `${colours[category]} ${i * 100 / categories.length}% ${(i + 1) * 100 / categories.length}%`);
-    check.style.setProperty('--owned-variant-background', `conic-gradient(${stops.join(', ')})`);
+    const startAngle = categories.length === 3 ? 240 : 180;
+    check.style.setProperty('--owned-variant-background', `conic-gradient(from ${startAngle}deg, ${stops.join(', ')})`);
   } else if (categories.length === 1) {
     check.style.setProperty('--owned-variant-background', colours[categories[0]]);
   } else check.style.removeProperty('--owned-variant-background');
