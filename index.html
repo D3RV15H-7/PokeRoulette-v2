@@ -894,6 +894,7 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
   font-size: 21px;
   cursor: pointer;
 }
+.tcg-price-source { font-size: 0.62rem; line-height: 1.3; text-align: center; color: var(--sub); margin: 0.15rem 0 0; max-width: 100%; }
 .tcg-artwork-retry[hidden] { display: none; }
 .tcg-artwork-retry:disabled { opacity: 0.6; cursor: wait; }
 .tcg-zoom-toolbar .tcg-artwork-retry {
@@ -3995,6 +3996,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
     </a>
       <button type="button" aria-label="Jump to last card" title="Jump to last card" class="tcg-zoom-arrow right" id="zoomRightArrow" onclick="jumpToZoomCardEnd(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 6 6 6-6 6m8-12 6 6-6 6"/></svg></button>
     </div>
+    <div id="tcgZoomPriceSource" class="tcg-price-source" aria-live="polite"></div>
     <button class="tcg-zoom-close" onclick="closeTcgZoom()">Close Preview</button>
   </div>
 </div>
@@ -4338,8 +4340,60 @@ function initFirebaseIfReady() {
 }
 
 const TOTAL = 1025;
-const USD_TO_GBP = 0.79;
-const EUR_TO_GBP = 0.86;
+// Daily rates are loaded lazily; these remain labelled offline estimates.
+let USD_TO_GBP = 0.79;
+let EUR_TO_GBP = 0.86;
+let tcgFxDate = '';
+let tcgFxRequest = null;
+let tcgFxAttemptAt = 0;
+const TCG_PRICING_VERSION = 224;
+function convertTcgQuote(quote) {
+  return quote.amount * (quote.currency === 'USD' ? USD_TO_GBP : EUR_TO_GBP);
+}
+async function ensureTcgFxRates() {
+  if (tcgFxRequest) return tcgFxRequest;
+  if (Date.now() - tcgFxAttemptAt < 60000) return;
+  tcgFxAttemptAt = Date.now();
+  tcgFxRequest = (async () => {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem('pokeroulette_fx_v224')); } catch (_) {}
+    const valid = data => data && getNumericPrice(data.usd) && getNumericPrice(data.eur) && /^\d{4}-\d{2}-\d{2}$/.test(data.date);
+    const apply = data => {
+      USD_TO_GBP = data.usd; EUR_TO_GBP = data.eur; tcgFxDate = data.date;
+      for (const card of currentCardsList) if (card._priceQuote) {
+        card.priceGBP = convertTcgQuote(card._priceQuote).toFixed(2);
+        paintVisibleCardDetails(card);
+      }
+    };
+    if (valid(saved)) {
+      apply(saved);
+      if (Date.now() - saved.savedAt < 86400000) return;
+    }
+    try {
+      const rows = await fetchJsonWithRetry('https://api.frankfurter.dev/v2/rates?base=GBP&quotes=USD,EUR', {timeoutMs:4000, deadline:Date.now()+4500}, 0);
+      const usd = rows.find(row => row.base === 'GBP' && row.quote === 'USD');
+      const eur = rows.find(row => row.base === 'GBP' && row.quote === 'EUR');
+      const data = {usd:1/Number(usd?.rate), eur:1/Number(eur?.rate), date:usd?.date, savedAt:Date.now()};
+      if (!valid(data)) return;
+      apply(data);
+      try { localStorage.setItem('pokeroulette_fx_v224', JSON.stringify(data)); } catch (_) {}
+    } catch (_) { /* Retain the last rates and disclose their date/fallback. */ }
+  })();
+  try { await tcgFxRequest; } finally { tcgFxRequest = null; }
+}
+function paintTcgPriceSource(card) {
+  const node = document.getElementById('tcgZoomPriceSource');
+  if (!node) return;
+  const quote = card?._priceQuote;
+  if (!quote) { node.textContent = card?.priceGBP ? 'Cached estimate · awaiting price refresh' : 'Market price unavailable'; return; }
+  const date = value => {
+    const parsed = new Date(value);
+    return Number.isFinite(+parsed) ? parsed.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) : '';
+  };
+  const symbol = quote.currency === 'USD' ? '$' : '€';
+  node.textContent = [quote.source + ': ' + symbol + Number(quote.amount).toFixed(2), date(quote.updated), tcgFxDate ? 'FX ' + date(tcgFxDate) : 'approx. FX'].filter(Boolean).join(' · ');
+  node.title = [quote.source, quote.updated ? 'Price updated: '+quote.updated : 'Price date unavailable', tcgFxDate ? 'Exchange rates: '+tcgFxDate : 'Offline exchange-rate estimate'].join(' · ');
+}
 const TYPES = ['normal','fire','water','grass','electric','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const COLORS = { 
   normal: '#ECE8D7', fire: '#EE3F24', water: '#1790EE', grass: '#23B938', electric: '#FFDE00', 
@@ -4939,6 +4993,7 @@ function getCosmosCardPrintingEvidence(card) {
 }
 
 function retainNamedCardVariantMetadata(target, source) {
+  if (source?._priceQuote) target._priceQuote = source._priceQuote;
   const raw = source?.variants_detailed || source?.variantsDetailed || (Array.isArray(source?.variants) ? source.variants : null);
   if (Array.isArray(raw) && raw.length) return captureNamedCardVariantData(target, source);
   if (Array.isArray(source?._namedVariantDetails)) {
@@ -5937,7 +5992,7 @@ const SVP_CARD_BY_NUMBER = new Map(SVP_CARD_CATALOGUE.map(card => [card.number, 
 function normalizeSvpCardNumber(value) {
   return normalizeCardNumber(String(value || '').replace(/^(?:SVP|No\.)\s*/i, ''));
 }
-const POKEMON_TCG_SET_ALIASES = Object.freeze({ 'sm3.5': 'sm35', '2023sv': 'mcd23' });
+const POKEMON_TCG_SET_ALIASES = Object.freeze({ 'sm3.5': 'sm35', 'sm7.5': 'sm75', '2023sv': 'mcd23' });
 const MCDONALDS_FRONT_SCANS_BY_SET = Object.freeze({
   mcd14: Object.freeze({
     '1:weedle': 'https://storage.googleapis.com/images.pricecharting.com/897556afa242320c23336ac08e811c7a563b80e9206867b1c1eeb7c61dd800f5/1600.jpg',
@@ -6839,6 +6894,11 @@ function getTcgDexArtworkSeries(setId) {
 }
 // Independently checked front for the exact 2021 promo, including old cache IDs.
 const CARD_ARTWORK_RECOVERY_SOURCES = Object.freeze({
+  // Checked English Dragon Majesty #44 front; TCGdex has no image for it.
+  'sm7.5:44:salamencegx': {
+    small: ['https://tcgplayer-cdn.tcgplayer.com/product/175472_200w.jpg', 'https://tcgplayer-cdn.tcgplayer.com/product/175472_in_1000x1000.jpg'],
+    large: ['https://tcgplayer-cdn.tcgplayer.com/product/175472_in_1000x1000.jpg', 'https://tcgplayer-cdn.tcgplayer.com/product/175472_200w.jpg']
+  },
   'mcd21:1:bulbasaur': {
     small: ['https://tcgplayer-cdn.tcgplayer.com/product/232316_200w.jpg', 'https://tcgplayer-cdn.tcgplayer.com/product/232316_in_1000x1000.jpg'],
     large: ['https://tcgplayer-cdn.tcgplayer.com/product/232316_in_1000x1000.jpg', 'https://tcgplayer-cdn.tcgplayer.com/product/232316_200w.jpg']
@@ -6956,7 +7016,8 @@ function getCardArtworkSources(card) {
     const fronts = verified ? [verified] : [];
     return { small: [...new Set(fronts)], large: [...new Set(fronts)] };
   }
-  const recovery = CARD_ARTWORK_RECOVERY_SOURCES[`${setId === '2021swsh' ? 'mcd21' : setId}:${number}:${name}`];
+  const recoverySet = setId === '2021swsh' ? 'mcd21' : (AUDITED_ARTWORK_SET_ALIASES[setId] || setId);
+  const recovery = CARD_ARTWORK_RECOVERY_SOURCES[`${recoverySet}:${number}:${name}`];
   const small = unique([...(recovery?.small || []), promoFront, verified, ...audited.small, card.images?.small, card.smallImg, card.images?.large, card.largeImg, ...(card.smallImgFallbacks || []), ...extra]);
   const large = unique([...(recovery?.large || []), promoFront, verified, ...audited.large, card.images?.large, card.largeImg, card.images?.small, card.smallImg, ...(card.largeImgFallbacks || []), ...extra]);
   // An alternate encoding of the EXACT scan is preferable to a guessed CDN
@@ -6987,7 +7048,7 @@ function setTcgImageFallbacks(img, card, quality = 'small') {
     button.className = 'tcg-artwork-retry';
     button.textContent = '↻';
     button.title = 'Refresh artwork';
-    button.setAttribute('aria-label', 'Refresh unavailable card artwork');
+    button.setAttribute('aria-label', 'Refresh card artwork and market price');
     button.hidden = true;
     button.onclick = event => {
       event.stopPropagation();
@@ -7070,15 +7131,52 @@ function setTcgArtworkUnavailable(img, unavailable) {
   }
   if (!img._tcgRetryButton) return;
   // Retry stays available after a failed attempt; disable it only in flight.
-  img._tcgRetryButton.hidden = !unavailable || !img._tcgCanRetry;
+  img._tcgRetryButton.hidden = false;
+  img._tcgRetryButton.title = 'Refresh card artwork and price';
   img._tcgRetryButton.disabled = false;
   img._tcgRetryButton.setAttribute('aria-busy', 'false');
 }
 
-function retryTcgArtwork(img) {
+async function refreshTcgArtworkMetadata(card) {
+  const setId = String(card.set?.id || String(card.id || '').split('-').slice(0,-1).join('-')).toLowerCase();
+  const number = String(card.localId || card.number || '').split('/')[0].trim();
+  if (!number || !setId) return;
+  const dexSet = card.artworkTcgDexSetId || AUDITED_ARTWORK_SET_ALIASES[setId] || setId;
+  const dexId = card._tcgDexDetailId || `${dexSet}-${number}`;
+  const pokemonSet = card.artworkPokemonSetId || POKEMON_TCG_SET_ALIASES[setId] || setId;
+  const deadline = Date.now()+7500;
+  const tasks = [getTcgDexCardDetail(dexId, deadline, true)];
+  if (/^[a-z0-9]+$/i.test(pokemonSet)) {
+    const headers = {}; if (POKEMON_TCG_API_KEY) headers['X-Api-Key'] = POKEMON_TCG_API_KEY;
+    tasks.push(fetchJsonWithRetry(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(pokemonSet+'-'+number)}`, {headers, cache:'reload', deadline, timeoutMs:6000}, 0).then(result => result.data));
+  }
+  const results = await Promise.allSettled(tasks);
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    const detail = result.value;
+    if (!detail || normalizePokemonCardName(detail.name) !== normalizePokemonCardName(card.name) ||
+        normalizeCardNumber(detail.localId || detail.number) !== normalizeCardNumber(number)) continue;
+    if (detail.image) card.images = {small:detail.image+'/low.webp',large:detail.image+'/high.webp'};
+    else if (detail.images?.small || detail.images?.large) card.images = detail.images;
+    if (detail.pricing) updateTcgCardPriceFromDetail(card, detail);
+    else {
+      extractCardPriceGBP(detail);
+      const quote = chooseTcgPriceQuote(card._priceQuote, detail._priceQuote);
+      if (quote) { card._priceQuote = quote; card.priceGBP = convertTcgQuote(quote).toFixed(2); }
+    }
+  }
+  saveEnrichedCard(card);
+  paintVisibleCardDetails(card);
+}
+async function retryTcgArtwork(img) {
   const card = img._tcgCard;
   if (!card || img._tcgRetryButton?.disabled) return;
   const loadedThumbnail = card.resolvedSmallImg;
+  const token = img._tcgMetadataRetry = (img._tcgMetadataRetry || 0)+1;
+  if (img._tcgRetryButton) { img._tcgRetryButton.disabled = true; img._tcgRetryButton.setAttribute('aria-busy','true'); }
+  await refreshTcgArtworkMetadata(card).catch(() => {});
+  // Swiping while metadata loads must never put the previous card back.
+  if (img._tcgCard !== card || img._tcgMetadataRetry !== token || !img.isConnected) return;
   setTcgImageFallbacks(img, card, img._tcgQuality);
   img._tcgRetryAttempted = true;
   const artwork = getCardArtworkSources(card);
@@ -7689,10 +7787,11 @@ function shouldRefreshVisibleCardPricing(card) {
   const now = Date.now();
   // A failed request must not loop as thumbnails repaint.
   if (card._priceAttemptAt && now - card._priceAttemptAt < 60000) return false;
-  return card._pricingVersion !== 168 || !card._priceCheckedAt ||
+  return card._pricingVersion !== TCG_PRICING_VERSION || !card._priceCheckedAt ||
     now - card._priceCheckedAt >= (getNumericPrice(card.priceGBP) != null ? 86400000 : 300000);
 }
 function queueVisibleCardDetails(card) {
+  ensureTcgFxRates();
   if (!card || !currentCardsList.includes(card) || visibleCardDetailBusy.has(card)) return;
   if (card._priceAttemptAt && Date.now() - card._priceAttemptAt < 60000) return;
   const priceDue = shouldRefreshVisibleCardPricing(card);
@@ -7721,7 +7820,7 @@ function pumpVisibleCardDetails() {
           card.variants = { standard: evidence.standard, reverseHolo: evidence.reverseHolo, other: evidence.other };
           card.baseFinish = evidence.baseFinish;
           captureNamedCardVariantData(card, detail);
-          card.priceGBP = getTcgDexBasePriceGBP(detail, evidence) ?? card.priceGBP;
+          updateTcgCardPriceFromDetail(card, detail, evidence);
         } else {
           const id = String(card.artworkPokemonSetId || card.id?.split('-').slice(0, -1).join('-') || '');
           const result = await enrichSetCardsWithTcgDex([card], id, card.setName, refreshPrice);
@@ -7732,7 +7831,7 @@ function pumpVisibleCardDetails() {
         }
         card._detailsAt = Date.now();
         card._priceCheckedAt = Date.now();
-        card._pricingVersion = 168;
+        card._pricingVersion = TCG_PRICING_VERSION;
         visibleCardDetailDone.add(card);
         saveEnrichedCard(card);
         if (currentCardsList.includes(card)) {
@@ -7768,7 +7867,7 @@ function paintVisibleCardDetails(card) {
       let price = frame.querySelector('.tcg-card-price-badge');
       if (!price) { price = document.createElement('div'); price.className = 'tcg-card-price-badge'; frame.append(price); }
       price.textContent = `£${Number(card.priceGBP).toFixed(2)}`;
-    }
+    } else if (frame) frame.querySelector('.tcg-card-price-badge')?.remove();
     const selector = node.querySelector('.tcg-variant-selector');
     if (selector) {
       selector.innerHTML = getSetVariantOptionsMarkup(card);
@@ -7791,6 +7890,7 @@ function paintVisibleCardDetails(card) {
   if (document.getElementById('tcgZoomModal')?.style.display === 'flex' && currentCardsList[currentZoomIndex] === card) {
     const price = document.getElementById('tcgZoomPriceVal');
     if (price) price.innerText = card.priceGBP ? `£${Number(card.priceGBP).toFixed(2)}` : 'Market N/A';
+    paintTcgPriceSource(card);
     const variants = document.getElementById('tcgZoomVariants');
     if (activeTcgSet && variants) {
       renderZoomSetVariants(variants, card);
@@ -7853,7 +7953,8 @@ function formatPokemonCatalogueResults(results, cleanName, complete, cacheKey) {
       rarity: card.rarity || 'Unknown', rarityScore: getRarityScore(card.rarity),
       _rarityPending: !card.rarity && !card._rarityChecked,
       _artPriorityHint: Math.max(card._artPriorityHint||0,getPokemonCardArtHint(card)),
-      priceGBP: extractCardPriceGBP(card)
+      priceGBP: extractCardPriceGBP(card),
+      _priceQuote: card._priceQuote
     };
   });
   sortCardsList(cards);
@@ -7972,7 +8073,7 @@ async function getTcgDexCardDetail(id, deadline, forceRefresh = false) {
 
 async function loadTcgDexCardDetail(id, deadline, forceRefresh = false) {
   const cached = tcgDetailCache.get(id);
-  if (cached && Date.now() - cached.savedAt < (forceRefresh ? 60000 : 3600000)) return cached.data;
+  if (!forceRefresh && cached && Date.now() - cached.savedAt < 3600000) return cached.data;
   const saved = !forceRefresh && readFastData(`pokeroulette_fast_card_v143_${id}`, 86400000);
   if (saved?.id === id && saved?.set?.id) {
     setBoundedCache(tcgDetailCache, id, { savedAt: Date.now(), data: saved }, 1000);
@@ -7982,13 +8083,13 @@ async function loadTcgDexCardDetail(id, deadline, forceRefresh = false) {
   // refresh of named finish metadata in this build.
   const previous = !forceRefresh && readFastData(`pokeroulette_fast_card_v115_${id}`, 86400000);
   try {
-    const data = await fetchJsonWithRetry( `https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`, { timeoutMs: 5000, deadline }, 0 );
+    const data = await fetchJsonWithRetry( `https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`, { timeoutMs: 5000, deadline, ...(forceRefresh ? {cache:'reload'} : {}) }, 0 );
     if (data?.id !== id || !data?.set?.id) throw new Error('Invalid card detail');
     setBoundedCache(tcgDetailCache, id, { savedAt: Date.now(), data }, 1000);
     saveFastData(`pokeroulette_fast_card_v143_${id}`, data);
     return data;
   } catch (error) {
-    if (cached) return cached.data;
+    if (!forceRefresh && cached) return cached.data;
     if (previous?.id === id && previous?.set?.id) return previous;
     throw error;
   }
@@ -8732,56 +8833,79 @@ function getTcgDexFinishEvidence(card) {
 
 function getPriceFromTcgDexVariantPricing(pricing, withPriority = false) {
   if (!pricing || typeof pricing !== 'object') return null;
-  const tcg = pricing.tcgplayer || {};
-  const cm = pricing.cardmarket || {};
-  // Rank by the kind of value, not by which provider has any value first.
-  // High prices are asking-price outliers, not a useful market estimate.
+  const tcg = pricing.tcgplayer || {}, cm = pricing.cardmarket || {};
+  // A low listing or an asking-price median is not a market valuation.
   const candidates = [
-    [tcg.marketPrice, USD_TO_GBP], [tcg.market, USD_TO_GBP],
-    [cm.trend, EUR_TO_GBP], [pricing.trend, EUR_TO_GBP],
-    [cm.avg, EUR_TO_GBP], [cm.average, EUR_TO_GBP],
-    [tcg.midPrice, USD_TO_GBP], [tcg.mid, USD_TO_GBP],
-    [cm.avg1, EUR_TO_GBP], [cm.avg7, EUR_TO_GBP], [cm.avg30, EUR_TO_GBP],
-    [pricing.average, EUR_TO_GBP], [pricing.avg, EUR_TO_GBP],
-    [pricing.avg1, EUR_TO_GBP], [pricing.avg7, EUR_TO_GBP], [pricing.avg30, EUR_TO_GBP],
-    [tcg.lowPrice, USD_TO_GBP], [tcg.low, USD_TO_GBP],
-    [tcg.directLowPrice, USD_TO_GBP], [tcg.directLow, USD_TO_GBP],
-    [cm.low, EUR_TO_GBP], [cm.lowPrice, EUR_TO_GBP], [pricing.low, EUR_TO_GBP]
+    [tcg.marketPrice ?? tcg.market, 'USD', 'TCGplayer market', tcg.updated],
+    [cm.avg30 ?? pricing.avg30, 'EUR', 'Cardmarket 30-day avg', cm.updated],
+    [cm.trend ?? pricing.trend, 'EUR', 'Cardmarket trend', cm.updated],
+    [cm.avg7 ?? pricing.avg7, 'EUR', 'Cardmarket 7-day avg', cm.updated],
+    [cm.avg ?? cm.average ?? pricing.average ?? pricing.avg, 'EUR', 'Cardmarket average', cm.updated],
+    [cm.avg1 ?? pricing.avg1, 'EUR', 'Cardmarket 1-day avg', cm.updated]
   ];
-  for (const [priority, [value, rate]] of candidates.entries()) {
-    const price = getNumericPrice(value);
-    if (price != null) return withPriority ? {price: price * rate, priority} : price * rate;
+  for (const [priority, [value, currency, source, updated]] of candidates.entries()) {
+    const amount = getNumericPrice(value);
+    if (amount == null) continue;
+    const quote = {amount, currency, source, updated:updated || null, priority};
+    const price = convertTcgQuote(quote);
+    return withPriority ? {...quote, price} : price;
   }
   return null;
 }
-
+function chooseTcgPriceQuote(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  if (a.priority !== b.priority) return a.priority < b.priority ? a : b;
+  return (Date.parse(b.updated) || 0) > (Date.parse(a.updated) || 0) ? b : a;
+}
 function getTcgDexBasePriceGBP(card, finishEvidence, withPriority = false) {
   const evidence = finishEvidence || (card?.baseFinish ? {baseFinish:card.baseFinish} : getTcgDexFinishEvidence(card));
-  const rawDetailed = card?.variants_detailed || card?.variantsDetailed;
-  const detailed = Array.isArray(rawDetailed) ? rawDetailed : [];
+  const raw = card?.variants_detailed || card?.variantsDetailed;
+  // Auto-generated "normal" records can describe a GX card whose only
+  // marketplace bucket is holofoil. Use the actual priced printing.
+  const detailed = (Array.isArray(raw) ? raw : []).filter(v =>
+    v?.variantId !== 'generated' && (!v?.size || String(v.size).toLowerCase() === 'standard') &&
+    (!v?.languages?.length || v.languages.some(language => /^en(?:-|$)/i.test(language))));
   const buckets = getTcgDexTcgPlayerFinishBuckets(card);
-  const baseType = evidence.baseFinish ||
-    (buckets.standard && !buckets.holo ? 'normal' : buckets.holo && !buckets.standard ? 'holo' : null);
-  const baseVariant = baseType && detailed.find(v =>
-    String(v?.type || '').toLowerCase() === baseType &&
-    (!v?.size || String(v.size).toLowerCase() === 'standard')
-  );
-  const baseBucket = baseType === 'normal' ? buckets.standard : baseType === 'holo' ? buckets.holo : null;
+  let baseType = evidence.baseFinish;
+  const hasDetailedBase = detailed.some(v => String(v.type).toLowerCase() === baseType);
+  if (!hasDetailedBase) {
+    if (buckets.holo && !buckets.standard) baseType = 'holo';
+    else if (buckets.standard && !buckets.holo) baseType = 'normal';
+  }
+  const baseVariant = detailed.find(v => String(v.type).toLowerCase() === baseType &&
+    !v.subtype && !(Array.isArray(v.stamp) && v.stamp.length));
+  const tcg = card?.pricing?.tcgplayer || {};
+  const baseBucket = baseType === 'holo' ? buckets.holo : baseType === 'normal' ? buckets.standard : null;
   const cm = card?.pricing?.cardmarket || {};
-  const suffix = baseType === 'holo' ? '-holo' : '';
-  const selectedCm = Object.fromEntries(['trend','avg','avg1','avg7','avg30','low']
-    .map(key => [key, cm[key + suffix]]));
+  const cmProduct = String(cm.idProduct || card?.thirdParty?.cardmarket || '');
+  const variantProduct = String(baseVariant?.thirdParty?.cardmarket || '');
+  const mainProduct = cmProduct && (variantProduct === cmProduct ||
+    (!variantProduct && ((buckets.holo && !buckets.standard) ||
+      (card?.variants?.holo && !card?.variants?.normal))));
+  const suffix = baseType === 'holo' && !mainProduct ? '-holo' : '';
+  const selectedCm = Object.fromEntries(['trend','avg','avg1','avg7','avg30'].map(key => [key, cm[key + suffix]]));
   const detailPricing = baseVariant?.pricing || {};
-  // Combine only the same printing's fields, so a top-level market value
-  // can win over a detailed low-price fallback (and vice versa).
-  const mergePrices = (base, extra) => ({...base, ...Object.fromEntries(
-    Object.entries(extra || {}).filter(([, value]) => getNumericPrice(value) != null))});
-  return getPriceFromTcgDexVariantPricing({
-    ...card?.pricing,
-    ...detailPricing,
-    tcgplayer: mergePrices(baseBucket, detailPricing.tcgplayer),
-    cardmarket: mergePrices(selectedCm, detailPricing.cardmarket)
-  }, withPriority);
+  const detailTcg = detailPricing.tcgplayer || {};
+  const selectedDetailTcg = getTcgDexTcgPlayerFinishBuckets({pricing:{tcgplayer:detailTcg}});
+  const variantBucket = (baseType === 'holo' ? selectedDetailTcg.holo : selectedDetailTcg.standard) || detailTcg;
+  const merge = (a,b) => ({...a,...Object.fromEntries(Object.entries(b || {}).filter(([,v]) => v != null))});
+  const quote = getPriceFromTcgDexVariantPricing({
+    tcgplayer: {...merge(baseBucket, variantBucket), updated:detailTcg.updated || tcg.updated},
+    cardmarket: {...merge(selectedCm, detailPricing.cardmarket), updated:detailPricing.cardmarket?.updated || cm.updated}
+  }, true);
+  return withPriority ? quote : quote?.price ?? null;
+}
+function updateTcgCardPriceFromDetail(card, detail, evidence) {
+  const quote = chooseTcgPriceQuote(card._priceQuote, getTcgDexBasePriceGBP(detail, evidence, true));
+  if (quote) {
+    card._priceQuote = quote;
+    card.priceGBP = convertTcgQuote(quote).toFixed(2);
+  } else if (card._pricingVersion !== TCG_PRICING_VERSION) {
+    // Old low-listing estimates have no usable market evidence.
+    card.priceGBP = null;
+  }
+  return card.priceGBP;
 }
 
 function normalizeSetMatchName(value) {
@@ -8882,7 +9006,7 @@ async function enrichSetCardsWithTcgDex(cards, setId, setName, refreshPrice = fa
           reverseHolo: finishEvidence.reverseHolo,
           other: finishEvidence.other
         };
-        const basePriceGBP = getTcgDexBasePriceGBP( dexCard, finishEvidence );
+        const basePriceGBP = updateTcgCardPriceFromDetail(card, dexCard, finishEvidence);
         return captureNamedCardVariantData({
           ...card,
           _tcgDexDetailId: dexCard.id,
@@ -8974,6 +9098,7 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
             ? getRarityScore(card.rarity)
             : 0,
         priceGBP: extractCardPriceGBP(card),
+        _priceQuote: card._priceQuote,
         variants: sourceVariantEvidence,
         baseFinish: sourceVariantEvidence.baseFinish
       };
@@ -9011,7 +9136,7 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
             other: false
           },
           baseFinish: fused.baseFinish,
-          priceGBP: getTcgDexBasePriceGBP(dexCard, fused) ?? card.priceGBP
+          priceGBP: updateTcgCardPriceFromDetail(card, dexCard, fused)
         }, dexCard);
       } catch (error) {
         return card;
@@ -12145,30 +12270,19 @@ function getNumericPrice(value) {
 
 function extractCardPriceGBP(card) {
   if (!card) return null;
-  // Retain finish identity instead of taking the most expensive price bucket.
   const prices = card.tcgplayer?.prices || {};
   const normal = prices.normal || prices.unlimited || prices.firstEditionNormal || prices['1stEditionNormal'];
   const holo = prices.holofoil || prices.unlimitedHolofoil || prices.firstEditionHolofoil || prices['1stEditionHolofoil'];
   const base = card.baseFinish === 'holo' ? holo : card.baseFinish === 'normal' ? normal : normal || holo;
   const cm = card.cardmarket?.prices || {};
-  const legacyPricing = {
-    tcgplayer: base,
-    cardmarket: {
-      trend: cm.trendPrice, avg: cm.averageSellPrice, avg1: cm.avg1,
-      avg7: cm.avg7, avg30: cm.avg30,
-      low: getNumericPrice(cm.lowPrice) ?? cm.lowPriceExPlus
-    }
-  };
-  // TCGdex's nested normal/holo marketPrice fields need the same extraction
-  // as full card details; their search results are not legacy API objects.
-  const dexQuote = card.pricing || card.variants_detailed || card.variantsDetailed
-    ? getTcgDexBasePriceGBP(card, undefined, true) : null;
-  const legacyQuote = getPriceFromTcgDexVariantPricing(legacyPricing, true);
-  const quote = legacyQuote && dexQuote
-    ? (legacyQuote.priority <= dexQuote.priority ? legacyQuote : dexQuote)
-    : legacyQuote || dexQuote;
-  const price = quote?.price;
-  return price != null && Number.isFinite(price) ? price.toFixed(2) : null;
+  const legacy = getPriceFromTcgDexVariantPricing({
+    tcgplayer: {...base, updated:card.tcgplayer?.updatedAt},
+    cardmarket: {trend:cm.trendPrice, avg:cm.averageSellPrice, avg1:cm.avg1, avg7:cm.avg7, avg30:cm.avg30, updated:card.cardmarket?.updatedAt}
+  }, true);
+  const dex = card.pricing || card.variants_detailed || card.variantsDetailed ? getTcgDexBasePriceGBP(card, undefined, true) : null;
+  const quote = chooseTcgPriceQuote(legacy, dex);
+  if (quote) card._priceQuote = quote;
+  return quote ? convertTcgQuote(quote).toFixed(2) : null;
 }
 
 async function fetchTcgCardsData(pokeName, speciesName, bypassCache = false) {
@@ -13019,6 +13133,7 @@ function updateZoomModalContent() {
   if (tcgZoomCounter) tcgZoomCounter.innerText = `${currentZoomIndex + 1} / ${currentCardsList.length}`;
   const priceValEl = document.getElementById('tcgZoomPriceVal');
   if (priceValEl) priceValEl.innerText = card.priceGBP ? `£${Number(card.priceGBP).toFixed(2)}` : 'Market N/A';
+  paintTcgPriceSource(card);
   const ebayLink = document.getElementById('tcgZoomPrice');
   if (ebayLink) {
     const searchUrl = getCardEbaySearchUrl(card);
