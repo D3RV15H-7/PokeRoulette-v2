@@ -5399,11 +5399,11 @@ function toggleSetCardVariant(card, variant) {
 function sortCardsList(cards) {
   // Compute ownership once per card rather than on every sort comparison.
   const ranked = cards.map(card => ({
-    card, owned: Number(isCardCollected(card)),
+    card, art: getPokemonCardArtPriority(card), owned: Number(isCardCollected(card)),
     rarity: Number(card.rarityScore) || 0, price: parseFloat(card.priceGBP) || 0
   }));
   ranked.sort((a, b) => {
-    return b.owned - a.owned || b.rarity - a.rarity || b.price - a.price ||
+    return b.art - a.art || b.owned - a.owned || b.rarity - a.rarity || b.price - a.price ||
       String(a.card.setName).localeCompare(String(b.card.setName)) ||
       String(a.card.number).localeCompare(String(b.card.number), undefined, { numeric: true }) ||
       String(a.card.id).localeCompare(String(b.card.id));
@@ -7792,6 +7792,9 @@ function formatPokemonCatalogueResults(results, cleanName, complete, cacheKey) {
     if (!existing) merged.set(key, card);
     else merged.set(key, {
       ...card, ...existing,
+      rarity: existing.rarity || card.rarity || '',
+      _rarityChecked: !!(existing._rarityChecked || card._rarityChecked),
+      _artPriorityHint: Math.max(existing._artPriorityHint||0,card._artPriorityHint||0,getPokemonCardArtHint(existing),getPokemonCardArtHint(card)),
       images: {
         small: existing.images?.small || card.images?.small,
         large: existing.images?.large || card.images?.large
@@ -7816,7 +7819,9 @@ function formatPokemonCatalogueResults(results, cleanName, complete, cacheKey) {
       largeImgFallbacks: artwork.large.slice(1),
       setName: resolveSetName(card.set, card.id),
       number: getPhysicalCardNumber(card),
-      rarity: card.rarity || 'Common', rarityScore: getRarityScore(card.rarity),
+      rarity: card.rarity || 'Unknown', rarityScore: getRarityScore(card.rarity),
+      _rarityPending: !card.rarity && !card._rarityChecked,
+      _artPriorityHint: Math.max(card._artPriorityHint||0,getPokemonCardArtHint(card)),
       priceGBP: extractCardPriceGBP(card)
     };
   });
@@ -12173,128 +12178,160 @@ function ensureVintagePokemonCards(cards, cleanName) {
   return result;
 }
 
-async function loadTcgCardsData(pokeName, speciesName, bypassCache = false) {
-  const cleanName = getCleanNationalDexName(pokeName, speciesName);
-  const cacheKey = `tcg_complete_cache_v58_${normalizePokemonCardName(cleanName).replace(/[^a-z0-9]/g, '')}`;
-  const TTL_MS = 86400000;
-  let saved = memoryTcgCache.get(cacheKey) || null;
-  if (!saved) {
-    try {
-      const stored = JSON.parse(localStorage.getItem(cacheKey));
-      if (stored?.complete === true && Array.isArray(stored.data)) saved = stored;
-    } catch (error) {}
-  }
-  if (!bypassCache && saved?.complete && Date.now() - saved.savedAt < 30 * TTL_MS) {
-    setBoundedCache(memoryTcgCache, cacheKey, saved, 128);
-    const cards = ensureVintagePokemonCards(saved.data, cleanName);
-    if (Date.now() - saved.savedAt >= TTL_MS) {
-      tcgCardListStatus.set(cards, { stale: true });
-      setTimeout(() => fetchTcgCardsData(pokeName, speciesName, true).catch(() => {}), 0);
-    }
-    sortCardsList(cards);
-    return cards;
-  }
-  // Briefly reuse an explicitly labelled partial result to avoid hammering an
-  // unavailable provider while browsing. Refresh always retries both sources.
-  if (!bypassCache && !saved?.complete) {
-    try {
-      const partial = JSON.parse(localStorage.getItem(`${cacheKey}_partial`));
-      if (Array.isArray(partial?.data) && Date.now() - partial.savedAt < 60000) {
-        const cards = ensureVintagePokemonCards(partial.data, cleanName);
-        tcgCardListStatus.set(cards, { partial: true });
-        sortCardsList(cards);
-        return cards;
-      }
-    } catch (error) {}
-  }
-
-  const deadline = Date.now() + 12000;
-  const headers = {};
-  if (POKEMON_TCG_API_KEY) headers['X-Api-Key'] = POKEMON_TCG_API_KEY;
-  const searchNames = getPokemonCardSearchNames(cleanName);
-  const query = searchNames.map(name => `name:"${name.replace(/"/g, '').trim()}"`).join(' OR ');
-  const fetchIo = async () => (await fetchPokemonTcgPages(
-    `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}`, { headers, timeoutMs: 5000, retries: 0 }, deadline
-  )).map(card => ({ ...card, artworkPokemonSetId: card.set?.id }));
-  const fetchDex = async () => {
-    const [references, sets] = await Promise.all([
-      (async () => {
-        const lists = await Promise.all(searchNames.map(name =>
-          fetchJsonWithRetry(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(name)}`, { deadline, timeoutMs: 6500 }, 1)
-        ));
-        if (lists.some(list => !Array.isArray(list))) throw new Error('Invalid TCGdex card list');
-        return [...new Map(lists.flat().map(card => [card?.id, card])).values()];
-      })(),
-      getTcgDexSets()
-    ]);
-    if (!Array.isArray(references)) throw new Error('Invalid TCGdex card list');
-    const setsById = new Map(sets.map(set => [String(set.id).toLowerCase(), set]));
-    // The brief catalogue determines membership; details only supply artwork,
-    // rarity and price. A missing detail or image must not remove a real card.
-    const physical = references.map(brief => {
-      if (!brief?.id || !brief?.name) throw new Error('Invalid TCGdex card reference');
-      const split = brief.id.lastIndexOf('-');
-      const setId = brief.id.slice(0, split);
-      const set = setsById.get(setId.toLowerCase());
-      return {
-        ...brief,
-        localId: brief.localId || brief.id.slice(split + 1),
-        set: { id: setId, name: set?.name || KNOWN_SETS[setId.toLowerCase()] || setId }
-      };
-    }).filter(card => !isExcludedCollectorCard(card) && matchesExactPokemonName(card.name, cleanName));
-    return physical.map(brief => {
-      // CardBrief already supplies name, number and artwork. Details are optional.
-      const detail = tcgDetailCache.get(brief.id)?.data || brief;
-      const image = detail.image || brief.image || '';
-      return {
-        ...detail,
-        id: brief.id,
-        name: detail.name || brief.name,
-        set: detail.set?.id ? detail.set : brief.set,
-        number: detail.localId || brief.localId,
-        artworkTcgDexSetId: brief.set.id,
-        _tcgDexDetailId: brief.id,
-        images: { small: image ? `${image}/low.webp` : '', large: image ? `${image}/high.webp` : '' },
-        rarity: detail.rarity || 'Common'
-      };
-    });
-  };
-  const partialResults = [{ status: 'pending' }, { status: 'pending' }];
-  const requests = [fetchIo(), fetchDex()].map((request, index) => request.then(value => {
-    partialResults[index] = { status: 'fulfilled', value };
-    if (!saved?.complete) {
-      const cards = formatPokemonCatalogueResults(partialResults, cleanName, false, cacheKey);
-      if (cards.length) { tcgCardListStatus.set(cards, { pending: true }); publishTcgProgress(cleanName.toLowerCase(), cards); }
-    }
-    return value;
-  }));
-  const results = await Promise.allSettled(requests);
-  const complete = results.every(result => result.status === 'fulfilled');
-  const failures = results.filter(result => result.status === 'rejected');
-  failures.forEach(result => console.warn('[TCG] Catalogue source unavailable:', result.reason));
-  if (!complete && saved?.complete) {
-    const cards = ensureVintagePokemonCards(saved.data, cleanName);
-    tcgCardListStatus.set(cards, { stale: true });
-    sortCardsList(cards);
-    return cards;
-  }
-  if (failures.length === results.length) throw new Error('Card services are unavailable. Tap refresh to retry.');
-  const cards = formatPokemonCatalogueResults(results, cleanName, complete, cacheKey);
-  sortCardsList(cards);
-  tcgCardListStatus.set(cards, { partial: !complete });
-  // A successful empty result is valid, but a failed/partial result is never
-  // written over the complete catalogue or treated as "no cards exist".
-  if (complete) {
-    const record = { savedAt: Date.now(), complete: true, data: cards };
-    setBoundedCache(memoryTcgCache, cacheKey, record, 128);
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(record));
-      localStorage.removeItem(`${cacheKey}_partial`);
-    } catch (error) {}
-  } else if (cards.length) {
-    try { localStorage.setItem(`${cacheKey}_partial`, JSON.stringify({ savedAt: Date.now(), data: cards })); } catch (error) {}
-  }
+// A brief checklist is useful immediately; missing rarity must not mean Common.
+function getPokemonCardArtPriority(card){
+ const rarity=String(card?.rarity||'').toLowerCase().replace(/[-_]/g,' ');
+ if(/special (?:illustration|art)|alternate art|alt art/.test(rarity))return 4;
+ if(/illustration rare|(?:^|\s)art rare|trainer gallery|galarian gallery|character (?:rare|super)/.test(rarity))return 3;
+ if(/full art|ultra rare|rare ultra|secret|rainbow|hyper rare/.test(rarity))return 2;
+ return Number(card?._artPriorityHint)||0;
+}
+function getPokemonCardArtHint(card){
+ const number=String(card?.localId||card?.number||'');
+ if(/^(TG|GG|RC)\d+/i.test(number))return 2;
+ const printed=Number(card?.set?.printedTotal||card?.set?.cardCount?.official);
+ return printed>0&&/^\d+$/.test(number)&&Number(number)>printed?1:0;
+}
+function mergePokemonCardSnapshots(cards,previous=[],keepMissing=false){
+ const old=new Map(previous.map(card=>[getCardFingerprint(card),card]));
+ const byId=new Map(previous.map(card=>[String(card.id),card]));
+ const merged=cards.map(card=>{
+  const key=getCardFingerprint(card),prior=old.get(key)||byId.get(String(card.id));
+  old.delete(key);if(prior)old.delete(getCardFingerprint(prior));
+  if(!prior)return card;
+  const retainRarity=card._rarityPending&&!prior._rarityPending&&prior.rarity&&prior.rarity!=='Unknown';
+  const urls=(...groups)=>[...new Set(groups.flat().filter(url=>url&&url!==TCG_CARD_ARTWORK_UNAVAILABLE))];
+  const small=urls(card.smallImg,card.smallImgFallbacks||[],prior.smallImg,prior.smallImgFallbacks||[]);
+  const large=urls(card.largeImg,card.largeImgFallbacks||[],prior.largeImg,prior.largeImgFallbacks||[]);
+  return {...prior,...card,id:prior.id,
+   rarity:retainRarity?prior.rarity:card.rarity,
+   rarityScore:retainRarity?prior.rarityScore:card.rarityScore,
+   _rarityPending:retainRarity?false:card._rarityPending,
+   _artPriorityHint:Math.max(card._artPriorityHint||0,prior._artPriorityHint||0),
+   priceGBP:card.priceGBP??prior.priceGBP,
+   smallImg:small[0]||TCG_CARD_ARTWORK_UNAVAILABLE,smallImgFallbacks:small.slice(1),
+   largeImg:large[0]||TCG_CARD_ARTWORK_UNAVAILABLE,largeImgFallbacks:large.slice(1)};
+ });
+ if(keepMissing)merged.push(...old.values());
+ return merged;
+}
+async function loadTcgCardsData(pokeName,speciesName,bypassCache=false){
+ const cleanName=getCleanNationalDexName(pokeName,speciesName),key=cleanName.toLowerCase();
+ const cacheKey=`tcg_complete_cache_v58_${normalizePokemonCardName(cleanName).replace(/[^a-z0-9]/g,'')}`;
+ const TTL_MS=86400000,VERSION=220;
+ let saved=memoryTcgCache.get(cacheKey)||null;
+ if(!saved){try{const stored=JSON.parse(localStorage.getItem(cacheKey));if(stored?.complete===true&&Array.isArray(stored.data))saved=stored;}catch(_){}}
+ let previous=saved?.data?ensureVintagePokemonCards(saved.data,cleanName):[];
+ const cacheIsCurrent=saved?.catalogueVersion===VERSION;
+ if(!cacheIsCurrent)previous=previous.map(card=>({...card,_rarityPending:!card.rarity||card.rarity==='Common'||card.rarity==='Unknown'}));
+ if(!bypassCache&&saved?.complete&&cacheIsCurrent&&Date.now()-saved.savedAt<TTL_MS){
+  const cards=ensureVintagePokemonCards(saved.data,cleanName);sortCardsList(cards);
+  tcgCardListStatus.set(cards,{partial:false});setBoundedCache(memoryTcgCache,cacheKey,saved,128);return cards;
+ }
+ if(!previous.length){try{const partial=JSON.parse(localStorage.getItem(`${cacheKey}_partial`));if(Array.isArray(partial?.data))previous=ensureVintagePokemonCards(partial.data,cleanName);}catch(_){}}
+ if(previous.length){
+  sortCardsList(previous);tcgCardListStatus.set(previous,{pending:true,stale:!!saved?.complete});publishTcgProgress(key,previous);
+ }
+ // Keep the subscription alive through cache repair, source recovery and metadata.
+ // Only failed sources are retried; a healthy checklist is not fetched again.
+ const deadline=Date.now()+32000;
+ const states=[{status:'pending'},{status:'pending'}];
+ let latest=previous,paintTimer=null,detailTask=null;
+ function snapshot(final=false){
+  const sourcesComplete=states.every(result=>result.status==='fulfilled');
+  const fresh=formatPokemonCatalogueResults(states,cleanName,sourcesComplete,cacheKey);
+  const cards=mergePokemonCardSnapshots(fresh,latest,!sourcesComplete);
+  sortCardsList(cards);latest=cards;
+  const metadataPending=cards.some(card=>card._rarityPending);
+  tcgCardListStatus.set(cards,{pending:!final,partial:final&&(!sourcesComplete||metadataPending),sourcesComplete,metadataPending});
   return cards;
+ }
+ function publish(){paintTimer=null;const cards=snapshot();if(cards.length)publishTcgProgress(key,cards);}
+ function schedulePublish(){if(!paintTimer)paintTimer=setTimeout(publish,100);}
+ const headers={};if(POKEMON_TCG_API_KEY)headers['X-Api-Key']=POKEMON_TCG_API_KEY;
+ const names=getPokemonCardSearchNames(cleanName);
+ const query=names.map(name=>`name:"${name.replace(/"/g,'').trim()}"`).join(' OR ');
+ const fetchIo=async()=> (await fetchPokemonTcgPages(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}`,
+  {headers,timeoutMs:8000,retries:0},deadline)).map(card=>({...card,artworkPokemonSetId:card.set?.id}));
+ const fetchDex=async()=>{
+  const lists=await Promise.all(names.map(name=>fetchJsonWithRetry(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(name)}`,
+   {deadline,timeoutMs:8000},0)));
+  if(lists.some(list=>!Array.isArray(list)))throw Error('Invalid TCGdex card list');
+  const references=[...new Map(lists.flat().map(card=>[card?.id,card])).values()];
+  // A set-service outage must not discard a successful Pokémon card search.
+  const sets=[...(Array.isArray(window.tcgDexSetsCache)?window.tcgDexSetsCache:[]),...getBundledTcgCatalogue()];
+  const byId=new Map();for(const set of sets){const id=String(set.id).toLowerCase();if(!byId.has(id))byId.set(id,set);const alias=AUDITED_ARTWORK_SET_ALIASES[id];if(alias&&!byId.has(alias))byId.set(alias,set);}
+  return references.map(brief=>{
+   if(!brief?.id||!brief?.name)throw Error('Invalid TCGdex card reference');
+   const split=brief.id.lastIndexOf('-'),setId=brief.id.slice(0,split),set=byId.get(setId.toLowerCase());
+   const cached=tcgDetailCache.get(brief.id)?.data||readFastData(`pokeroulette_fast_card_v143_${brief.id}`,86400000);
+   const detail=cached?.id===brief.id?cached:brief;
+   const image=detail.image||brief.image||'';
+   const card={...brief,...detail,id:brief.id,name:brief.name,
+    set:{...set,...detail.set,id:setId,name:detail.set?.name||set?.name||KNOWN_SETS[setId.toLowerCase()]||setId},
+    localId:detail.localId||brief.localId||brief.id.slice(split+1),
+    number:detail.localId||brief.localId||brief.id.slice(split+1),
+    artworkTcgDexSetId:setId,_tcgDexDetailId:brief.id,_rarityChecked:cached?.id===brief.id,
+    images:{small:image?`${image}/low.webp`:'',large:image?`${image}/high.webp`:''},rarity:detail.rarity||''};
+   card._artPriorityHint=getPokemonCardArtHint(card);return card;
+  }).filter(card=>!isExcludedCollectorCard(card)&&matchesExactPokemonName(card.name,cleanName));
+ };
+ async function enrichDex(cards){
+  const ordered=[...cards].sort((a,b)=>getPokemonCardArtHint(b)-getPokemonCardArtHint(a));
+  const detailDeadline=Math.min(deadline,Date.now()+16000);
+  await mapTcgLimited(ordered,async card=>{
+   if((card.rarity&&card.images?.small)||card._rarityChecked)return;
+   const known=states[0].status==='fulfilled'&&states[0].value.some(other=>getPhysicalCardKey(other)===getPhysicalCardKey(card)&&other.rarity);
+   if(known)return;
+   if(Date.now()>=detailDeadline)return;
+   for(let attempt=0;attempt<2;attempt++){
+    try{
+     const detail=await getTcgDexCardDetail(card.id,detailDeadline);
+     const image=detail.image||card.image||'';
+     Object.assign(card,{...detail,id:card.id,name:card.name,set:{...card.set,...detail.set},
+      number:detail.localId||card.number,_rarityChecked:true,rarity:detail.rarity||'',
+      images:{small:image?`${image}/low.webp`:card.images?.small,large:image?`${image}/high.webp`:card.images?.large}});
+     card._artPriorityHint=getPokemonCardArtHint(card);schedulePublish();break;
+    }catch(error){if(error.permanent||attempt||Date.now()+1500>=detailDeadline||!getPokemonCardArtHint(card))break;}
+   }
+  },3);
+ }
+ async function requestSource(index){
+  try{
+   const cards=await(index===0?fetchIo():fetchDex());states[index]={status:'fulfilled',value:cards};schedulePublish();
+   if(index===1)detailTask=enrichDex(cards);
+  }catch(reason){states[index]={status:'rejected',reason,retryAt:Date.now()+(reason.retryAfterMs||0)};}
+ }
+ try{
+  for(let round=0;round<3;round++){
+   const missing=states.map((state,index)=>state.status!=='fulfilled'&&!state.reason?.permanent?index:-1).filter(index=>index>=0);
+   if(!missing.length||Date.now()>=deadline)break;
+   if(round){
+    const delay=Math.max(round*800,...missing.map(index=>(states[index].retryAt||0)-Date.now()));
+    if(Date.now()+delay>=deadline)break;
+    await new Promise(resolve=>setTimeout(resolve,delay));
+   }
+   await Promise.all(missing.map(requestSource));
+  }
+  if(detailTask)await detailTask;
+ }finally{clearTimeout(paintTimer);paintTimer=null;}
+ const failed=states.filter(state=>state.status==='rejected');
+ if(failed.length===2&&!latest.length)throw Error('Card services are unavailable. Tap refresh to retry.');
+ // If both services fail, keep the last full snapshot instead of replacing it.
+ if(failed.length===2&&saved?.complete&&cacheIsCurrent){
+  const cards=ensureVintagePokemonCards(saved.data,cleanName);sortCardsList(cards);tcgCardListStatus.set(cards,{stale:true});return cards;
+ }
+ const cards=snapshot(true),status=tcgCardListStatus.get(cards);
+ if(!status.partial){
+  cards.forEach(card=>card._metadataCacheKey=cacheKey);
+  const record={savedAt:Date.now(),complete:true,catalogueVersion:VERSION,data:cards};
+  setBoundedCache(memoryTcgCache,cacheKey,record,128);
+  try{localStorage.setItem(cacheKey,JSON.stringify(record));localStorage.removeItem(`${cacheKey}_partial`);}catch(_){}
+ }else if(cards.length){
+  cards.forEach(card=>card._metadataCacheKey=`${cacheKey}_partial`);
+  try{localStorage.setItem(`${cacheKey}_partial`,JSON.stringify({savedAt:Date.now(),data:cards}));}catch(_){}
+ }
+ publishTcgProgress(key,cards);return cards;
 }
 
 async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
