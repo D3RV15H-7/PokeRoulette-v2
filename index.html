@@ -3080,7 +3080,7 @@ body:not(.has-active) #wheelWrap #wheel {
   overflow-wrap: anywhere;
 }
 .tcg-zoom-variant-option:focus-visible, .tcg-variant-option:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; border-radius: 4px; }
-/*v142: physical printing categories; mixed ownership retains the green tick.*/
+/*Physical printing categories and collected-version colours.*/
 .tcg-variant-option[data-variant-kind],
 .tcg-zoom-variant-option[data-variant-kind],
 .tcg-set-owned-check[data-variant-kind] {
@@ -3099,6 +3099,11 @@ body:not(.has-active) #wheelWrap #wheel {
   background: var(--variant-colour);
   border-color: var(--variant-colour);
   color: var(--variant-check-ink);
+}
+.tcg-set-owned-check.checked[data-variant-kind="mixed"] {
+  background: var(--owned-variant-background, var(--green));
+  border-color: transparent;
+  background-origin: border-box;
 }
 /*Match the glyph colour in all card collection checkboxes.*/
 .card-check-circle.checked,
@@ -5209,14 +5214,25 @@ function getSetCardOwnershipCategory(card) {
 }
 function paintSetCardOwnershipIndicator(node, card) {
   const kind = getSetCardOwnershipCategory(card);
+  const categories = ['base', 'reverse', 'alternative'].filter(category =>
+    getOwnedSetCardVariants(card).some(key => getSetVariantCategory(card, key) === category));
   node.classList.toggle('card-owned', Boolean(kind));
   const check = node.querySelector('.tcg-set-owned-check');
   if (!check) return;
   check.classList.toggle('checked', Boolean(kind));
   if (kind) check.dataset.variantKind = kind;
   else delete check.dataset.variantKind;
-  check.setAttribute('aria-label', kind === 'mixed' ? 'Multiple variants collected'
-    : kind ? ({base:'Standard or Holo',reverse:'Reverse',alternative:'Alternative variant'}[kind] + ' collected') : 'Choose card variants');
+  const colours = {base:'var(--green)', reverse:'var(--gold)', alternative:'#38bdf8'};
+  if (categories.length > 1) {
+    const stops = categories.map((category, i) =>
+      `${colours[category]} ${i * 100 / categories.length}% ${(i + 1) * 100 / categories.length}%`);
+    check.style.setProperty('--owned-variant-background', `conic-gradient(${stops.join(', ')})`);
+  } else if (categories.length === 1) {
+    check.style.setProperty('--owned-variant-background', colours[categories[0]]);
+  } else check.style.removeProperty('--owned-variant-background');
+  check.setAttribute('aria-label', categories.length
+    ? categories.map(category => ({base:'Standard or Holo',reverse:'Reverse',alternative:'Alternative variant'}[category])).join(', ') + ' collected'
+    : 'Choose card variants');
 }
 function updateSetCardOwnershipIndicators(card) {
   document.querySelectorAll('.tcg-set-card[data-live-card-id]').forEach(node => {
