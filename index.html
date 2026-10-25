@@ -4346,7 +4346,7 @@ let EUR_TO_GBP = 0.86;
 let tcgFxDate = '';
 let tcgFxRequest = null;
 let tcgFxAttemptAt = 0;
-const TCG_PRICING_VERSION = 224;
+const TCG_PRICING_VERSION = 225;
 function convertTcgQuote(quote) {
   return quote.amount * (quote.currency === 'USD' ? USD_TO_GBP : EUR_TO_GBP);
 }
@@ -4377,7 +4377,7 @@ async function ensureTcgFxRates() {
       if (!valid(data)) return;
       apply(data);
       try { localStorage.setItem('pokeroulette_fx_v224', JSON.stringify(data)); } catch (_) {}
-    } catch (_) { /* Retain the last rates and disclose their date/fallback. */ }
+    } catch (_) { /* Retain the last available rates. */ }
   })();
   try { await tcgFxRequest; } finally { tcgFxRequest = null; }
 }
@@ -4391,8 +4391,8 @@ function paintTcgPriceSource(card) {
     return Number.isFinite(+parsed) ? parsed.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) : '';
   };
   const symbol = quote.currency === 'USD' ? '$' : '€';
-  node.textContent = [quote.source + ': ' + symbol + Number(quote.amount).toFixed(2), date(quote.updated), tcgFxDate ? 'FX ' + date(tcgFxDate) : 'approx. FX'].filter(Boolean).join(' · ');
-  node.title = [quote.source, quote.updated ? 'Price updated: '+quote.updated : 'Price date unavailable', tcgFxDate ? 'Exchange rates: '+tcgFxDate : 'Offline exchange-rate estimate'].join(' · ');
+  node.textContent = [quote.source + ': ' + symbol + Number(quote.amount).toFixed(2), date(quote.updated)].filter(Boolean).join(' · ');
+  node.title = [quote.source, quote.updated ? 'Price updated: '+quote.updated : 'Price date unavailable'].join(' · ');
 }
 const TYPES = ['normal','fire','water','grass','electric','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const COLORS = { 
@@ -8836,9 +8836,9 @@ function getPriceFromTcgDexVariantPricing(pricing, withPriority = false) {
   const tcg = pricing.tcgplayer || {}, cm = pricing.cardmarket || {};
   // A low listing or an asking-price median is not a market valuation.
   const candidates = [
+    [cm.trend ?? pricing.trend, 'EUR', 'Cardmarket trend', cm.updated],
     [tcg.marketPrice ?? tcg.market, 'USD', 'TCGplayer market', tcg.updated],
     [cm.avg30 ?? pricing.avg30, 'EUR', 'Cardmarket 30-day avg', cm.updated],
-    [cm.trend ?? pricing.trend, 'EUR', 'Cardmarket trend', cm.updated],
     [cm.avg7 ?? pricing.avg7, 'EUR', 'Cardmarket 7-day avg', cm.updated],
     [cm.avg ?? cm.average ?? pricing.average ?? pricing.avg, 'EUR', 'Cardmarket average', cm.updated],
     [cm.avg1 ?? pricing.avg1, 'EUR', 'Cardmarket 1-day avg', cm.updated]
@@ -8853,6 +8853,16 @@ function getPriceFromTcgDexVariantPricing(pricing, withPriority = false) {
   return null;
 }
 function chooseTcgPriceQuote(a, b) {
+  // Re-rank saved quotes by source: their stored priority may predate
+  // the Cardmarket-first preference.
+  const sources = ['Cardmarket trend', 'TCGplayer market', 'Cardmarket 30-day avg',
+    'Cardmarket 7-day avg', 'Cardmarket average', 'Cardmarket 1-day avg'];
+  const rank = quote => {
+    if (!quote) return null;
+    const priority = sources.indexOf(quote.source);
+    return {...quote, priority:priority < 0 ? sources.length : priority};
+  };
+  a = rank(a); b = rank(b);
   if (!a) return b || null;
   if (!b) return a;
   if (a.priority !== b.priority) return a.priority < b.priority ? a : b;
