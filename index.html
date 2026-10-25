@@ -3682,6 +3682,17 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .zoom-autoplay-track{stroke:#37e0ca33}
 #zoomAutoplayProgress{stroke:#37e0ca;stroke-dasharray:100;stroke-dashoffset:100;stroke-linecap:round}
 </style>
+<style>
+/* v223: main-row progress covers the whole scroll, including manual swipes. */
+#tcgAutoplayBtn .tcg-scroll-progress{position:absolute;inset:-3px;width:33px;height:33px;overflow:visible;pointer-events:none;transform:rotate(-90deg)}
+.tcg-scroll-progress circle{fill:none;stroke-width:2}
+.tcg-scroll-progress-track{stroke:#64748b55}
+#tcgScrollProgressRing{stroke:#37e0ca;stroke-dasharray:100;stroke-dashoffset:100;stroke-linecap:round}
+#pokeCard #tcgAutoplayBtn.is-playing,#pokeCard #tcgAutoplayBtn.has-scroll-progress{border-color:#37e0ca33}
+#pokeCard #tcgAutoplayBtn.is-at-end:disabled{opacity:1}
+#pokeCard #tcgRestartBtn{right:calc(.45rem + 37px);width:26px;height:26px;bottom:calc(.55rem + 1.5px);color:#b8f6eb;border-color:#5fb9a8}
+#pokeCard #tcgRestartBtn[hidden]{display:none!important}
+</style>
 </head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -3819,7 +3830,8 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
         <div class="tcg-skeleton-card"></div>
         <div class="tcg-skeleton-card"></div>
       </div>
-      <button type="button" id="tcgAutoplayBtn" class="tcg-autoplay-btn" aria-label="Automatically scroll card variations" title="Play card slideshow" onclick="toggleTcgAutoplay()"><span id="tcgAutoplayIcon">▶</span></button>
+      <button type="button" id="tcgAutoplayBtn" class="tcg-autoplay-btn" aria-label="Automatically scroll card variations" title="Play card slideshow" onclick="toggleTcgAutoplay()"><svg class="tcg-scroll-progress" viewBox="0 0 36 36" aria-hidden="true"><circle class="tcg-scroll-progress-track" cx="18" cy="18" r="16"/><circle id="tcgScrollProgressRing" cx="18" cy="18" r="16" pathLength="100"/></svg><span id="tcgAutoplayIcon">▶</span></button>
+      <button type="button" id="tcgRestartBtn" class="tcg-autoplay-btn tcg-restart-btn" hidden aria-label="Scroll cards back to the start" title="Back to first card" onclick="restartTcgStrip(event)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 6-6 6 6 6m8-12-6 6 6 6"/></svg></button>
       </div>
     </div>
   </div>
@@ -12406,12 +12418,34 @@ let tcgAutoplayFrame = 0;
 let tcgAutoplayLastTime = 0;
 let tcgAutoplayActive = false;
 let tcgAutoplaySpeed = 1;
+function updateTcgScrollProgress(){
+  const strip=document.getElementById('tcgStrip');if(!strip)return;
+  const end=Math.max(0,strip.scrollWidth-strip.clientWidth);
+  const overflow=end>3,position=Math.max(0,Math.min(end,strip.scrollLeft));
+  const atEnd=overflow&&end-position<=1;
+  const progress=overflow?(atEnd?1:position/end):0;
+  const ring=document.getElementById('tcgScrollProgressRing');
+  if(ring)ring.style.strokeDashoffset=String(100-progress*100);
+  const button=document.getElementById('tcgAutoplayBtn');
+  if(button){button.classList.toggle('has-scroll-progress',progress>0);button.classList.toggle('is-at-end',atEnd);button.disabled=!overflow||atEnd;}
+  const restart=document.getElementById('tcgRestartBtn');if(restart)restart.hidden=!atEnd;
+}
+function restartTcgStrip(event){
+  event?.stopPropagation();
+  const strip=document.getElementById('tcgStrip');if(!strip)return;
+  stopTcgAutoplay();
+  // Keep snapping disabled while returning smoothly through the whole row.
+  strip.classList.add('is-autoplaying');
+  strip.scrollTo({left:0,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  updateTcgScrollProgress();
+}
 function paintTcgAutoplayButton() {
   const btn=document.getElementById('tcgAutoplayBtn');
   const label=tcgAutoplayActive?(tcgAutoplaySpeed===1?'Speed up card scrolling':'Pause card slideshow'):'Play card slideshow';
   if(btn){btn.classList.toggle('is-playing',tcgAutoplayActive);btn.setAttribute('aria-pressed',String(tcgAutoplayActive));btn.setAttribute('aria-label',label);btn.title=label;}
   const icon=document.getElementById('tcgAutoplayIcon');
   if(icon){icon.textContent=tcgAutoplayActive?(tcgAutoplaySpeed===1?'▶▶':'Ⅱ'):'▶';icon.style.fontSize=tcgAutoplayActive&&tcgAutoplaySpeed===1?'10px':'';}
+  updateTcgScrollProgress();
 }
 function stopTcgAutoplay(resetScrollSnap = false) {
   tcgAutoplayActive = false; tcgAutoplaySpeed = 1;
@@ -12446,6 +12480,7 @@ function toggleTcgAutoplay() {
       if (end <= 3) { stopTcgAutoplay(); return; }
       position = Math.min(end, position + elapsed * 0.072 * tcgAutoplaySpeed);
       strip.scrollLeft = position;
+      updateTcgScrollProgress();
       if (position >= end) { stopTcgAutoplay(); return; }
     }
     tcgAutoplayLastTime = time;
@@ -12455,6 +12490,8 @@ function toggleTcgAutoplay() {
 }
 document.getElementById('tcgStrip')?.addEventListener('touchstart', () => { stopTcgAutoplay(true); }, {passive:true});
 document.getElementById('tcgStrip')?.addEventListener('pointerdown', () => { stopTcgAutoplay(true); }, {passive:true});
+document.getElementById('tcgStrip')?.addEventListener('scroll', updateTcgScrollProgress, {passive:true});
+if(typeof ResizeObserver==='function'){const tcgStripResizeObserver=new ResizeObserver(updateTcgScrollProgress);const strip=document.getElementById('tcgStrip');if(strip)tcgStripResizeObserver.observe(strip);}
 
 function renderTcgCards(cards) {
   stopTcgAutoplay(true);
@@ -12514,6 +12551,7 @@ function renderTcgCards(cards) {
   strip.appendChild(frag);
   const autoplayBtn = document.getElementById('tcgAutoplayBtn');
   if (autoplayBtn) autoplayBtn.disabled = !cards || cards.length < 2;
+  updateTcgScrollProgress();
 }
 // Prepare only the visible card before the tap: native file sharing requires
 // user activation, which can expire if we fetch artwork inside the click handler.
