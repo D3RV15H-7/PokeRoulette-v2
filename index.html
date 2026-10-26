@@ -3139,7 +3139,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #accountModal.auth-editing .profile-stats, #accountModal.auth-editing .account-sync-description { display: none; }
 #accountModal.auth-editing #authLoggedOutView { border-top: 0; margin-top: 0; padding-top: 0; }
 #collectionSignInDialog p { text-align: left; }
-.zoom-versions-button { grid-column: 3; grid-row: 1; justify-self: end; }
+.zoom-right-actions { grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 4px; min-width: 0; }
 .tcg-zoom-view-area .tcg-zoom-title { position: absolute; top: calc(50% - var(--zoom-card-height, 0px) / 2 - 28px); left: 0; right: 0; line-height: 24px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; z-index: 5; }
 .tcg-zoom-view-area .tcg-zoom-set-link-row { position: absolute; top: calc(50% + var(--zoom-card-height, 0px) / 2 + 6px); left: 0; right: 0; height: 28px; z-index: 5; }
 .tcg-zoom-view-area .tcg-zoom-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3956,7 +3956,9 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
         </button>
       </div>
       <div class="tcg-zoom-counter" id="tcgZoomCounter">1 / 1</div>
-      <button type="button" class="zoom-share-button zoom-versions-button" id="zoomVersionsBtn" onclick="stopZoomAutoplay();toggleZoomVersions(event)" aria-expanded="false" aria-haspopup="dialog" aria-controls="zoomVersionsPopup">Versions</button>
+      <div class="zoom-right-actions">
+        <button type="button" class="zoom-share-button zoom-versions-button" id="zoomVersionsBtn" onclick="stopZoomAutoplay();toggleZoomVersions(event)" aria-expanded="false" aria-haspopup="dialog" aria-controls="zoomVersionsPopup">Versions</button>
+      </div>
     </div>
     <div class="tcg-zoom-view-area" id="zoomViewArea">
       <div class="tcg-zoom-title" id="tcgZoomTitle">Card Title</div>
@@ -7071,7 +7073,8 @@ function setTcgImageFallbacks(img, card, quality = 'small') {
       event.stopPropagation();
       retryTcgArtwork(img);
     };
-    document.querySelector('.zoom-left-actions')?.appendChild(button);
+    const rightActions = document.querySelector('.zoom-right-actions');
+    rightActions?.insertBefore(button, document.getElementById('zoomVersionsBtn'));
     img._tcgRetryButton = button;
   }
   // Repair old cached records at display time in every card view.
