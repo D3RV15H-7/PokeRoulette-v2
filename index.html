@@ -7800,12 +7800,20 @@ const visibleCardDetailQueue = new Map();
 const visibleCardDetailDone = new WeakSet();
 const visibleCardDetailBusy = new WeakSet();
 let visibleCardDetailActive = 0;
+const tcgPriceDayFormatter = new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London'});
+function isSameTcgPriceDay(checkedAt, now) {
+  const checked = new Date(checkedAt);
+  return Number.isFinite(+checked) && tcgPriceDayFormatter.format(checked) === tcgPriceDayFormatter.format(new Date(now));
+}
 function shouldRefreshVisibleCardPricing(card) {
   const now = Date.now();
   // A failed request must not loop as thumbnails repaint.
   if (card._priceAttemptAt && now - card._priceAttemptAt < 60000) return false;
+  // First display on a new UK calendar day refreshes even if fewer than
+  // 24 hours have elapsed. Unpriced cards remain retryable after five minutes.
   return card._pricingVersion !== TCG_PRICING_VERSION || !card._priceCheckedAt ||
-    now - card._priceCheckedAt >= (getNumericPrice(card.priceGBP) != null ? 86400000 : 300000);
+    !isSameTcgPriceDay(card._priceCheckedAt, now) ||
+    (getNumericPrice(card.priceGBP) == null && now - card._priceCheckedAt >= 300000);
 }
 function queueVisibleCardDetails(card) {
   ensureTcgFxRates();
