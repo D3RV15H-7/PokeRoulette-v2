@@ -3717,6 +3717,24 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 @keyframes battleRetroLungeRight{0%,100%{transform:translate(0,0)}25%{transform:translate(5px,-2px)}65%{transform:translate(-24px,8px)}}
 @media(prefers-reduced-motion:reduce){#battleModal .battle-fighter.casting img,#battleModal .battle-fighter.attacking img,#battleModal .battle-fighter.hit img{animation:none!important}}
 </style>
+<style>
+/* v232: action controls occupy the record button's column only when teams are ready. */
+#battleModal #battleRecordBtn[hidden],#battleModal #battleActionControls[hidden]{display:none!important}
+#battleModal .battle-action-controls{grid-column:1;grid-row:1;display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-width:0}
+#battleModal .battle-special-button{position:relative;isolation:isolate;overflow:hidden;flex:1;min-width:0;max-width:76px;height:38px;border:1px solid #7185a0;border-radius:12px;background:#243348;color:#e6edf9;font:inherit;font-size:clamp(9px,2.5vw,12px);font-weight:800;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:2px}
+#battleModal .battle-special-button::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#684cb6 var(--special-progress,0%),transparent var(--special-progress,0%));z-index:-1}
+#battleModal .battle-special-button small{font-size:8px;line-height:1.2;font-weight:650}
+#battleModal .battle-special-button.is-ready{border-color:#dab7ff;box-shadow:0 0 8px #be8dff66;color:#fff}
+#battleModal .battle-potion-button{position:relative;flex:0 0 34px;width:34px;height:34px;border:1px solid #c1a1dc;border-radius:50%;background:#352945;color:#fff;padding:5px;display:flex;align-items:center;justify-content:center}
+#battleModal .battle-potion-button svg{width:20px;height:24px}
+#battlePotionCount{position:absolute;bottom:-3px;right:-2px;min-width:13px;height:13px;line-height:13px;font-size:9px;font-weight:900;border-radius:99px;background:#7751a4;color:#fff}
+#battleModal .battle-special-button:disabled,#battleModal .battle-potion-button:disabled{opacity:.5;cursor:default}
+#battleModal .is-queued{border-color:#ffd36b;opacity:.85!important}
+#battleModal .battle-special-button:focus-visible,#battleModal .battle-potion-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#battleModal .battle-fighter img.battle-potion-glow{animation:battlePotionGlow .6s steps(4,end)!important}
+@keyframes battlePotionGlow{25%,75%{filter:brightness(1.4) drop-shadow(0 0 5px #86efac)}50%{filter:brightness(1)}}
+@media(prefers-reduced-motion:reduce){#battleModal .battle-fighter img.battle-potion-glow{animation:none!important}}
+</style>
 </head>
 <body data-app-build="v175">
 <div class="viewport">
@@ -3943,7 +3961,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
       <datalist id="battlePokemonList"></datalist>
       <div class="battle-generate-row"><button type="button" class="battle-random-both" id="battleRandomBoth" aria-label="Randomise both teams" title="Randomise both teams" onclick="battleRandomise()">🎲🎲</button></div>
       </div><!-- battle-choices-stage -->
-      <div class="battle-ball-row"><button type="button" class="battle-record-trigger" onclick="battleOpenRecord()">Battle Record</button><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><div class="battle-speed-options" role="group" aria-label="Battle speed"><button type="button" class="battle-speed-option selected" data-speed="1" onclick="battleSetSpeed(1)" aria-pressed="true" aria-label="Play battle at normal speed" title="Play at normal speed"><svg class="battle-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 20 12 7 20Z" fill="currentColor"/></svg></button><button type="button" class="battle-speed-option" data-speed="2" onclick="battleSetSpeed(2)" aria-pressed="false" aria-label="Play battle at double speed" title="Play at double speed"><svg class="battle-play-icon" viewBox="0 0 28 24" aria-hidden="true"><path d="M2 4 14 12 2 20Z M14 4 26 12 14 20Z" fill="currentColor"/></svg></button><button type="button" class="battle-speed-option battle-end-option" onclick="battleEndNow()" aria-label="End animation and show battle result" title="Finish battle"><span class="battle-end-label">END</span></button></div></div>
+      <div class="battle-ball-row"><button type="button" class="battle-record-trigger" id="battleRecordBtn" onclick="battleOpenRecord()">Battle Record</button><div id="battleActionControls" class="battle-action-controls" hidden><button type="button" id="battleSpecialBtn" class="battle-special-button" onclick="battleQueueSpecial()" disabled><span>Special</span><small id="battleSpecialState">Start battle</small></button><button type="button" id="battlePotionBtn" class="battle-potion-button" onclick="battleQueuePotion()" disabled aria-label="Potion"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M8 2h8v5H8z" fill="#c69aff" stroke="#392c5b" stroke-width="2"/><path d="M9 7h6v4l5 5v9H4v-9l5-5z" fill="#b47aeb" stroke="#e6d6ff" stroke-width="1.5"/><path d="M6 19h12v4H6z" fill="#f4a6dd"/><path d="M10 13h3v4h-3z" fill="#fff"/></svg><span id="battlePotionCount">1</span></button></div><button class="battle-pokeball" id="battleStart" onclick="battleStart()" aria-label="Battle!"><span class="battle-ball-centre">BATTLE!</span></button><div class="battle-speed-options" role="group" aria-label="Battle speed"><button type="button" class="battle-speed-option selected" data-speed="1" onclick="battleSetSpeed(1)" aria-pressed="true" aria-label="Play battle at normal speed" title="Play at normal speed"><svg class="battle-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 20 12 7 20Z" fill="currentColor"/></svg></button><button type="button" class="battle-speed-option" data-speed="2" onclick="battleSetSpeed(2)" aria-pressed="false" aria-label="Play battle at double speed" title="Play at double speed"><svg class="battle-play-icon" viewBox="0 0 28 24" aria-hidden="true"><path d="M2 4 14 12 2 20Z M14 4 26 12 14 20Z" fill="currentColor"/></svg></button><button type="button" class="battle-speed-option battle-end-option" onclick="battleEndNow()" aria-label="End animation and show battle result" title="Finish battle"><span class="battle-end-label">END</span></button></div></div>
     </div>
 
 
@@ -14818,6 +14836,87 @@ const battleTypes = {
  steel:{fire:.5,water:.5,electric:.5,ice:2,rock:2,steel:.5,fairy:2},
  fairy:{fire:.5,fighting:2,poison:.5,dragon:2,dark:2,steel:.5}
 };
+// v232: battle-only resources; queued actions are tied to a run and Pokémon.
+let battleActions=null,battleActionTimer=null;
+const battlePotionAllowance=size=>size===6?3:size===3?2:1;
+function battleActivePokemon(slot){return battleTeams[slot]?.[battleTeamActive[slot]]||null;}
+function battleSpecialRemaining(p,now=performance.now()){
+ return p?.signatureMove?Math.max(0,10000-(now-(p.lastSignatureAt??now))):10000;
+}
+function battleCanPotion(slot,p=battleActivePokemon(slot)){
+ return !!(battleBusy&&battleActions?.ready&&battleActions.run===battleRun&&p&&p===battleActivePokemon(slot)&&p.hp>0&&p.hp<=p.maxHp*.5&&battleActions.potions[slot]>0&&!battleActions.healed.has(p));
+}
+function battleSyncActionUI(){
+ const selected=battleTeams.every(team=>team.length===battleTeamSize);
+ const group=battleEl('battleActionControls'),record=battleEl('battleRecordBtn');
+ if(group)group.hidden=!selected;if(record)record.hidden=selected;
+ const special=battleEl('battleSpecialBtn'),potion=battleEl('battlePotionBtn');
+ if(!special||!potion)return;
+ const p=battleActivePokemon(0),running=battleBusy&&battleActions?.ready&&battleActions.run===battleRun&&!battleSkipRequested;
+ const remaining=battleSpecialRemaining(p),queued=running&&battleActions.specialQueued===p;
+ const ready=running&&p?.hp>0&&p.signatureMove&&remaining===0;
+ special.disabled=!ready||queued;special.classList.toggle('is-ready',!!ready);special.classList.toggle('is-queued',!!queued);
+ special.style.setProperty('--special-progress',running&&p?.signatureMove?(100*(1-remaining/10000)).toFixed(1)+'%':'0%');
+ const state=queued?'Queued':!running?'Start battle':!p?.signatureMove?'Unavailable':remaining>0?Math.ceil(remaining/1000)+'s':'Ready';
+ battleEl('battleSpecialState').textContent=state;
+ special.setAttribute('aria-label','Special attack: '+state);
+ special.title=p?.signatureMove?battleMoveLabel(p.signatureMove.name)+' — '+state:'No special attack available';
+ const potionQueued=running&&battleActions.potionQueued===p;
+ potion.disabled=!running||!battleCanPotion(0,p)||potionQueued;
+ potion.classList.toggle('is-queued',!!potionQueued);
+ const count=battleBusy&&battleActions?battleActions.potions[0]:battlePotionAllowance(battleTeamSize);
+ battleEl('battlePotionCount').textContent=count;
+ potion.setAttribute('aria-label','Potion: '+count+' remaining'+(potionQueued?', queued':''));
+ potion.title=potionQueued?'Potion queued for after this attack':'Heal 25% HP at 50% HP or below. Once per Pokémon.';
+}
+function battleQueuePotion(){
+ if(battleSkipRequested||!battleCanPotion(0)||battleActions.potionQueued)return;
+ battleActions.potionQueued=battleActivePokemon(0);battleSyncActionUI();
+}
+function battleQueueSpecial(){
+ const p=battleActivePokemon(0);
+ if(!battleBusy||!battleActions?.ready||battleActions.run!==battleRun||battleSkipRequested||!p||p.hp<=0||!p.signatureMove||battleSpecialRemaining(p)>0||battleActions.specialQueued)return;
+ battleActions.specialQueued=p;battleSyncActionUI();
+}
+function battleBeginActions(token){
+ clearInterval(battleActionTimer);
+ battleActions={run:token,ready:false,potions:[battlePotionAllowance(battleTeamSize),battlePotionAllowance(battleTeamSize)],healed:new WeakSet(),potionQueued:null,specialQueued:null};
+ battleActionTimer=setInterval(()=>{if(!document.hidden)battleSyncActionUI();},100);
+ battleSyncActionUI();
+}
+function battleEndActions(){
+ clearInterval(battleActionTimer);battleActionTimer=null;
+ if(battleActions){battleActions.ready=false;battleActions.potionQueued=null;battleActions.specialQueued=null;}
+ battleSyncActionUI();
+}
+function battleApplyPotion(slot,p){
+ if(!battleCanPotion(slot,p))return 0;
+ const healed=Math.min(p.maxHp-p.hp,Math.max(1,Math.floor(p.maxHp*.25)));
+ p.hp+=healed;battleActions.potions[slot]--;battleActions.healed.add(p);
+ battlePaint(p,slot);battleRenderTeamIndicators();battleSyncActionUI();
+ if(!battleSkipRequested){
+  const sprite=battleEl('battleImg'+slot);sprite?.classList.add('battle-potion-glow');
+  setTimeout(()=>sprite?.classList.remove('battle-potion-glow'),600);
+  battleSfx('toggle');
+ }
+ return healed;
+}
+async function battleProcessPotions(token){
+ if(!battleActions?.ready||battleActions.run!==token||token!==battleRun)return;
+ const own=battleActions.potionQueued;battleActions.potionQueued=null;
+ if(!battleSkipRequested&&own){
+  const healed=battleApplyPotion(0,own);
+  if(healed){battleSetMessage(battleDisplayName(own.name)+' recovered '+healed+' HP!','Potion used.');await battleSleep(650);}
+ }
+ if(token!==battleRun)return;
+ const opponent=battleActivePokemon(1);
+ if(opponent&&opponent.hp<=opponent.maxHp*.35&&battleCanPotion(1,opponent)&&Math.random()<.65){
+  const healed=battleApplyPotion(1,opponent);
+  if(healed){battleSetMessage('Opponent used a Potion!',battleDisplayName(opponent.name)+' recovered '+healed+' HP!');await battleSleep(650);}
+ }
+ battleSyncActionUI();
+}
+
 let battleBusy=false,battleRun=0;
 const battleEl=id=>document.getElementById(id);
 let battleSkipRequested=false;
@@ -15165,7 +15264,7 @@ function battleSyncTeamUI(){
  }
  document.querySelectorAll('#battleModal .battle-random, #battleRandomBoth, #battleResetTeams').forEach(btn=>btn.disabled=battleBusy||battleRandomising);
  const start=battleEl('battleStart');if(start)start.disabled=battleBusy||battleRandomising||!battleTeams.every(team=>team.length===battleTeamSize);
- battleRenderTeamIndicators();
+ battleRenderTeamIndicators();battleSyncActionUI();
 }
 function battleRenderTeamIndicators(){
  for(let slot=0;slot<2;slot++){
@@ -15202,6 +15301,7 @@ function battleTeamConfirmKeydown(event){
 }
 function battleResetTeams(){
  if(battleBusy||battleRandomising)return;
+ battleEndActions();battleActions=null;
  battleTeams=[[],[]];battleTeamActive=[0,0];battleTeamDraft=null;
  for(let i=0;i<2;i++){
   ++battlePreviewTokens[i];clearTimeout(battlePreviewTimers[i]);
@@ -15353,6 +15453,8 @@ async function battleRandomise(){
 }
 async function battleTeamFaint(slot){
  const p=battleTeams[slot][battleTeamActive[slot]];p.hp=0;
+ if(battleActions?.potionQueued===p)battleActions.potionQueued=null;
+ if(battleActions?.specialQueued===p)battleActions.specialQueued=null;
  battlePaint(p,slot);battleEl('battleFighter'+slot).classList.add('fainted');
  if(!battleSkipRequested)battleSfx('faint');battleRenderTeamIndicators();
  battleSetMessage(battleDisplayName(p.name)+' fainted!');await battleSleep(650);
@@ -15748,7 +15850,11 @@ async function battlePrepareMoves(p){
 }
 function battleAttack(attacker,defender){
  const now=performance.now();
- const useSignature=!!attacker.signatureMove&&(now-(attacker.lastSignatureAt??-Infinity)>=10000)&&(Math.random()<.55||attacker.hp<attacker.maxHp*.4);
+ const isPlayer=attacker===battleActivePokemon(0);
+ const requested=isPlayer&&battleActions?.specialQueued===attacker;
+ const useSignature=!!attacker.signatureMove&&(now-(attacker.lastSignatureAt??-Infinity)>=10000)&&
+  (isPlayer&&!battleSkipRequested?requested:(Math.random()<.55||attacker.hp<attacker.maxHp*.4));
+ if(requested)battleActions.specialQueued=null;
  const candidates=attacker.regularMoves||attacker.battleMoves||[];
  const move=useSignature?attacker.signatureMove:(candidates[Math.floor(Math.random()*candidates.length)]||{name:'struggle',type:'normal',category:'physical',power:50,accuracy:100});
  if(useSignature)attacker.lastSignatureAt=now;
@@ -16047,7 +16153,7 @@ async function battleStart(){
  if(currentUser&&db&&!battleStatsReady){battleSetMessage('Loading your account battle statistics. Please try again shortly.');return;}
  if(!battleTeams.every(team=>team.length===battleTeamSize)){battleSetMessage('Choose '+battleTeamSize+' Pokémon for each team first.');return;}
  try{battleValidateTeamEntries(0,battleTeams[0].map(p=>({id:p.speciesId||p.id})));}catch(err){battleSetMessage(err.message);return;}
- battleSkipRequested=false;battleBusy=true;const token=++battleRun;battleSyncTeamUI();
+ battleSkipRequested=false;battleBusy=true;const token=++battleRun;battleBeginActions(token);battleSyncTeamUI();
  try{
   battleSetMessage(battleTeamSize===1?'Preparing your Pokémon…':'Preparing both teams…');
   battleTeamActive=[0,0];
@@ -16056,6 +16162,8 @@ async function battleStart(){
   // Reuse the move cache and limit concurrent move preparation to two Pokémon.
   for(let i=0;i<roster.length;i+=2){await Promise.all(roster.slice(i,i+2).map(battlePrepareMoves));if(token!==battleRun)return;}
   battleTeams.forEach((team,slot)=>{battleSetActiveTeamInput(slot,team[0]);battlePaint(team[0],slot);});
+  for(const p of roster)p.lastSignatureAt=performance.now();
+  battleActions.ready=true;battleSyncActionUI();
   battleRenderTeamIndicators();battleSfx('start');await battleSleep(650);
   let turns=0,lastPair='';
   while(battleTeams.every((team,slot)=>battleTeamActive[slot]<team.length)&&token===battleRun){
@@ -16069,9 +16177,10 @@ async function battleStart(){
    let switched=false;
    for(const side of [first,1-first]){
     if(token!==battleRun)return;
+    await battleProcessPotions(token);if(token!==battleRun)return;
     const attacker=fighters[side],defender=fighters[1-side];
     if(attacker.hp<=0||defender.hp<=0)break;
-    const result=battleAttack(attacker,defender),node=battleEl('battleFighter'+side);
+    const result=battleAttack(attacker,defender),node=battleEl('battleFighter'+side);battleSyncActionUI();
     if(!battleSkipRequested){
      node.classList.add(result.special?'casting':'attacking');battleSfx('attack',result.type);
      if(result.special)battleSpecialEffect(result,side);else battleNamedMoveEffect(result,side);
@@ -16081,7 +16190,7 @@ async function battleStart(){
     defender.hp=Math.max(0,defender.hp-result.damage);
     const landed=!result.missed&&result.damage>0;
     if(!battleSkipRequested&&landed)battleSfx('hit',result.type,result.effect);
-    battlePaint(defender,1-side);if(!battleSkipRequested&&landed)battleEl('battleFighter'+(1-side)).classList.add('hit');
+    battlePaint(defender,1-side);battleSyncActionUI();if(!battleSkipRequested&&landed)battleEl('battleFighter'+(1-side)).classList.add('hit');
     battleSetMessage(result.missed?battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' — missed!':battleDisplayName(attacker.name)+' used '+battleMoveLabel(result.move)+' - '+result.damage+' damage!',
      result.missed?'':result.effect>1?'Super effective!':result.effect===0?'No effect!':result.effect<1?'Not very effective!':'');
     await battleSleep(820);battleEl('battleFighter'+(1-side)).classList.remove('hit');
@@ -16105,7 +16214,7 @@ async function battleStart(){
   battleSfx('win');
  }catch(err){battleSetMessage(err.message||'Battle could not start. Try again.');}
  finally{
-  battleBusy=false;battleSkipRequested=false;battleSyncTeamUI();battleClearResidualAnimations();battleSetSpeed(1);
+  battleBusy=false;battleEndActions();battleSkipRequested=false;battleSyncTeamUI();battleClearResidualAnimations();battleSetSpeed(1);
  }
 }
 
