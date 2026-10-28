@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v245_direct_cardmarket_setup.zip'
+      - 'PokeRoulette_v249_exact_product_matching_setup.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -38,7 +38,7 @@ jobs:
           node-version: '22'
       - name: Open the setup ZIP
         run: |
-          unzip -oq PokeRoulette_v245_direct_cardmarket_setup.zip -d _app
+          unzip -oq PokeRoulette_v249_exact_product_matching_setup.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
@@ -56,9 +56,14 @@ jobs:
             _app/.price-state/checkpoint.json
           key: shared-prices-v241-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: shared-prices-v241-
+      - name: Refresh published product identities
+        working-directory: _app
+        run: python3 scripts/build-product-map.py
       - name: Run checks
         working-directory: _app
-        run: node --test tests/prices.test.mjs
+        run: |
+          node --test tests/prices.test.mjs
+          python3 -m unittest discover -s tests -p "test_*.py"
       - name: Update prices
         working-directory: _app
         env:
@@ -68,7 +73,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: price-diagnostics-v245
+          name: price-diagnostics-v249
           path: _app/diagnostics/price-report.json
           if-no-files-found: ignore
           retention-days: 7
