@@ -1,4 +1,4 @@
-<!-- PokeRoulette v246: Profile values, physical-card coverage and missing-price examples. -->
+<!-- PokeRoulette v247: Profile values, physical-card coverage and missing-price examples. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4428,7 +4428,7 @@ function getPromoOwnershipKeys(card) {
 
 function isCardCollected(card) {
   if (!card) return false;
-  return getCardOwnershipKeys(card).some(key => memCardCol.has(key));
+  return isDexPokemonActiveForCard(card) && getCardOwnershipKeys(card).some(key => memCardCol.has(key));
 }
 
 function updateBtn(owned) {
@@ -5545,7 +5545,7 @@ function toggleCardCollection(cardId, pokemonId = null) {
   const ownershipKeys = getCardOwnershipKeys(cardObj);
   const zoomCardId = document.getElementById('tcgZoomModal')?.style.display === 'flex' ? currentCardsList[currentZoomIndex]?.id : null;
   let wasAdded = false;
-  const isCurrentlyOwned = ownershipKeys.some(key => memCardCol.has(key));
+  const isCurrentlyOwned = isCardCollected(cardObj);
   if (!isCurrentlyOwned && !requireCollectionSignIn()) return;
   if (isCurrentlyOwned) {
     ownershipKeys.forEach(key => memCardCol.delete(key));
@@ -5553,10 +5553,12 @@ function toggleCardCollection(cardId, pokemonId = null) {
   } else {
     memCardCol.add(cId);
     if (fingerprint) memCardCol.add(fingerprint);
+    if (cardObj && targetPokeId) cardObj._dexOwnerPokemonId = targetPokeId;
+    if (targetPokeId) memCol.add(targetPokeId);
     wasAdded = true;
   }
   if (targetPokeId && currentCardsList.length > 0) {
-    const hasAnyCardChecked = currentCardsList.some(c => isCardCollected(c));
+    const hasAnyCardChecked = hasAnyDexCardsForPokemon(targetPokeId);
     if (hasAnyCardChecked) {
       memCol.add(targetPokeId);
     } else {
@@ -10922,6 +10924,7 @@ function rememberProfileValueCards(cards){
       _tcgDexDetailId:card._tcgDexDetailId,localId:card.localId,
       artworkTcgDexSetId:card.artworkTcgDexSetId,artworkPokemonSetId:card.artworkPokemonSetId,
       sourceSetName:card.sourceSetName,baseFinish:card.baseFinish,variants:card.variants,
+      _dexOwnerPokemonId:card._dexOwnerPokemonId,
       _valueSavedAt:Date.now(),
       _valueOwnershipKeys:aliases
     });
@@ -10958,6 +10961,27 @@ function getProfileValueSnapshots(){
   }
   return [...byCard.values()];
 }
+// The Owned Dex is the parent collection. Price-cache aliases alone must not
+// resurrect a card belonging to a Pokémon outside that collection.
+function profileCardPokemonId(card){
+  const hint=Number(card?._dexOwnerPokemonId);
+  if(Number.isInteger(hint)&&hint>0&&hint<=1025)return hint;
+  if(typeof dir==='undefined'||!Array.isArray(dir)||!dir.length)return null;
+  const clean=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/♀/g,'female').replace(/♂/g,'male').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const name=String(card?.name||'').replace(/^mega\s+/i,'').replace(/(?:[-\s]+(?:ex|gx|vmax|vstar|v|break|lv\.?x|δ))$/i,'').trim();
+  const matches=dir.filter(p=>[p.cleanName,p.name].some(n=>n&&clean(n)===clean(name)));
+  const ids=[...new Set(matches.map(p=>Number(p.id)).filter(id=>id>0&&id<=1025))];
+  return ids.length===1?ids[0]:null;
+}
+function isDexPokemonActiveForCard(card){
+  const id=profileCardPokemonId(card);
+  return !id||typeof memCol==='undefined'||memCol.has(id);
+}
+function hasAnyDexCardsForPokemon(id){
+  const cards=[...currentCardsList,...getProfileValueSnapshots()];
+  if(validSharedPriceDocument(sharedPriceDocument))cards.push(...sharedProfileValueCards(sharedPriceDocument,{ownedCardKeys:new Set()}));
+  return cards.some(card=>profileCardPokemonId(card)===id&&isCardCollected(card));
+}
 // Resolve ownership aliases before counting: one physical card contributes once.
 function calculateProfileValues(cards,stats){
   const result={};
@@ -10983,6 +11007,7 @@ function calculateProfileValues(cards,stats){
     const total={pence:0,priced:0,unpriced:0,total:groups.size,missing:new Set(),unpricedCards:[],selectedCards:[]};
     for(const [key,group] of groups){
       const card=group.card;
+      if(section==='dex'&&card&&!isDexPokemonActiveForCard(card)){total.total--;continue;}
       const amount=card?(card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP)):null;
       const entry={cardId:card?.id||group.keys.find(k=>!k.startsWith('fp_'))||group.keys[0],name:card?.name||'',setName:card?.setName||'',number:card?.number||'',pence:amount===null?null:Math.round(amount*100),reason:card?._sharedPriceMatched?(card._sharedPriceMissingReason||'source_has_no_supported_market_quote'):'unmatched_card'};
       total.selectedCards.push(entry);
@@ -14954,6 +14979,7 @@ async function loadPokemonDirectory(forceRefresh = false) {
   updateCounts();
   initFirebaseIfReady();
   await loadPokemonDirectory();
+  scheduleCollectionValueRefresh(0);
 })();
 function formatTcgSetDisplayDate(value) {
   const raw = String(value || '').trim();
