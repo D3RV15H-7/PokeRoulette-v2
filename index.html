@@ -1,4 +1,4 @@
-<!-- PokeRoulette v243: Profile values, physical-card coverage and missing-price examples. -->
+<!-- PokeRoulette v244: Profile values, physical-card coverage and missing-price examples. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2272,10 +2272,10 @@ html.is-standalone body.has-active #pokeCard { --encounter-card-size: 112px; }
 }
 .profile-value-coverage { display:block; font-size:.58rem; line-height:1.4; color:var(--sub); font-weight:600; white-space:normal; }
 #profileStatDexValue, #profileStatSetsValue { margin-left:auto; text-align:right; }
-#profileUnpricedDetails { margin-top:.65rem; color:var(--sub); font-size:.6rem; line-height:1.5; }
-#profileUnpricedDetails summary { cursor:pointer; color:var(--green); font-weight:700; }
-#profileUnpricedDetails ul { padding-left:1.1rem; margin:.4rem 0; }
-#profileUnpricedDetails li { margin:.4rem 0; }
+#profileUnpricedDetails, #profileDexValueDetails { margin-top:.65rem; color:var(--sub); font-size:.6rem; line-height:1.5; }
+#profileUnpricedDetails summary, #profileDexValueDetails summary { cursor:pointer; color:var(--green); font-weight:700; }
+#profileUnpricedDetails ul, #profileDexValueDetails ul { padding-left:1.1rem; margin:.4rem 0; }
+#profileUnpricedDetails li, #profileDexValueDetails li { margin:.4rem 0; }
 .profile-stats dd.profile-stat-loading { min-width: 14px; flex-shrink: 0; }
 .profile-stats dd.profile-stat-loading::before {
   content: '';
@@ -4226,7 +4226,8 @@ svg.nav-artwork use{pointer-events:none}
     <section class="profile-stats" aria-labelledby="profileStatsHeading">
       <h4 id="profileStatsHeading">Your Stats</h4>
       <dl>
-        <div class="profile-stat-parent"><dt>Dex - Pokémon Collected</dt><dd id="profileStatDex">0 / 1,025</dd></div>
+        <div class="profile-stat-parent"><dt>Dex - Cards Collected</dt><dd id="profileStatDex" class="profile-stat-loading" aria-busy="true" aria-label="Loading card count"></dd></div>
+        <div class="profile-stat-detail"><dt>Pokémon represented</dt><dd id="profileStatDexPokemon">0 / 1,025</dd></div>
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatDexValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div class="profile-stat-parent"><dt>Sets - Cards Collected</dt><dd id="profileStatCards" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt>Including Variants</dt><dd id="profileStatVariants" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
@@ -4237,6 +4238,7 @@ svg.nav-artwork use{pointer-events:none}
       </dl>
       <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.</p>
       <details id="profileUnpricedDetails" hidden><summary>Cards without prices</summary><div id="profileUnpricedExamples"></div></details>
+      <details id="profileDexValueDetails" hidden><summary>Cards included in Dex value</summary><ul id="profileDexValueCards"></ul></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
     </section>
@@ -4400,8 +4402,29 @@ function getCardOwnershipKeys(card) {
     }
     keys.push(`fp_celebrationsclassiccollection_${ccNumber.toLowerCase()}`);
   }
+  keys.push(...getPromoOwnershipKeys(card));
   return [...new Set(keys.filter(Boolean))];
 }
+
+function getPromoOwnershipKeys(card) {
+  if (!card || getSupplementalPromoCard(card)) return [];
+  const clean = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const sets = promoOwnershipSetNames();
+  const prefix = /^([a-z]+p)-/i.exec(String(card.id || ''))?.[1]?.toLowerCase();
+  const setId = prefix && sets[prefix] ? prefix : String(card.set?.id || '').toLowerCase();
+  const name = clean(card.setName || card.set?.name);
+  const canonical = sets[setId] ? setId : Object.keys(sets).find(id => sets[id].some(n => clean(n) === name));
+  if (!canonical) return [];
+  const numbers = sharedPriceNumberAliases(card.number || card.localId || String(card.id || '').split('-').pop());
+  const keys = [];
+  for (const number of numbers) {
+    keys.push(canonical + '-' + number);
+    for (const setName of sets[canonical]) keys.push('fp_' + clean(setName) + '_' + clean(number));
+  }
+  return keys;
+}
+
+
 
 function isCardCollected(card) {
   if (!card) return false;
@@ -10957,20 +10980,24 @@ function calculateProfileValues(cards,stats){
       const old=group.card,stamp=c=>Number(c?._priceCheckedAt||c?._detailsAt)||0;
       if(!old||stamp(card)>stamp(old)||(stamp(card)===stamp(old)&&card._sharedPriceMatched&&!old._sharedPriceMatched))group.card=card;
     }
-    const total={pence:0,priced:0,unpriced:0,total:groups.size,missing:new Set(),unpricedCards:[]};
+    const total={pence:0,priced:0,unpriced:0,total:groups.size,missing:new Set(),unpricedCards:[],selectedCards:[]};
     for(const [key,group] of groups){
       const card=group.card;
       const amount=card?(card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP)):null;
-      if(amount!==null){total.pence+=Math.round(amount*100);total.priced++;continue;}
+      const entry={cardId:card?.id||group.keys.find(k=>!k.startsWith('fp_'))||group.keys[0],name:card?.name||'',setName:card?.setName||'',number:card?.number||'',pence:amount===null?null:Math.round(amount*100),reason:card?._sharedPriceMatched?(card._sharedPriceMissingReason||'source_has_no_supported_market_quote'):'unmatched_card'};
+      total.selectedCards.push(entry);
+      if(amount!==null){total.pence+=entry.pence;total.priced++;continue;}
       total.unpriced++;
       if(!card)total.missing.add(key);
-      total.unpricedCards.push({cardId:card?.id||group.keys.find(k=>!k.startsWith('fp_'))||group.keys[0],name:card?.name||'',setName:card?.setName||'',number:card?.number||'',reason:card?._sharedPriceMatched?(card._sharedPriceMissingReason||'source_has_no_supported_market_quote'):'unmatched_card'});
+      total.unpricedCards.push(entry);
     }
     result[section]=total;
   }
   return result;
 }
 function paintProfileValues(values){
+  const count=document.getElementById('profileStatDex');
+  if(count){count.textContent=values.dex.total.toLocaleString('en-GB');count.classList.remove('profile-stat-loading');count.removeAttribute('aria-busy');count.removeAttribute('aria-label');}
   for(const [section,id] of [['dex','profileStatDexValue'],['sets','profileStatSetsValue']]){
     const value=values[section],node=document.getElementById(id);if(!node)continue;
     const partial=value.unpriced>0||value.missing.size>0;
@@ -11043,6 +11070,14 @@ function sharedPriceNumberAliases(number){
   const raw=String(number||'').split('/')[0].trim(),match=/^([a-z]*)(\d+)$/i.exec(raw);
   return [...new Set([raw,raw.toLowerCase(),...(match?[match[1]+Number(match[2]),match[1]+String(Number(match[2])).padStart(2,'0'),match[1]+String(Number(match[2])).padStart(3,'0')]:[])])];
 }
+function promoOwnershipSetNames() {
+  return {svp:['SV Promos','SVP Black Star Promos'],swshp:['SWSH Promos','SWSH Black Star Promos'],smp:['SM Promos','SM Black Star Promos'],mep:['Mega Evolution Promos','MEP Black Star Promos'],xyp:['XY Promos','XY Black Star Promos'],bwp:['BW Promos','BW Black Star Promos'],dpp:['DP Promos','DP Black Star Promos'],np:['Nintendo Promos','Nintendo Black Star Promos'],hgssp:['HGSS Promos','HGSS Black Star Promos']};
+}
+// Display names previously saved by the app refer to these same promo sets.
+function sharedPriceSetNames(setId,set){
+  const names=promoOwnershipSetNames();
+  return [...new Set([set.name,...(set.names||[]),...(names[setId]||[])].filter(Boolean))];
+}
 function sharedPriceLookup(data){
   if(sharedPriceIndex?.data===data)return sharedPriceIndex.lookup;
   const lookup=new Map(),clean=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -11052,7 +11087,7 @@ function sharedPriceLookup(data){
     const set=data.sets[card.setId]||{},numbers=sharedPriceNumberAliases(card.number);
     add(id,id);add(id.toLowerCase(),id);
     for(const alias of set.aliases||[card.setId])for(const number of numbers){add(alias+'-'+number,id);add((alias+'-'+number).toLowerCase(),id);}
-    for(const name of set.names||[set.name]){
+    for(const name of sharedPriceSetNames(card.setId,set)){
       for(const number of numbers)add('fp_'+clean(name)+'_'+clean(number),id);
       // Use the collection's exact identity rules for reprints and shared numbers.
       const physical={id,name:card.name,number:card.number,setName:name,set:{id:card.setId,name}};
@@ -11132,6 +11167,7 @@ function paintSharedProfileValues(data,error=false){
     node.appendChild(coverage);
   }
   paintProfileUnpricedExamples(values);
+  paintProfileDexSelections(values.dex);
   const status=document.getElementById('profileValueRefreshStatus');if(status){
     status.hidden=!hasCollectedValueCards();
     if(!validSharedPriceDocument(data))status.textContent='Shared prices are not available yet. Showing saved estimates where available.';
@@ -11159,6 +11195,15 @@ function paintProfileUnpricedExamples(values){
       row.textContent=title+' — '+reason;list.appendChild(row);
     }
     box.appendChild(list);
+  }
+}
+function paintProfileDexSelections(value){
+  const details=document.getElementById('profileDexValueDetails'),list=document.getElementById('profileDexValueCards');
+  if(!details||!list)return;list.replaceChildren();details.hidden=!value.total;
+  for(const card of value.selectedCards||[]){
+    const row=document.createElement('li');
+    const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
+    row.textContent=title+' — '+(card.pence===null?'N/A':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(card.pence/100));list.appendChild(row);
   }
 }
 async function loadSharedPrices(){
@@ -11302,6 +11347,10 @@ async function refreshProfileStats() {
     modal.dataset.profileValueOwner = valueOwner;
     const examples = document.getElementById('profileUnpricedExamples');
     if (examples) examples.replaceChildren();
+    const selected = document.getElementById('profileDexValueCards');
+    if (selected) selected.replaceChildren();
+    const selectedDetails = document.getElementById('profileDexValueDetails');
+    if (selectedDetails) { selectedDetails.hidden = true; selectedDetails.open = false; }
     const details = document.getElementById('profileUnpricedDetails');
     if (details) { details.hidden = true; details.open = false; }
     for (const id of ['profileStatDexValue', 'profileStatSetsValue']) {
@@ -11319,7 +11368,7 @@ async function refreshProfileStats() {
     }
   }
   paint('profileStatSpins', wheelSpinCount.toLocaleString('en-GB'));
-  paint('profileStatDex', memCol.size.toLocaleString('en-GB') + ' / ' + TOTAL.toLocaleString('en-GB'));
+  paint('profileStatDexPokemon', memCol.size.toLocaleString('en-GB') + ' / ' + TOTAL.toLocaleString('en-GB'));
   let sets = [];
   try { sets = await fetchPhysicalTcgSets(); } catch (error) {}
   if (requestId !== profileStatsRequestId || uid !== activeUid || modal.style.display !== 'flex') return;
