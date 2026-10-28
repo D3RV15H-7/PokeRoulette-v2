@@ -4219,13 +4219,16 @@ svg.nav-artwork use{pointer-events:none}
     <section class="profile-stats" aria-labelledby="profileStatsHeading">
       <h4 id="profileStatsHeading">Your Stats</h4>
       <dl>
-        <div><dt>Dex - Cards Collected</dt><dd id="profileStatDex">0 / 1,025</dd></div>
+        <div class="profile-stat-parent"><dt>Dex - Cards Collected</dt><dd id="profileStatDex">0 / 1,025</dd></div>
+        <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatDexValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div class="profile-stat-parent"><dt>Sets - Cards Collected</dt><dd id="profileStatCards" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt>Including Variants</dt><dd id="profileStatVariants" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt># of sets with cards collected</dt><dd id="profileStatSets" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt># of sets with 100% completion</dt><dd id="profileStatComplete" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
+        <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatSetsValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div><dt>Wheel spins</dt><dd id="profileStatSpins">0</dd></div>
       </dl>
+      <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. N/A prices are excluded; partial means some prices are missing.</p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
     </section>
     <div id="authLoggedInView" style="display:none;flex-direction:column;gap:1rem;padding:0.5rem 0;">
@@ -5449,6 +5452,7 @@ function reloadMemoryFromLocal() {
 }
 reloadMemoryFromLocal();
 function saveLocalState() {
+  rememberProfileValueCards(currentCardsList);
   try {
     localStorage.setItem(
       getStorageKey(),
@@ -9008,6 +9012,7 @@ function updateTcgCardPriceFromDetail(card, detail, evidence) {
     // Old low-listing estimates have no usable market evidence.
     card.priceGBP = null;
   }
+  rememberProfileValueCards([card]);
   return card.priceGBP;
 }
 
@@ -10848,6 +10853,130 @@ function recordWheelSpin() {
   syncWheelSpinsToAccount();
 }
 
+// v238: values are independent sums of the displayed estimate per collected
+// physical card (not per Pokémon or per finish). Unpriced cards never become £0.
+function profileValueCacheKey(){ return 'pokeroulette_collection_values_v238_' + (activeUid || 'guest'); }
+function readProfileValueCards(){
+  try { const data=JSON.parse(localStorage.getItem(profileValueCacheKey())||'[]'); return Array.isArray(data)?data:[]; } catch(_){ return []; }
+}
+function rememberProfileValueCards(cards){
+  if(!Array.isArray(cards))return;
+  cards=cards.filter(card=>card?.id&&(isCardCollected(card)||isSetCardCollected(card)));
+  if(!cards.length)return;
+  const saved=new Map(readProfileValueCards().map(card=>[getCardFingerprint(card),card]));
+  for(const card of cards){
+    if(!card?.id||(!isCardCollected(card)&&!isSetCardCollected(card)))continue;
+    const fp=getCardFingerprint(card);
+    const previous=saved.get(fp);
+    saved.set(fp,{
+      id:card.id,name:card.name,number:card.number,setName:card.setName||card.set?.name,
+      _priceQuote:card._priceQuote,priceGBP:card.priceGBP,
+      _priceCheckedAt:card._priceCheckedAt||card._detailsAt||0,
+      _valueSavedAt:Date.now(),
+      _valueOwnershipKeys:[...new Set([...(previous?._valueOwnershipKeys||[]),...getCardOwnershipKeys(card)])]
+    });
+  }
+  // Retain only currently collected cards; another account has its own cache.
+  const owned=[...saved.values()].filter(card=>isCardCollected(card)||isSetCardCollected(card)||
+    card._valueOwnershipKeys?.some(key=>memCardCol.has(key)||memSetCardCol.has(key)));
+  try{localStorage.setItem(profileValueCacheKey(),JSON.stringify(owned));}catch(_){}
+}
+function getProfileValueSnapshots(){
+  const cards=[];
+  const add=list=>{if(Array.isArray(list))cards.push(...list.filter(card=>card&&typeof card==='object'&&card.id));};
+  add(readProfileValueCards());
+  // Read only card-list caches, never account/auth storage or raw detail blobs.
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(!/^(?:tcg_complete_cache_v58_|pokeroulette_set_cards_)/.test(key||''))continue;
+      try{add(JSON.parse(localStorage.getItem(key))?.data);}catch(_){}
+    }
+  }catch(_){}
+  for(const record of memoryTcgCache.values())add(record?.data);
+  for(const list of Object.values(window.tcgSetCardsCache||{}))add(list);
+  add(currentCardsList);
+  const byCard=new Map();
+  for(const card of cards){
+    const fp=getCardFingerprint(card),previous=byCard.get(fp);
+    if(!fp||fp==='fp__')continue;
+    const stamp=Number(card._priceCheckedAt||card._detailsAt)||0;
+    const oldStamp=Number(previous?._priceCheckedAt||previous?._detailsAt)||0;
+    const aliases=[...new Set([...(previous?._valueOwnershipKeys||[]),...(card._valueOwnershipKeys||[]),...getCardOwnershipKeys(card)])];
+    // Keep the newest quote, including a newer genuinely unavailable price.
+    byCard.set(fp,{...(previous&&oldStamp>stamp?previous:card),_valueOwnershipKeys:aliases});
+  }
+  return [...byCard.values()];
+}
+function calculateProfileValues(cards,stats){
+  const dexKeys=new Set([...memCardCol].map(String));
+  const setKeys=new Set(stats.ownedCardKeys);
+  const dex={pence:0,priced:0,unpriced:0,missing:new Set()},sets={pence:0,priced:0,unpriced:0,missing:new Set()};
+  for(const card of cards){
+    const fp=getCardFingerprint(card),keys=new Set([...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])]);
+    const inDex=[...keys].some(key=>dexKeys.has(key)),inSets=setKeys.has(fp)||[...keys].some(key=>setKeys.has(key));
+    if(!inDex&&!inSets)continue;
+    const amount=card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP);
+    for(const [included,total,pending] of [[inDex,dex,dexKeys],[inSets,sets,setKeys]]){
+      if(!included)continue;
+      if(amount!==null){total.pence+=Math.round(amount*100);total.priced++;}else total.unpriced++;
+      pending.delete(fp);for(const key of keys)pending.delete(key);
+    }
+  }
+  dex.missing=dexKeys;sets.missing=setKeys;
+  return {dex,sets};
+}
+function paintProfileValues(values){
+  for(const [section,id] of [['dex','profileStatDexValue'],['sets','profileStatSetsValue']]){
+    const value=values[section],node=document.getElementById(id);if(!node)continue;
+    const partial=value.unpriced>0||value.missing.size>0;
+    const money=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(value.pence/100);
+    node.textContent=partial?(value.priced?money+' (partial)':'N/A'):money;
+    node.classList.remove('profile-stat-loading');node.removeAttribute('aria-busy');
+    node.title='One latest available estimate per collected card; variants are not counted again. '+(partial?'Cards without available prices are excluded.':'');
+    node.setAttribute('aria-label',(section==='dex'?'Dex':'Sets')+' value: '+node.textContent+(partial?'. Some collected cards have no available price.':''));
+  }
+  const note=document.getElementById('profileValueNote');
+  if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. N/A prices are excluded; partial means some prices are missing.';
+}
+function findProfileValueSet(key,sets){
+  if(!String(key).startsWith('fp_'))return findSetForPreviewCard({id:key},sets);
+  const candidates=[];
+  for(const set of sets){
+    for(const name of [set.name,resolveSetName(set),getMcDonaldsSetInfo(set.id)?.name].filter(Boolean)){
+      const prefix='fp_'+String(name).toLowerCase().replace(/[^a-z0-9]/g,'')+'_';
+      if(key.startsWith(prefix))candidates.push({set,length:prefix.length});
+    }
+  }
+  candidates.sort((a,b)=>b.length-a.length);
+  if(candidates.length)return candidates[0].set;
+  if(key.startsWith('fp_standalone_')){
+    const promo=SUPPLEMENTAL_PROMO_BY_CARD.get(key.slice('fp_standalone_'.length));
+    return sets.find(set=>set.id===promo?.setId)||null;
+  }
+  return null;
+}
+async function refreshProfileValues(sets,stats,requestId,uid){
+  const valid=()=>requestId===profileStatsRequestId&&uid===activeUid&&document.getElementById('accountModal')?.style.display==='flex';
+  if(!valid())return;
+  let cards=getProfileValueSnapshots(),values=calculateProfileValues(cards,stats);
+  paintProfileValues(values);rememberProfileValueCards(cards);
+  Promise.resolve(ensureTcgFxRates()).then(()=>{if(valid())paintProfileValues(calculateProfileValues(getProfileValueSnapshots(),stats));}).catch(()=>{});
+  // Restore missing card metadata on a new device from only the relevant sets.
+  // Three workers maximum, and stop scheduling work after closing Profile.
+  const pending=[...new Set([...values.dex.missing,...values.sets.missing].map(key=>findProfileValueSet(key,sets)?.id).filter(Boolean))];
+  let next=0;
+  async function worker(){
+    while(valid()&&next<pending.length){
+      const id=pending[next++];
+      try{const loaded=await loadCardsForSet(id);if(!valid())return;rememberProfileValueCards(loaded);}catch(_){}
+      if(!valid())return;
+      cards=getProfileValueSnapshots();values=calculateProfileValues(cards,stats);paintProfileValues(values);
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(3,pending.length)},worker));
+}
+
 function calculateProfileStats(sets) {
   const owned = new Set(), ownedVariants = new Set(), groups = new Map();
   const consumedVariants = new Set(), consumedLegacy = new Set(), cachedTotals = new Map();
@@ -10928,7 +11057,7 @@ function calculateProfileStats(sets) {
     else if (!total) unavailable = true;
   }
   const collectedSetIds = new Set([...groups.values()].filter(group => group.set && group.cards.size > 0).map(group => group.set.id));
-  return { cards: owned.size, sets: groups.size, complete, variants: ownedVariants.size, unavailable, collectedSetIds };
+  return { cards: owned.size, sets: groups.size, complete, variants: ownedVariants.size, unavailable, collectedSetIds, ownedCardKeys: owned };
 }
 
 async function refreshProfileStats() {
@@ -10945,6 +11074,15 @@ async function refreshProfileStats() {
     element.removeAttribute('aria-busy');
     element.removeAttribute('aria-label');
   };
+  // Never show another account's previously calculated collection values.
+  const valueOwner = uid || 'guest';
+  if (modal.dataset.profileValueOwner !== valueOwner) {
+    modal.dataset.profileValueOwner = valueOwner;
+    for (const id of ['profileStatDexValue', 'profileStatSetsValue']) {
+      const node = document.getElementById(id);
+      if (node) { node.textContent = ''; node.removeAttribute('title'); }
+    }
+  }
   // Keep already-populated numbers visible during background updates.
   for (const element of modal.querySelectorAll('.profile-stats dd')) {
     if (!element.textContent.trim() || element.textContent.trim() === '—') {
@@ -10964,6 +11102,7 @@ async function refreshProfileStats() {
     profileStatCards: stats.cards, profileStatSets: stats.sets,
     profileStatComplete: stats.complete, profileStatVariants: stats.variants
   })) paint(id, value.toLocaleString('en-GB'));
+  refreshProfileValues(sets, stats, requestId, uid).catch(() => {});
   const spinState = getWheelSpinState();
   reloadWheelSpinState();
   paint('profileStatSpins', wheelSpinCount.toLocaleString('en-GB'));
