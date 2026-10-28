@@ -1,4 +1,4 @@
-<!-- PokeRoulette v244: Profile values, physical-card coverage and missing-price examples. -->
+<!-- PokeRoulette v246: Profile values, physical-card coverage and missing-price examples. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2274,7 +2274,7 @@ html.is-standalone body.has-active #pokeCard { --encounter-card-size: 112px; }
 #profileStatDexValue, #profileStatSetsValue { margin-left:auto; text-align:right; }
 #profileUnpricedDetails, #profileDexValueDetails { margin-top:.65rem; color:var(--sub); font-size:.6rem; line-height:1.5; }
 #profileUnpricedDetails summary, #profileDexValueDetails summary { cursor:pointer; color:var(--green); font-weight:700; }
-#profileUnpricedDetails ul, #profileDexValueDetails ul { padding-left:1.1rem; margin:.4rem 0; }
+#profileUnpricedDetails ul, #profileDexValueDetails ol { padding-left:1.1rem; margin:.4rem 0; }
 #profileUnpricedDetails li, #profileDexValueDetails li { margin:.4rem 0; }
 .profile-stats dd.profile-stat-loading { min-width: 14px; flex-shrink: 0; }
 .profile-stats dd.profile-stat-loading::before {
@@ -4238,7 +4238,7 @@ svg.nav-artwork use{pointer-events:none}
       </dl>
       <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.</p>
       <details id="profileUnpricedDetails" hidden><summary>Cards without prices</summary><div id="profileUnpricedExamples"></div></details>
-      <details id="profileDexValueDetails" hidden><summary>Cards included in Dex value</summary><ul id="profileDexValueCards"></ul></details>
+      <details id="profileDexValueDetails" hidden><summary id="profileDexValueSummary">Cards included in Dex value</summary><ol id="profileDexValueCards"></ol></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
     </section>
@@ -5610,7 +5610,7 @@ function sortCardsList(cards) {
     rarity: Number(card.rarityScore) || 0, price: parseFloat(card.priceGBP) || 0
   }));
   ranked.sort((a, b) => {
-    return b.art - a.art || b.owned - a.owned || b.rarity - a.rarity || b.price - a.price ||
+    return b.owned - a.owned || b.art - a.art || b.rarity - a.rarity || b.price - a.price ||
       String(a.card.setName).localeCompare(String(b.card.setName)) ||
       String(a.card.number).localeCompare(String(b.card.number), undefined, { numeric: true }) ||
       String(a.card.id).localeCompare(String(b.card.id));
@@ -11200,7 +11200,10 @@ function paintProfileUnpricedExamples(values){
 function paintProfileDexSelections(value){
   const details=document.getElementById('profileDexValueDetails'),list=document.getElementById('profileDexValueCards');
   if(!details||!list)return;list.replaceChildren();details.hidden=!value.total;
-  for(const card of value.selectedCards||[]){
+  const summary=document.getElementById('profileDexValueSummary');
+  if(summary)summary.textContent='Cards included in Dex value ('+value.total+')';
+  const selected=[...(value.selectedCards||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId)));
+  for(const card of selected){
     const row=document.createElement('li');
     const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
     row.textContent=title+' — '+(card.pence===null?'N/A':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(card.pence/100));list.appendChild(row);
