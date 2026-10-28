@@ -1,4 +1,4 @@
-<!-- PokeRoulette v247: Profile values, physical-card coverage and missing-price examples. -->
+<!-- PokeRoulette v248: Profile values, physical-card coverage and missing-price examples. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4227,7 +4227,7 @@ svg.nav-artwork use{pointer-events:none}
       <h4 id="profileStatsHeading">Your Stats</h4>
       <dl>
         <div class="profile-stat-parent"><dt>Dex - Cards Collected</dt><dd id="profileStatDex" class="profile-stat-loading" aria-busy="true" aria-label="Loading card count"></dd></div>
-        <div class="profile-stat-detail"><dt>Pokémon represented</dt><dd id="profileStatDexPokemon">0 / 1,025</dd></div>
+        <div class="profile-stat-detail"><dt>Pokémon Represented</dt><dd id="profileStatDexPokemon">0 / 1,025</dd></div>
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatDexValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div class="profile-stat-parent"><dt>Sets - Cards Collected</dt><dd id="profileStatCards" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt>Including Variants</dt><dd id="profileStatVariants" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
@@ -4237,7 +4237,7 @@ svg.nav-artwork use{pointer-events:none}
         <div><dt>Wheel spins</dt><dd id="profileStatSpins">0</dd></div>
       </dl>
       <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.</p>
-      <details id="profileUnpricedDetails" hidden><summary>Cards without prices</summary><div id="profileUnpricedExamples"></div></details>
+      <details id="profileUnpricedDetails" hidden><summary id="profileUnpricedSummary">Cards without prices (0)</summary><div id="profileUnpricedExamples"></div></details>
       <details id="profileDexValueDetails" hidden><summary id="profileDexValueSummary">Cards included in Dex value</summary><ol id="profileDexValueCards"></ol></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
@@ -11208,6 +11208,8 @@ function paintProfileUnpricedExamples(values){
   const details=document.getElementById('profileUnpricedDetails'),box=document.getElementById('profileUnpricedExamples');
   if(!details||!box)return;
   box.replaceChildren();
+  const summary=document.getElementById('profileUnpricedSummary');
+  if(summary)summary.textContent='Cards without prices ('+(values.dex.unpriced+values.sets.unpriced)+')';
   details.hidden=!values.dex.unpriced&&!values.sets.unpriced;
   for(const [section,label] of [['dex','Dex'],['sets','Sets']]){
     const cards=values[section].unpricedCards||[];if(!cards.length)continue;
@@ -11216,7 +11218,7 @@ function paintProfileUnpricedExamples(values){
     for(const card of cards.slice(0,3)){
       const row=document.createElement('li');
       const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
-      const reason=card.reason==='source_pricing_empty'?'The price feed supplies no pricing for this card.':card.reason==='source_has_no_supported_market_quote'?'The price feed has no usable market quote for this card.':'This saved card has not matched the shared price list.';
+      const reason=card.reason==='source_pricing_empty'||card.reason==='source_has_no_supported_market_quote'?'No usable price has been linked to this exact card printing yet.':'This saved card has not matched the shared price list.';
       row.textContent=title+' — '+reason;list.appendChild(row);
     }
     box.appendChild(list);
