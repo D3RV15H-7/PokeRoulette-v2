@@ -1,3 +1,4 @@
+<!-- PokeRoulette v243: Profile values, physical-card coverage and missing-price examples. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2269,6 +2270,12 @@ html.is-standalone body.has-active #pokeCard { --encounter-card-size: 112px; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.profile-value-coverage { display:block; font-size:.58rem; line-height:1.4; color:var(--sub); font-weight:600; white-space:normal; }
+#profileStatDexValue, #profileStatSetsValue { margin-left:auto; text-align:right; }
+#profileUnpricedDetails { margin-top:.65rem; color:var(--sub); font-size:.6rem; line-height:1.5; }
+#profileUnpricedDetails summary { cursor:pointer; color:var(--green); font-weight:700; }
+#profileUnpricedDetails ul { padding-left:1.1rem; margin:.4rem 0; }
+#profileUnpricedDetails li { margin:.4rem 0; }
 .profile-stats dd.profile-stat-loading { min-width: 14px; flex-shrink: 0; }
 .profile-stats dd.profile-stat-loading::before {
   content: '';
@@ -4219,7 +4226,7 @@ svg.nav-artwork use{pointer-events:none}
     <section class="profile-stats" aria-labelledby="profileStatsHeading">
       <h4 id="profileStatsHeading">Your Stats</h4>
       <dl>
-        <div class="profile-stat-parent"><dt>Dex - Cards Collected</dt><dd id="profileStatDex">0 / 1,025</dd></div>
+        <div class="profile-stat-parent"><dt>Dex - Pokémon Collected</dt><dd id="profileStatDex">0 / 1,025</dd></div>
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatDexValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div class="profile-stat-parent"><dt>Sets - Cards Collected</dt><dd id="profileStatCards" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt>Including Variants</dt><dd id="profileStatVariants" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
@@ -4228,7 +4235,8 @@ svg.nav-artwork use{pointer-events:none}
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatSetsValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div><dt>Wheel spins</dt><dd id="profileStatSpins">0</dd></div>
       </dl>
-      <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. N/A prices are excluded; partial means some prices are missing.</p>
+      <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.</p>
+      <details id="profileUnpricedDetails" hidden><summary>Cards without prices</summary><div id="profileUnpricedExamples"></div></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
     </section>
@@ -4288,6 +4296,7 @@ svg.nav-artwork use{pointer-events:none}
   </div>
 </div>
 
+<!-- Build v242: shared price catalogue uses corrected finish selection and diagnostic reporting. -->
 <!-- In-App Toast Banner -->
 <div id="appToast" class="app-toast"></div>
 
@@ -7890,6 +7899,7 @@ function shouldRefreshVisibleCardPricing(card) {
 }
 function queueVisibleCardDetails(card) {
   ensureTcgFxRates();
+  if (card) applySharedCardPrice(card);
   if (!card || !currentCardsList.includes(card) || visibleCardDetailBusy.has(card)) return;
   if (card._priceAttemptAt && Date.now() - card._priceAttemptAt < 60000) return;
   const priceDue = shouldRefreshVisibleCardPricing(card);
@@ -10881,6 +10891,9 @@ function rememberProfileValueCards(cards){
       _priceQuote:card._priceQuote,priceGBP:card.priceGBP,
       _priceCheckedAt:card._priceCheckedAt||card._detailsAt||0,
       _pricingVersion:card._pricingVersion,
+      _sharedPriceRetained:card._sharedPriceRetained,
+      _sharedPriceError:card._sharedPriceError,
+      _sharedPriceMatched:card._sharedPriceMatched,_sharedPriceMissingReason:card._sharedPriceMissingReason,
       _collectionPriceAttemptAt:card._collectionPriceAttemptAt,
       _collectionPriceFailed:card._collectionPriceFailed,
       _tcgDexDetailId:card._tcgDexDetailId,localId:card.localId,
@@ -10922,36 +10935,53 @@ function getProfileValueSnapshots(){
   }
   return [...byCard.values()];
 }
+// Resolve ownership aliases before counting: one physical card contributes once.
 function calculateProfileValues(cards,stats){
-  const dexKeys=new Set([...memCardCol].map(String));
-  const setKeys=new Set(stats.ownedCardKeys);
-  const dex={pence:0,priced:0,unpriced:0,missing:new Set()},sets={pence:0,priced:0,unpriced:0,missing:new Set()};
-  for(const card of cards){
-    const fp=getCardFingerprint(card),keys=new Set([...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])]);
-    const inDex=[...keys].some(key=>dexKeys.has(key)),inSets=setKeys.has(fp)||[...keys].some(key=>setKeys.has(key));
-    if(!inDex&&!inSets)continue;
-    const amount=card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP);
-    for(const [included,total,pending] of [[inDex,dex,dexKeys],[inSets,sets,setKeys]]){
-      if(!included)continue;
-      if(amount!==null){total.pence+=Math.round(amount*100);total.priced++;}else total.unpriced++;
-      pending.delete(fp);for(const key of keys)pending.delete(key);
+  const result={};
+  for(const [section,owned] of [['dex',memCardCol],['sets',stats.ownedCardKeys]]){
+    const keys=new Set([...owned].map(String)),parent=new Map(),candidates=[];
+    const root=key=>{if(!parent.has(key))parent.set(key,key);let p=parent.get(key);if(p!==key){p=root(p);parent.set(key,p);}return p;};
+    const join=(a,b)=>{a=root(a);b=root(b);if(a!==b)parent.set(b,a);};
+    for(const key of keys)root(key);
+    for(const card of cards){
+      const aliases=[...new Set([...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])])].filter(Boolean).map(String);
+      if(!aliases.some(key=>keys.has(key)))continue;
+      for(const key of aliases)join(aliases[0],key);
+      if(card._tcgDexDetailId)join(aliases[0],'shared:'+card._tcgDexDetailId);
+      candidates.push({card,key:aliases[0]});
     }
+    const groups=new Map();
+    for(const key of keys){const id=root(key);if(!groups.has(id))groups.set(id,{keys:[],card:null});groups.get(id).keys.push(key);}
+    for(const {card,key} of candidates){
+      const group=groups.get(root(key));if(!group)continue;
+      const old=group.card,stamp=c=>Number(c?._priceCheckedAt||c?._detailsAt)||0;
+      if(!old||stamp(card)>stamp(old)||(stamp(card)===stamp(old)&&card._sharedPriceMatched&&!old._sharedPriceMatched))group.card=card;
+    }
+    const total={pence:0,priced:0,unpriced:0,total:groups.size,missing:new Set(),unpricedCards:[]};
+    for(const [key,group] of groups){
+      const card=group.card;
+      const amount=card?(card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP)):null;
+      if(amount!==null){total.pence+=Math.round(amount*100);total.priced++;continue;}
+      total.unpriced++;
+      if(!card)total.missing.add(key);
+      total.unpricedCards.push({cardId:card?.id||group.keys.find(k=>!k.startsWith('fp_'))||group.keys[0],name:card?.name||'',setName:card?.setName||'',number:card?.number||'',reason:card?._sharedPriceMatched?(card._sharedPriceMissingReason||'source_has_no_supported_market_quote'):'unmatched_card'});
+    }
+    result[section]=total;
   }
-  dex.missing=dexKeys;sets.missing=setKeys;
-  return {dex,sets};
+  return result;
 }
 function paintProfileValues(values){
   for(const [section,id] of [['dex','profileStatDexValue'],['sets','profileStatSetsValue']]){
     const value=values[section],node=document.getElementById(id);if(!node)continue;
     const partial=value.unpriced>0||value.missing.size>0;
     const money=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(value.pence/100);
-    node.textContent=partial?(value.priced?money+' (partial)':'N/A'):money;
+    node.textContent=value.priced||!value.total?money:'N/A';
     node.classList.remove('profile-stat-loading');node.removeAttribute('aria-busy');
     node.title='One latest available estimate per collected card; variants are not counted again. '+(partial?'Cards without available prices are excluded.':'');
     node.setAttribute('aria-label',(section==='dex'?'Dex':'Sets')+' value: '+node.textContent+(partial?'. Some collected cards have no available price.':''));
   }
   const note=document.getElementById('profileValueNote');
-  if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. N/A prices are excluded; partial means some prices are missing.';
+  if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.';
 }
 function findProfileValueSet(key,sets){
   if(!String(key).startsWith('fp_'))return findSetForPreviewCard({id:key},sets);
@@ -10970,203 +11000,203 @@ function findProfileValueSet(key,sets){
   }
   return null;
 }
-// v239: an independent collection-price queue; it never depends on visible cards.
-var collectionValueRefresh;
-var collectionValueRefreshTimer;
-function collectionValueOwnershipSignature(){
-  return JSON.stringify([activeUid,[...memCardCol].sort(),[...memSetCardCol].sort(),[...memSetCardVariants].sort()]);
+// v240: a shared catalogue built by GitHub, rather than a per-device card queue.
+var sharedPriceDocument;
+var sharedPriceRequest;
+var sharedPriceFetchedAt = 0;
+var sharedPriceAttemptAt = 0;
+var sharedPriceFetchError = false;
+var sharedPriceTimer;
+var sharedPriceIndex;
+var sharedPriceDbPromise;
+var profileValueSets = [];
+function hasCollectedValueCards(){return memCardCol.size>0||memSetCardCol.size>0||[...memSetCardVariants].some(key=>key.startsWith('fp_')&&key.includes('__'));}
+function scheduleCollectionValueRefresh(delay=500){
+  clearTimeout(sharedPriceTimer);sharedPriceTimer=setTimeout(()=>runCollectionValueRefresh().catch(()=>{}),delay);
 }
-function hasCollectedValueCards(){return memCardCol.size>0||memSetCardCol.size>0||[...memSetCardVariants].some(key=>/^(fp_.+)__(.+)$/.test(key)&&!key.startsWith('migrated_'));}
-function scheduleCollectionValueRefresh(delay=600){
-  clearTimeout(collectionValueRefreshTimer);
-  collectionValueRefreshTimer=setTimeout(()=>{runCollectionValueRefresh().catch(()=>{});},delay);
+function validSharedPriceDocument(data){
+  return data?.schemaVersion===1&&data.cards&&typeof data.cards==='object'&&!Array.isArray(data.cards)&&data.sets&&typeof data.sets==='object'&&Object.keys(data.cards).length>0&&Number.isFinite(Date.parse(data.generatedAt));
 }
-function isCollectionValueCardOwned(card,stats){
-  const keys=[...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])];
-  return keys.some(key=>memCardCol.has(key)||stats.ownedCardKeys.has(key))||stats.ownedCardKeys.has(getCardFingerprint(card));
+function openSharedPriceDb(){
+  if(sharedPriceDbPromise)return sharedPriceDbPromise;
+  sharedPriceDbPromise=new Promise((resolve,reject)=>{
+    if(typeof indexedDB==='undefined'){reject(new Error('Snapshot storage unavailable'));return;}
+    const request=indexedDB.open('PokeRouletteSharedPrices',1);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('snapshots'))request.result.createObjectStore('snapshots');};
+    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);request.onblocked=()=>reject(new Error('Snapshot storage busy'));
+  });return sharedPriceDbPromise;
 }
-function mergeCollectionValueCards(state,cards){
-  for(const card of cards||[]){
-    if(!card?.id)continue;
-    const fp=getCardFingerprint(card),previous=state.cards.get(fp);
-    if(!isCollectionValueCardOwned(card,state.stats)&&!previous)continue;
-    const stamp=Number(card._priceCheckedAt||card._detailsAt)||0;
-    const previousStamp=Number(previous?._priceCheckedAt||previous?._detailsAt)||0;
-    state.cards.set(fp,{...(previous&&previousStamp>stamp?{...card,...previous}:{...previous,...card}),
-      _valueOwnershipKeys:[...new Set([...(previous?._valueOwnershipKeys||[]),...(card._valueOwnershipKeys||[]),...getCardOwnershipKeys(card)])]});
+async function readSharedPriceCache(){
+  try{const db=await openSharedPriceDb();return await new Promise((resolve,reject)=>{const tx=db.transaction('snapshots','readonly'),r=tx.objectStore('snapshots').get('latest-v1');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}catch{return null;}
+}
+async function writeSharedPriceCache(data){
+  try{const db=await openSharedPriceDb();await new Promise((resolve,reject)=>{const tx=db.transaction('snapshots','readwrite');tx.objectStore('snapshots').put(data,'latest-v1');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}catch{/* A storage limit must not prevent using the downloaded file. */}
+}
+function applySharedPriceRates(data){
+  const fx=data?.fx;
+  if(getNumericPrice(fx?.usd)&&getNumericPrice(fx?.eur)&&/^\d{4}-\d{2}-\d{2}$/.test(fx.date||'')){
+    USD_TO_GBP=Number(fx.usd);EUR_TO_GBP=Number(fx.eur);tcgFxDate=fx.date;
+    try{localStorage.setItem('pokeroulette_fx_v224',JSON.stringify({...fx,savedAt:Date.now()}));}catch{}
   }
 }
-function persistCollectionValuePrices(state){
-  if(state.uid!==activeUid)return;
-  const records=[...state.cards.values()].filter(card=>isCollectionValueCardOwned(card,state.stats));
-  // The compact per-account ledger is written in batches; set checklists keep
-  // their original freshness dates and collection flags are never changed.
-  rememberProfileValueCards(records);
-  const fresh=new Map(records.filter(card=>card._priceCheckedAt).map(card=>[getCardFingerprint(card),card]));
-  const update=list=>{
-    for(const card of list||[]){
-      const price=fresh.get(getCardFingerprint(card));
-      if(!price||Number(card._priceCheckedAt||0)>Number(price._priceCheckedAt||0))continue;
-      for(const key of ['priceGBP','_priceQuote','_priceCheckedAt','_pricingVersion','_collectionPriceAttemptAt','_collectionPriceFailed','_tcgDexDetailId'])
-        if(Object.prototype.hasOwnProperty.call(price,key))card[key]=price[key];
-    }
-  };
-  update(currentCardsList);
-  for(const list of Object.values(window.tcgSetCardsCache||{}))update(list);
-  for(const record of memoryTcgCache.values())update(record?.data);
+function sharedPriceNumberAliases(number){
+  const raw=String(number||'').split('/')[0].trim(),match=/^([a-z]*)(\d+)$/i.exec(raw);
+  return [...new Set([raw,raw.toLowerCase(),...(match?[match[1]+Number(match[2]),match[1]+String(Number(match[2])).padStart(2,'0'),match[1]+String(Number(match[2])).padStart(3,'0')]:[])])];
 }
-function renderCollectionValueProgress(state){
-  if(state.uid!==activeUid||document.getElementById('accountModal')?.style.display!=='flex')return;
-  const signature=collectionValueOwnershipSignature();
-  if(state.statsSignature!==signature){state.stats=calculateProfileStats(state.sets);state.statsSignature=signature;}
-  const values=calculateProfileValues([...state.cards.values()],state.stats);
+function sharedPriceLookup(data){
+  if(sharedPriceIndex?.data===data)return sharedPriceIndex.lookup;
+  const lookup=new Map(),clean=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const add=(key,id)=>{if(!key)return;const old=lookup.get(key);if(old===undefined)lookup.set(key,id);else if(old!==id)lookup.set(key,null);};
+  for(const [id,card] of Object.entries(data.cards)){
+    if(!card?.setId||!card.name||!card.number)continue;
+    const set=data.sets[card.setId]||{},numbers=sharedPriceNumberAliases(card.number);
+    add(id,id);add(id.toLowerCase(),id);
+    for(const alias of set.aliases||[card.setId])for(const number of numbers){add(alias+'-'+number,id);add((alias+'-'+number).toLowerCase(),id);}
+    for(const name of set.names||[set.name]){
+      for(const number of numbers)add('fp_'+clean(name)+'_'+clean(number),id);
+      // Use the collection's exact identity rules for reprints and shared numbers.
+      const physical={id,name:card.name,number:card.number,setName:name,set:{id:card.setId,name}};
+      for(const alias of getCardOwnershipKeys(physical))add(alias,id);
+    }
+    for(const alias of card.ownershipAliases||[])add(alias,id);
+  }
+  sharedPriceIndex={data,lookup};return lookup;
+}
+function sharedPriceRecordForCard(card,data=sharedPriceDocument){
+  if(!validSharedPriceDocument(data))return null;
+  const lookup=sharedPriceLookup(data);
+  const direct=card._tcgDexDetailId;
+  let id=direct&&data.cards[direct]?direct:null;
+  if(!id){
+    const sourceSet=String(card.artworkTcgDexSetId||AUDITED_ARTWORK_SET_ALIASES[card.artworkPokemonSetId]||card.artworkPokemonSetId||'');
+    const keys=[card.id,...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[]),...sharedPriceNumberAliases(card.number).map(n=>sourceSet+'-'+n)];
+    const matches=[...new Set(keys.map(key=>lookup.get(String(key))).filter(Boolean))];
+    if(matches.length!==1)return null;id=matches[0];
+  }
+  const record=data.cards[id];
+  // Even a known ID must not silently match the wrong artwork/printing name.
+  if(card.name&&card.name!=='Unknown'&&normalizePokemonCardName(card.name)!==normalizePokemonCardName(record.name))return null;
+  return {id,record};
+}
+function sharedPricePatch(card,record,id){
+  const oldQuote=card._priceQuote,sourceQuote=record.quote;
+  const validQuote=q=>q&&['EUR','USD'].includes(q.currency)&&getNumericPrice(q.amount)!==null;
+  const oldIsNewer=validQuote(oldQuote)&&validQuote(sourceQuote)&&Date.parse(oldQuote.updated)>Date.parse(sourceQuote.updated);
+  const keepLocal=validQuote(oldQuote)&&(!validQuote(sourceQuote)||oldIsNewer);
+  const quote=keepLocal?oldQuote:validQuote(sourceQuote)?sourceQuote:null;
+  const localAmount=getNumericPrice(card.priceGBP);
+  return {...card,_tcgDexDetailId:id,_priceQuote:quote,
+    priceGBP:quote?convertTcgQuote(quote).toFixed(2):localAmount!==null?localAmount.toFixed(2):null,
+    _priceCheckedAt:keepLocal?card._priceCheckedAt:Date.parse(record.checkedAt)||card._priceCheckedAt||0,
+    _pricingVersion:TCG_PRICING_VERSION,_sharedPriceRetained:!!record.retained||keepLocal||(!quote&&localAmount!==null),
+    _sharedPriceError:!!record.error,_sharedPriceMatched:true,_sharedPriceMissingReason:record.noPriceReason};
+}
+function applySharedCardPrice(card){
+  const match=sharedPriceRecordForCard(card);if(!match)return false;
+  Object.assign(card,sharedPricePatch(card,match.record,match.id));return true;
+}
+function sharedProfileValueCards(data,stats){
+  const localCards=getProfileValueSnapshots();if(!validSharedPriceDocument(data))return localCards;
+  const lookup=sharedPriceLookup(data),matched=new Map(),unmatched=new Map(),blocked=new Set();
+  const wanted=new Set([...memCardCol,...stats.ownedCardKeys]);
+  for(const key of wanted){const id=lookup.get(String(key));if(!id)continue;if(!matched.has(id))matched.set(id,{local:null,keys:new Set()});matched.get(id).keys.add(String(key));}
+  for(const card of localCards){
+    const aliases=[...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])];
+    if(!aliases.some(key=>wanted.has(key)))continue;
+    const match=sharedPriceRecordForCard(card,data);
+    if(!match){unmatched.set(getCardFingerprint(card),card);for(const key of aliases){const id=lookup.get(String(key));if(id)blocked.add(id);}continue;}
+    if(!matched.has(match.id))matched.set(match.id,{local:null,keys:new Set()});
+    const item=matched.get(match.id);item.local=card;for(const key of aliases)item.keys.add(key);
+  }
+  const result=[];
+  for(const [id,{local,keys}] of matched){
+    if(blocked.has(id))continue;
+    const record=data.cards[id],set=data.sets[record.setId];
+    const base=local||{id,name:record.name,setName:set?.name||record.setId,number:record.number,baseFinish:record.baseFinish};
+    const card=sharedPricePatch(base,record,id);
+    card._valueOwnershipKeys=[...new Set([...keys,...getCardOwnershipKeys(base),...(base._valueOwnershipKeys||[])])];
+    result.push(card);
+    // A previously cached alias of this same physical card must not add again.
+    for(const [fp,old] of unmatched)if(getCardOwnershipKeys(old).some(key=>card._valueOwnershipKeys.includes(key)))unmatched.delete(fp);
+  }
+  result.push(...unmatched.values());return result;
+}
+function paintSharedProfileValues(data,error=false){
+  if(document.getElementById('accountModal')?.style.display!=='flex')return;
+  const stats=calculateProfileStats(profileValueSets),cards=sharedProfileValueCards(data,stats),values=calculateProfileValues(cards,stats);
   paintProfileValues(values);
-  const status=document.getElementById('profileValueRefreshStatus');
-  if(!status)return;
-  status.hidden=false;
-  const loading=state.phase!=='complete';
-  if(state.phase==='catalogue')status.textContent='Finding your collected cards…';
-  else if(state.phase==='metadata')status.textContent='Loading collected-card details… '+state.metadataDone+' / '+state.metadataTotal+' sets.';
-  else if(loading)status.textContent='Updating collected-card prices… '+state.checked+' / '+state.total+' checked.';
-  else{
-    const missing=values.dex.missing.size>0||values.sets.missing.size>0;
-    const unpriced=values.dex.unpriced>0||values.sets.unpriced>0;
-    status.textContent=state.failures?'Some prices could not refresh. Last available estimates are kept; retry happens automatically.':
-      missing?'Some collected cards could not be matched yet; their prices are excluded.':
-      unpriced?'Prices checked. Cards with no supported market price are excluded.':'Collected-card prices are up to date.';
+  for(const [section,id] of [['dex','profileStatDexValue'],['sets','profileStatSetsValue']]){
+    const node=document.getElementById(id),value=values[section];if(!node)continue;
+    const coverage=document.createElement('span');coverage.className='profile-value-coverage';
+    coverage.textContent=value.priced+'/'+value.total+' cards priced';
+    node.appendChild(coverage);
   }
-  for(const id of ['profileStatDexValue','profileStatSetsValue']){
-    const node=document.getElementById(id);if(node)node.setAttribute('aria-busy',loading?'true':'false');
-  }
-}
-function collectedCardPriceIsDue(card,now=Date.now()){
-  if(card._collectionPriceAttemptAt&&now-card._collectionPriceAttemptAt<300000&&card._collectionPriceFailed)return false;
-  return card._pricingVersion!==TCG_PRICING_VERSION||!card._priceCheckedAt||!isSameTcgPriceDay(card._priceCheckedAt,now);
-}
-async function fetchCollectedCardPrice(card){
-  const deadline=Date.now()+12000;
-  const candidates=[];
-  if(card._tcgDexDetailId)candidates.push(card._tcgDexDetailId);
-  let detail=null;
-  // Prefer the same verified product mapping used by the large card preview.
-  if(candidates.length){try{detail=await getTcgDexCardDetail(candidates[0],deadline,true);}catch(_){} }
-  if(!detail){
-    const sourceSetId=String(card.artworkPokemonSetId||String(card.id).split('-').slice(0,-1).join('-'));
-    const set=card.artworkTcgDexSetId?{id:card.artworkTcgDexSetId}:
-      await findTcgDexSetForPokemonTcgSet(sourceSetId,card.sourceSetName||card.setName);
-    const number=String(card.localId||card.number||'').split('/')[0].trim();
-    if(set?.id&&number){
-      for(const id of [...new Set([set.id+'-'+number,set.id+'-'+number.padStart(3,'0')])]){
-        if(candidates.includes(id))continue;
-        try{detail=await getTcgDexCardDetail(id,deadline,true);break;}catch(_){}
-      }
+  paintProfileUnpricedExamples(values);
+  const status=document.getElementById('profileValueRefreshStatus');if(status){
+    status.hidden=!hasCollectedValueCards();
+    if(!validSharedPriceDocument(data))status.textContent='Shared prices are not available yet. Showing saved estimates where available.';
+    else{
+      const date=new Date(data.generatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'Europe/London'});
+      const retained=cards.some(card=>card._sharedPriceRetained||card._sharedPriceError);
+      status.textContent=(error?'Price update unavailable. Using saved snapshot from ':'Price snapshot: ')+date+'.'+(retained?' Some last available estimates are retained.':'')+(data.status==='partial'?' Some provider updates are pending.':'');
     }
   }
-  if(!detail||isJumboOnlyCard(detail))throw new Error('No matching market-price record');
-  const evidence=applyCardVariantSupplement(card,
-    applyCardAuxiliaryPrintingEvidence(detail,mergePhysicalVariantEvidence({...card.variants,baseFinish:card.baseFinish},getTcgDexFinishEvidence(detail),detail)),detail);
-  // A successful response with no market quote is a checked N/A, rather than
-  // an endless retry or a zero-valued card. A failed request keeps the old quote.
-  const quote=getTcgDexBasePriceGBP(detail,evidence,true);
-  return {...card,_tcgDexDetailId:detail.id,_priceQuote:quote||null,
-    priceGBP:quote?convertTcgQuote(quote).toFixed(2):null,
-    baseFinish:evidence.baseFinish,_priceCheckedAt:Date.now(),_pricingVersion:TCG_PRICING_VERSION,
-    _collectionPriceAttemptAt:Date.now(),_collectionPriceFailed:false};
+  const note=document.getElementById('profileValueNote');if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.';
+}
+function paintProfileUnpricedExamples(values){
+  const details=document.getElementById('profileUnpricedDetails'),box=document.getElementById('profileUnpricedExamples');
+  if(!details||!box)return;
+  box.replaceChildren();
+  details.hidden=!values.dex.unpriced&&!values.sets.unpriced;
+  for(const [section,label] of [['dex','Dex'],['sets','Sets']]){
+    const cards=values[section].unpricedCards||[];if(!cards.length)continue;
+    const heading=document.createElement('p');heading.textContent=label+' — '+cards.length+' without a price (up to 3 examples)';box.appendChild(heading);
+    const list=document.createElement('ul');
+    for(const card of cards.slice(0,3)){
+      const row=document.createElement('li');
+      const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
+      const reason=card.reason==='source_pricing_empty'?'The price feed supplies no pricing for this card.':card.reason==='source_has_no_supported_market_quote'?'The price feed has no usable market quote for this card.':'This saved card has not matched the shared price list.';
+      row.textContent=title+' — '+reason;list.appendChild(row);
+    }
+    box.appendChild(list);
+  }
+}
+async function loadSharedPrices(){
+  if(sharedPriceRequest)return sharedPriceRequest;
+  if(sharedPriceDocument&&Date.now()-sharedPriceFetchedAt<900000)return sharedPriceDocument;
+  if(Date.now()-sharedPriceAttemptAt<60000)return sharedPriceDocument||null;
+  sharedPriceAttemptAt=Date.now();
+  sharedPriceRequest=(async()=>{
+    if(!sharedPriceDocument){const cached=await readSharedPriceCache();if(validSharedPriceDocument(cached)){sharedPriceDocument=cached;applySharedPriceRates(cached);paintSharedProfileValues(cached);}}
+    try{
+      const data=await fetchJsonWithRetry(new URL('data/prices-v1.json',document.baseURI).href,{cache:'no-cache',timeoutMs:20000,deadline:Date.now()+21000},0);
+      if(!validSharedPriceDocument(data))throw new Error('Initial shared snapshot not generated yet');
+      // Never roll back to an older deployment or replace good data with a bad response.
+      if(!sharedPriceDocument||Date.parse(data.generatedAt)>=Date.parse(sharedPriceDocument.generatedAt))sharedPriceDocument=data;
+      sharedPriceFetchedAt=Date.now();sharedPriceFetchError=false;
+      applySharedPriceRates(sharedPriceDocument);await writeSharedPriceCache(sharedPriceDocument);
+    }catch(_){sharedPriceFetchError=true;}
+    return sharedPriceDocument||null;
+  })();
+  try{return await sharedPriceRequest;}finally{sharedPriceRequest=null;}
 }
 async function runCollectionValueRefresh(){
-  const uid=activeUid;
-  if(collectionValueRefresh?.running){
-    const previous=collectionValueRefresh;
-    if(previous.uid===uid)return previous.promise;
-    // Wait for the old account's two workers to finish; never start an
-    // overlapping queue or commit their results to the new account.
-    await previous.promise.catch(()=>{});
-    if(uid!==activeUid)return;
-    return runCollectionValueRefresh();
-  }
   if(!hasCollectedValueCards())return;
-  const state={uid,running:true,phase:'catalogue',cards:new Map(),sets:[],stats:{ownedCardKeys:new Set()},
-    statsSignature:'',signature:collectionValueOwnershipSignature(),metadataDone:0,metadataTotal:0,checked:0,total:0,failures:0};
-  collectionValueRefresh=state;
-  const valid=()=>state.uid===activeUid&&collectionValueRefresh===state;
-  state.promise=(async()=>{
-    try{
-      // Yield once so the run's shared promise exists before UI callbacks.
-      await Promise.resolve();
-      if(!valid())return;
-      const fx=Promise.resolve(ensureTcgFxRates()).catch(()=>{});
-      state.sets=await fetchPhysicalTcgSets().catch(()=>[]);
-      if(!valid())return;
-      state.stats=calculateProfileStats(state.sets);state.statsSignature=collectionValueOwnershipSignature();
-      mergeCollectionValueCards(state,getProfileValueSnapshots());
-      const initial=calculateProfileValues([...state.cards.values()],state.stats);
-      const missingSets=[...new Set([...initial.dex.missing,...initial.sets.missing].map(key=>findProfileValueSet(key,state.sets)?.id).filter(Boolean))];
-      state.phase='metadata';state.metadataTotal=missingSets.length;renderCollectionValueProgress(state);
-      let nextSet=0;
-      async function loadMetadata(){
-        while(valid()&&nextSet<missingSets.length){
-          const id=missingSets[nextSet++];
-          try{
-            const cards=await loadCardsForSet(id);
-            if(!valid())return;
-            state.stats=calculateProfileStats(state.sets);state.statsSignature=collectionValueOwnershipSignature();
-            mergeCollectionValueCards(state,cards);
-          }catch(_) {if(valid())state.failures++;}
-          if(!valid())return;
-          state.metadataDone++;renderCollectionValueProgress(state);
-        }
-      }
-      await Promise.all(Array.from({length:Math.min(2,missingSets.length)},loadMetadata));
-      await fx;
-      if(!valid())return;
-      state.stats=calculateProfileStats(state.sets);state.statsSignature=collectionValueOwnershipSignature();
-      mergeCollectionValueCards(state,getProfileValueSnapshots());
-      const pending=[...state.cards.values()].filter(card=>isCollectionValueCardOwned(card,state.stats)&&collectedCardPriceIsDue(card));
-      state.phase='prices';state.total=pending.length;renderCollectionValueProgress(state);
-      let nextCard=0;
-      async function priceWorker(){
-        while(valid()&&nextCard<pending.length){
-          const card=pending[nextCard++];
-          const signature=collectionValueOwnershipSignature();
-          if(state.statsSignature!==signature){state.stats=calculateProfileStats(state.sets);state.statsSignature=signature;}
-          if(!isCollectionValueCardOwned(card,state.stats))continue;
-          let updated;
-          try{updated=await fetchCollectedCardPrice({...card});}
-          catch(_){updated={...card,_collectionPriceAttemptAt:Date.now(),_collectionPriceFailed:true};if(valid())state.failures++;}
-          if(!valid())return;
-          state.cards.set(getCardFingerprint(card),updated);state.checked++;
-          if(state.checked%8===0)persistCollectionValuePrices(state);
-          renderCollectionValueProgress(state);
-        }
-      }
-      await Promise.all(Array.from({length:Math.min(2,pending.length)},priceWorker));
-      if(!valid())return;
-      // Account for backoff failures saved by an earlier pass too.
-      if([...state.cards.values()].some(card=>isCollectionValueCardOwned(card,state.stats)&&card._collectionPriceFailed))state.failures=Math.max(1,state.failures);
-      persistCollectionValuePrices(state);state.phase='complete';renderCollectionValueProgress(state);
-    }finally{
-      state.running=false;
-      if(valid()&&state.signature!==collectionValueOwnershipSignature())scheduleCollectionValueRefresh(100);
-      // Retry only failures, not genuinely unpriced cards, after a short backoff.
-      else if(valid()&&state.failures&&navigator.onLine!==false)scheduleCollectionValueRefresh(301000);
-    }
-  })();
-  return state.promise;
+  // Public prices can be shared across accounts. Ownership and totals are
+  // evaluated against the current account only after the request completes.
+  const data=await loadSharedPrices();
+  paintSharedProfileValues(data,sharedPriceFetchError);
+  const stats=calculateProfileStats(profileValueSets),cards=sharedProfileValueCards(data,stats);
+  rememberProfileValueCards(cards);
+  for(const card of currentCardsList)if(applySharedCardPrice(card))paintVisibleCardDetails(card);
 }
 async function refreshProfileValues(sets,stats,requestId,uid){
   if(uid!==activeUid||requestId!==profileStatsRequestId)return;
-  paintProfileValues(calculateProfileValues(getProfileValueSnapshots(),stats));
-  if(!hasCollectedValueCards()){
-    const status=document.getElementById('profileValueRefreshStatus');if(status)status.hidden=true;
-    return;
-  }
-  if(collectionValueRefresh?.uid===uid)renderCollectionValueProgress(collectionValueRefresh);
+  paintSharedProfileValues(sharedPriceDocument,sharedPriceFetchError);
   await runCollectionValueRefresh();
 }
 window.addEventListener('online',()=>scheduleCollectionValueRefresh(300));
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible')scheduleCollectionValueRefresh(300);
-});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')scheduleCollectionValueRefresh(300);});
 
 
 function calculateProfileStats(sets) {
@@ -11270,6 +11300,10 @@ async function refreshProfileStats() {
   const valueOwner = uid || 'guest';
   if (modal.dataset.profileValueOwner !== valueOwner) {
     modal.dataset.profileValueOwner = valueOwner;
+    const examples = document.getElementById('profileUnpricedExamples');
+    if (examples) examples.replaceChildren();
+    const details = document.getElementById('profileUnpricedDetails');
+    if (details) { details.hidden = true; details.open = false; }
     for (const id of ['profileStatDexValue', 'profileStatSetsValue']) {
       const node = document.getElementById(id);
       if (node) { node.textContent = ''; node.removeAttribute('title'); }
@@ -11289,6 +11323,7 @@ async function refreshProfileStats() {
   let sets = [];
   try { sets = await fetchPhysicalTcgSets(); } catch (error) {}
   if (requestId !== profileStatsRequestId || uid !== activeUid || modal.style.display !== 'flex') return;
+  profileValueSets = sets;
   const stats = calculateProfileStats(sets);
   for (const [id, value] of Object.entries({
     profileStatCards: stats.cards, profileStatSets: stats.sets,
