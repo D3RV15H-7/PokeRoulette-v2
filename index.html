@@ -1,4 +1,4 @@
-<!-- PokeRoulette v248: Profile values, physical-card coverage and missing-price examples. -->
+<!-- PokeRoulette v250: Published promo prices and exact Classic Collection naming. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11115,8 +11115,10 @@ function sharedPriceLookup(data){
     for(const name of sharedPriceSetNames(card.setId,set)){
       for(const number of numbers)add('fp_'+clean(name)+'_'+clean(number),id);
       // Use the collection's exact identity rules for reprints and shared numbers.
-      const physical={id,name:card.name,number:card.number,setName:name,set:{id:card.setId,name}};
-      for(const alias of getCardOwnershipKeys(physical))add(alias,id);
+      for(const cardName of [card.name,...(card.nameAliases||[])]){
+        const physical={id,name:cardName,number:card.number,setName:name,set:{id:card.setId,name}};
+        for(const alias of getCardOwnershipKeys(physical))add(alias,id);
+      }
     }
     for(const alias of card.ownershipAliases||[])add(alias,id);
   }
@@ -11135,7 +11137,7 @@ function sharedPriceRecordForCard(card,data=sharedPriceDocument){
   }
   const record=data.cards[id];
   // Even a known ID must not silently match the wrong artwork/printing name.
-  if(card.name&&card.name!=='Unknown'&&normalizePokemonCardName(card.name)!==normalizePokemonCardName(record.name))return null;
+  if(card.name&&card.name!=='Unknown'&&![record.name,...(record.nameAliases||[])].some(name=>normalizePokemonCardName(card.name)===normalizePokemonCardName(name)))return null;
   return {id,record};
 }
 function sharedPricePatch(card,record,id){
