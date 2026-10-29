@@ -1,4 +1,4 @@
-<!-- PokeRoulette v250: Published promo prices and exact Classic Collection naming. -->
+<!-- PokeRoulette v250: Published promo prices, exact Classic Collection naming, Dex value list sorted high-to-low. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11231,7 +11231,13 @@ function paintProfileDexSelections(value){
   if(!details||!list)return;list.replaceChildren();details.hidden=!value.total;
   const summary=document.getElementById('profileDexValueSummary');
   if(summary)summary.textContent='Cards included in Dex value ('+value.total+')';
-  const selected=[...(value.selectedCards||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId)));
+  const selected=[...(value.selectedCards||[])].sort((a,b)=>{
+    const ap=a.pence,bp=b.pence;
+    if(ap===null&&bp===null)return String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId));
+    if(ap===null)return 1;
+    if(bp===null)return -1;
+    return bp-ap||String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId));
+  });
   for(const card of selected){
     const row=document.createElement('li');
     const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
