@@ -1,4 +1,4 @@
-<!-- PokeRoulette v250: Published promo prices, exact Classic Collection naming, Dex value list sorted high-to-low. -->
+<!-- PokeRoulette v251: Audited marketplace mappings and invalid cached quote protection. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7925,6 +7925,7 @@ function shouldRefreshVisibleCardPricing(card) {
 function queueVisibleCardDetails(card) {
   ensureTcgFxRates();
   if (card) applySharedCardPrice(card);
+  if(card&&!sharedPriceDocument&&!sharedPriceRequest)loadSharedPrices().then(()=>{if(applySharedCardPrice(card))paintVisibleCardDetails(card);}).catch(()=>{});
   if (!card || !currentCardsList.includes(card) || visibleCardDetailBusy.has(card)) return;
   if (card._priceAttemptAt && Date.now() - card._priceAttemptAt < 60000) return;
   const priceDue = shouldRefreshVisibleCardPricing(card);
@@ -9040,6 +9041,7 @@ function getTcgDexBasePriceGBP(card, finishEvidence, withPriority = false) {
   return withPriority ? quote : quote?.price ?? null;
 }
 function updateTcgCardPriceFromDetail(card, detail, evidence) {
+  if(applyPriceIdentityPolicy(card)){rememberProfileValueCards([card]);return card.priceGBP;}
   const quote = chooseTcgPriceQuote(card._priceQuote, getTcgDexBasePriceGBP(detail, evidence, true));
   if (quote) {
     card._priceQuote = quote;
@@ -11144,16 +11146,26 @@ function sharedPricePatch(card,record,id){
   const oldQuote=card._priceQuote,sourceQuote=record.quote;
   const validQuote=q=>q&&['EUR','USD'].includes(q.currency)&&getNumericPrice(q.amount)!==null;
   const oldIsNewer=validQuote(oldQuote)&&validQuote(sourceQuote)&&Date.parse(oldQuote.updated)>Date.parse(sourceQuote.updated);
-  const keepLocal=validQuote(oldQuote)&&(!validQuote(sourceQuote)||oldIsNewer);
+  const authoritative=record.rejectCachedQuote===true;
+  const keepLocal=!authoritative&&validQuote(oldQuote)&&(!validQuote(sourceQuote)||oldIsNewer);
   const quote=keepLocal?oldQuote:validQuote(sourceQuote)?sourceQuote:null;
-  const localAmount=getNumericPrice(card.priceGBP);
+  const localAmount=authoritative?null:getNumericPrice(card.priceGBP);
   return {...card,_tcgDexDetailId:id,_priceQuote:quote,
     priceGBP:quote?convertTcgQuote(quote).toFixed(2):localAmount!==null?localAmount.toFixed(2):null,
     _priceCheckedAt:keepLocal?card._priceCheckedAt:Date.parse(record.checkedAt)||card._priceCheckedAt||0,
     _pricingVersion:TCG_PRICING_VERSION,_sharedPriceRetained:!!record.retained||keepLocal||(!quote&&localAmount!==null),
-    _sharedPriceError:!!record.error,_sharedPriceMatched:true,_sharedPriceMissingReason:record.noPriceReason};
+    _sharedPriceError:!!record.error,_sharedPriceMatched:true,_sharedPriceMissingReason:record.noPriceReason,_priceIdentityPolicyVersion:record.identityPolicyVersion||0};
+}
+function applyPriceIdentityPolicy(card){
+  if(!card)return false;
+  const match=sharedPriceRecordForCard(card);
+  if(match?.record.rejectCachedQuote){Object.assign(card,sharedPricePatch(card,match.record,match.id));return true;}
+  const number=String(card.number||card.localId||'').split('/')[0].toUpperCase();
+  if(String(card.id||'').toLowerCase()==='g1-rc29'||(number==='RC29'&&(card.set?.id==='g1'||card.setName==='Generations'))){card._priceQuote=null;card.priceGBP=null;return true;}
+  return false;
 }
 function applySharedCardPrice(card){
+  if(applyPriceIdentityPolicy(card))return true;
   const match=sharedPriceRecordForCard(card);if(!match)return false;
   Object.assign(card,sharedPricePatch(card,match.record,match.id));return true;
 }
@@ -11166,7 +11178,11 @@ function sharedProfileValueCards(data,stats){
     const aliases=[...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[])];
     if(!aliases.some(key=>wanted.has(key)))continue;
     const match=sharedPriceRecordForCard(card,data);
-    if(!match){unmatched.set(getCardFingerprint(card),card);for(const key of aliases){const id=lookup.get(String(key));if(id)blocked.add(id);}continue;}
+    if(!match){
+      const rejected=aliases.some(key=>data.cards[lookup.get(String(key))]?.rejectCachedQuote);
+      unmatched.set(getCardFingerprint(card),rejected?{...card,_priceQuote:null,priceGBP:null,_sharedPriceMatched:true,_sharedPriceMissingReason:'identity_conflict'}:card);
+      for(const key of aliases){const id=lookup.get(String(key));if(id)blocked.add(id);}continue;
+    }
     if(!matched.has(match.id))matched.set(match.id,{local:null,keys:new Set()});
     const item=matched.get(match.id);item.local=card;for(const key of aliases)item.keys.add(key);
   }
@@ -11220,7 +11236,7 @@ function paintProfileUnpricedExamples(values){
     for(const card of cards.slice(0,3)){
       const row=document.createElement('li');
       const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
-      const reason=card.reason==='source_pricing_empty'||card.reason==='source_has_no_supported_market_quote'?'No usable price has been linked to this exact card printing yet.':'This saved card has not matched the shared price list.';
+      const reason=card.reason==='identity_conflict'?'Marketplace identity needs review; this price is excluded until the exact printing is verified.':card.reason==='source_pricing_empty'||card.reason==='source_has_no_supported_market_quote'?'No usable price has been linked to this exact card printing yet.':'This saved card has not matched the shared price list.';
       row.textContent=title+' — '+reason;list.appendChild(row);
     }
     box.appendChild(list);
@@ -11231,13 +11247,7 @@ function paintProfileDexSelections(value){
   if(!details||!list)return;list.replaceChildren();details.hidden=!value.total;
   const summary=document.getElementById('profileDexValueSummary');
   if(summary)summary.textContent='Cards included in Dex value ('+value.total+')';
-  const selected=[...(value.selectedCards||[])].sort((a,b)=>{
-    const ap=a.pence,bp=b.pence;
-    if(ap===null&&bp===null)return String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId));
-    if(ap===null)return 1;
-    if(bp===null)return -1;
-    return bp-ap||String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId));
-  });
+  const selected=[...(value.selectedCards||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId)));
   for(const card of selected){
     const row=document.createElement('li');
     const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
@@ -12827,6 +12837,7 @@ function getNumericPrice(value) {
 
 function extractCardPriceGBP(card) {
   if (!card) return null;
+  if(applyPriceIdentityPolicy(card))return card.priceGBP;
   const prices = card.tcgplayer?.prices || {};
   const normal = prices.normal || prices.unlimited || prices.firstEditionNormal || prices['1stEditionNormal'];
   const holo = prices.holofoil || prices.unlimitedHolofoil || prices.firstEditionHolofoil || prices['1stEditionHolofoil'];
