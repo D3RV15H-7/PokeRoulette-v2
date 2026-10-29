@@ -1,4 +1,4 @@
-<!-- PokeRoulette v251: Audited marketplace mappings and invalid cached quote protection. -->
+<!-- PokeRoulette v252: Independent printing prices and collected-variant totals. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4236,7 +4236,7 @@ svg.nav-artwork use{pointer-events:none}
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatSetsValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
         <div><dt>Wheel spins</dt><dd id="profileStatSpins">0</dd></div>
       </dl>
-      <p id="profileValueNote">Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.</p>
+      <p id="profileValueNote">Dex uses the base card price. Sets adds each selected printing once. Unpriced printings are excluded. Cards count as fully priced when all selected printings have prices.</p>
       <details id="profileUnpricedDetails" hidden><summary id="profileUnpricedSummary">Cards without prices (0)</summary><div id="profileUnpricedExamples"></div></details>
       <details id="profileDexValueDetails" hidden><summary id="profileDexValueSummary">Cards included in Dex value</summary><ol id="profileDexValueCards"></ol></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
@@ -5349,7 +5349,9 @@ function getSetVariantOptionsMarkup(card, zoom = false) {
   const circleClass = zoom ? 'tcg-zoom-variant-circle' : 'tcg-variant-circle';
   const buttons = options.map(({key,label}) => {
     const checked = isSetCardVariantOwned(card,key);
-    return `<button type="button" class="${optionClass}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label)}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
+    const value = printingPriceLabel(card,key);
+    const price = value ? `<span style="font-size:.78em;opacity:.85;margin-left:.4em;white-space:nowrap">${escapeSetVariantHtml(value)}</span>` : '';
+    return `<button type="button" class="${optionClass}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label)}${price}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
   });
   if (!zoom) return buttons.join('');
   const columns = [];
@@ -10985,6 +10987,35 @@ function hasAnyDexCardsForPokemon(id){
   return cards.some(card=>profileCardPokemonId(card)===id&&isCardCollected(card));
 }
 // Resolve ownership aliases before counting: one physical card contributes once.
+function selectedSetPriceKeys(card,aliases=[]){
+  const prefixes=new Set([...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[]),...aliases].filter(Boolean));
+  const result=new Set();
+  for(const stored of memSetCardVariants){const split=String(stored).lastIndexOf('__');if(split<0||!prefixes.has(stored.slice(0,split)))continue;
+    let key=stored.slice(split+2);if(key==='holo'&&card.baseFinish==='holo')key='standard';
+    if(key.startsWith('v141:')){try{const p=JSON.parse(decodeURIComponent(key.slice(5)));if(!p[1]&&!p[2]&&p[3]==='standard'&&Array.isArray(p[4])&&!p[4].length){if(p[0]===card.baseFinish)key='standard';else if(p[0]==='reverse')key='reverseHolo';}}catch{}}
+    if(key==='other'){const extras=(card._printingQuotes||[]).filter(r=>r.printing.type!==card.baseFinish&&r.printing.type!=='reverse');if(extras.length===1){const p=extras[0].printing;key='v141:'+encodeURIComponent(JSON.stringify([p.type,p.foil,p.subtype,p.size,p.stamp]));}}
+    if(['standard','holo','reverseHolo','other'].includes(key)||key.startsWith('v141:'))result.add(key);
+  }
+  return [...result];
+}
+function selectedPrintingQuote(card,key){
+  if(key==='standard')return card._priceQuote||null;
+  const rows=card._printingQuotes||[],plain=p=>!p.foil&&!p.subtype&&!p.stamp?.length&&p.size==='standard';
+  let matches=[];
+  if(key==='reverseHolo')matches=rows.filter(r=>r.printing.type==='reverse'&&plain(r.printing));
+  else if(key==='holo')matches=rows.filter(r=>r.printing.type==='holo'&&plain(r.printing));
+  else if(key==='other')matches=rows.filter(r=>r.printing.type!==card.baseFinish&&r.printing.type!=='reverse');
+  else if(key.startsWith('v141:')){try{
+    const expected=JSON.parse(decodeURIComponent(key.slice(5)));
+    matches=rows.filter(({printing:p})=>JSON.stringify([p.type,p.foil,p.subtype,p.size,p.stamp])===JSON.stringify(expected));
+  }catch{}}
+  return matches.length===1?matches[0].quote:null;
+}
+function printingPriceLabel(card,key){
+  if(card?._printingQuotesVersion<252||!card?._printingQuotesVersion)return '';
+  const quote=selectedPrintingQuote(card,key);
+  return quote?'£'+convertTcgQuote(quote).toFixed(2):'N/A';
+}
 function calculateProfileValues(cards,stats){
   const result={};
   for(const [section,owned] of [['dex',memCardCol],['sets',stats.ownedCardKeys]]){
@@ -11012,8 +11043,18 @@ function calculateProfileValues(cards,stats){
       if(section==='dex'&&card&&!isDexPokemonActiveForCard(card)){total.total--;continue;}
       const amount=card?(card._priceQuote?getNumericPrice(convertTcgQuote(card._priceQuote)):getNumericPrice(card.priceGBP)):null;
       const entry={cardId:card?.id||group.keys.find(k=>!k.startsWith('fp_'))||group.keys[0],name:card?.name||'',setName:card?.setName||'',number:card?.number||'',pence:amount===null?null:Math.round(amount*100),reason:card?._sharedPriceMatched?(card._sharedPriceMissingReason||'source_has_no_supported_market_quote'):'unmatched_card'};
+      let complete=amount!==null;
+      if(section==='sets'&&card?._printingQuotesVersion>=252){
+        const selected=selectedSetPriceKeys(card,group.keys),variants=selected.length?selected:['standard'];
+        const quotes=variants.map(key=>selectedPrintingQuote(card,key));
+        const known=quotes.filter(q=>q&&getNumericPrice(q.amount)!==null);
+        entry.pence=known.length?known.reduce((sum,q)=>sum+Math.round(convertTcgQuote(q)*100),0):null;
+        entry.missingVariants=quotes.length-known.length;complete=entry.missingVariants===0;
+        if(entry.missingVariants)entry.reason='selected_variant_unpriced';
+      }
       total.selectedCards.push(entry);
-      if(amount!==null){total.pence+=entry.pence;total.priced++;continue;}
+      if(entry.pence!==null)total.pence+=entry.pence;
+      if(complete){total.priced++;continue;}
       total.unpriced++;
       if(!card)total.missing.add(key);
       total.unpricedCards.push(entry);
@@ -11029,13 +11070,13 @@ function paintProfileValues(values){
     const value=values[section],node=document.getElementById(id);if(!node)continue;
     const partial=value.unpriced>0||value.missing.size>0;
     const money=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(value.pence/100);
-    node.textContent=value.priced||!value.total?money:'N/A';
+    node.textContent=value.priced||value.pence>0||!value.total?money:'N/A';
     node.classList.remove('profile-stat-loading');node.removeAttribute('aria-busy');
-    node.title='One latest available estimate per collected card; variants are not counted again. '+(partial?'Cards without available prices are excluded.':'');
+    node.title='Dex uses base prices; Sets sums selected printings. '+(partial?'Cards without available prices are excluded.':'');
     node.setAttribute('aria-label',(section==='dex'?'Dex':'Sets')+' value: '+node.textContent+(partial?'. Some collected cards have no available price.':''));
   }
   const note=document.getElementById('profileValueNote');
-  if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.';
+  if(note)note.textContent='Dex uses the base card price. Sets adds each selected printing once. Unpriced printings are excluded. Cards count as fully priced when all selected printings have prices.';
 }
 function findProfileValueSet(key,sets){
   if(!String(key).startsWith('fp_'))return findSetForPreviewCard({id:key},sets);
@@ -11154,7 +11195,8 @@ function sharedPricePatch(card,record,id){
     priceGBP:quote?convertTcgQuote(quote).toFixed(2):localAmount!==null?localAmount.toFixed(2):null,
     _priceCheckedAt:keepLocal?card._priceCheckedAt:Date.parse(record.checkedAt)||card._priceCheckedAt||0,
     _pricingVersion:TCG_PRICING_VERSION,_sharedPriceRetained:!!record.retained||keepLocal||(!quote&&localAmount!==null),
-    _sharedPriceError:!!record.error,_sharedPriceMatched:true,_sharedPriceMissingReason:record.noPriceReason,_priceIdentityPolicyVersion:record.identityPolicyVersion||0};
+    _sharedPriceError:!!record.error,_sharedPriceMatched:true,_sharedPriceMissingReason:record.noPriceReason,_priceIdentityPolicyVersion:record.identityPolicyVersion||0,
+    baseFinish:record.baseFinish||card.baseFinish,_printingQuotes:record.printingQuotes||[],_printingQuotesVersion:record.printingQuotesVersion||0};
 }
 function applyPriceIdentityPolicy(card){
   if(!card)return false;
@@ -11220,7 +11262,7 @@ function paintSharedProfileValues(data,error=false){
       status.textContent=(error?'Price update unavailable. Using saved snapshot from ':'Price snapshot: ')+date+'.'+(retained?' Some last available estimates are retained.':'')+(data.status==='partial'?' Some provider updates are pending.':'');
     }
   }
-  const note=document.getElementById('profileValueNote');if(note)note.textContent='Estimated GBP value per collected card; variants are not added again. Missing prices are excluded. Coverage counts individual cards, not unique Pokémon.';
+  const note=document.getElementById('profileValueNote');if(note)note.textContent='Dex uses the base card price. Sets adds each selected printing once. Unpriced printings are excluded. Cards count as fully priced when all selected printings have prices.';
 }
 function paintProfileUnpricedExamples(values){
   const details=document.getElementById('profileUnpricedDetails'),box=document.getElementById('profileUnpricedExamples');
@@ -11236,7 +11278,7 @@ function paintProfileUnpricedExamples(values){
     for(const card of cards.slice(0,3)){
       const row=document.createElement('li');
       const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
-      const reason=card.reason==='identity_conflict'?'Marketplace identity needs review; this price is excluded until the exact printing is verified.':card.reason==='source_pricing_empty'||card.reason==='source_has_no_supported_market_quote'?'No usable price has been linked to this exact card printing yet.':'This saved card has not matched the shared price list.';
+      const reason=card.reason==='selected_variant_unpriced'?'One or more selected printings have no verified price; their values are excluded.':card.reason==='identity_conflict'?'Marketplace identity needs review; this price is excluded until the exact printing is verified.':card.reason==='source_pricing_empty'||card.reason==='source_has_no_supported_market_quote'?'No usable price has been linked to this exact card printing yet.':'This saved card has not matched the shared price list.';
       row.textContent=title+' — '+reason;list.appendChild(row);
     }
     box.appendChild(list);
