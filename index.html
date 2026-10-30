@@ -1,4 +1,4 @@
-<!-- PokeRoulette v255: Catalogue-wide identity audit, Energy names and linked Additionals. -->
+<!-- PokeRoulette v256: Catalogue-wide identity audit, Energy names and linked Additionals. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4291,7 +4291,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>Refreshes on first view each day. Price date is the source’s update date.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v3</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.56</span></h4>
         <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
       </section>
     </div>
@@ -5139,7 +5139,11 @@ function isRegularExpansionReverse(card, printing) {
   return Boolean(evidence && /^ex(?:[7-9]|1[0-6])$/.test(evidence.setId) &&
     evidence.printings.filter(p => p.type === 'reverse' && (!p.size || p.size === 'standard')).length === 1);
 }
+// Exact source catalogue: these contest promos have no unstamped printing.
+const STAMP_ONLY_PROMOS = Object.freeze([["svp","SVP Black Star Promos","213","Feraligatr",[{"type":"normal","stamp":["illustration-contest-2024"]}]],["svp","SVP Black Star Promos","214","Pikachu",[{"type":"normal","stamp":["illustration-contest-2024"]}]],["svp","SVP Black Star Promos","215","Toxtricity ex",[{"type":"holo","stamp":["illustration-contest-2024"]}]],["swshp","SWSH Black Star Promos","SWSH303","Bulbasaur",[{"type":"normal","stamp":["illustration-contest-2022"]}]],["swshp","SWSH Black Star Promos","SWSH304","Arcanine",[{"type":"normal","stamp":["illustration-contest-2022"]}]],["swshp","SWSH Black Star Promos","SWSH305","Greninja",[{"type":"normal","stamp":["illustration-contest-2022"]}]]]);
 function getExclusiveExpansionPromoPrinting(card, evidence = getExpansionCardPrintingEvidence(card)) {
+  const stampOnly = findCardPrintingEvidence(card, STAMP_ONLY_PROMOS);
+  if (stampOnly) return normaliseNamedPrinting(stampOnly.printings[0]);
   // Require an exact set/number/name catalogue match; ordinary expansion
   // cards can have genuine unstamped versions alongside stamped printings.
   if (evidence?.setId !== 'mep') return null;
@@ -5181,8 +5185,8 @@ function getNamedCardVariantDefinitions(card) {
   const simple = v => !v.foil && !v.subtype && !v.stamp.length && v.size === 'standard';
   const basePrinting = detailed.find(v => v.type === baseType && simple(v)) ||
     detailed.find(v => v.type === baseType && !v.stamp.length && !v.subtype && v.size === 'standard') ||
-    (expansionEvidence && detailed.find(v => v.type === baseType && v.size === 'standard' &&
-      v.stamp.includes('set-logo') && !v.stamp.includes('staff')));
+    (expansionPromo || (expansionEvidence && detailed.find(v => v.type === baseType && v.size === 'standard' &&
+      v.stamp.includes('set-logo') && !v.stamp.includes('staff'))));
   const definitions = [{ key: 'standard', label: basePrinting ? namedPrintingLabel(basePrinting, baseType)
     : baseType === 'holo' ? 'Holo' : baseType === 'reverse' ? 'Reverse' : 'Standard', printing: basePrinting || null }];
   const seen = new Set([namedVariantKey(basePrinting || normaliseNamedPrinting({type:baseType}))]);
@@ -5248,7 +5252,7 @@ function getAvailableSetCardVariants(card) {
     if (isUnsupportedPlainPrinting(card, printing || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null))) continue;
     if (expansionPromo && (['holo','reverseHolo'].includes(key) || isGenericPromoFinish(printing, expansionPromo))) continue;
     definitions.push({ key, label: printing ? namedPrintingLabel(printing, card.baseFinish === 'holo' ? 'holo' : 'normal')
-      : key === 'other' ? 'Previously saved variant' : key === 'reverseHolo' ? 'Reverse (saved)' : 'Holo (saved)' });
+      : key === 'other' ? 'Previously saved variant' : key === 'reverseHolo' ? 'Reverse' : 'Holo' });
   }
   // Some cards have two genuinely different finishes with the same stamp.
   // Only those labels need a finish suffix; their saved identities never change.
@@ -10989,11 +10993,12 @@ function hasAnyDexCardsForPokemon(id){
 // Resolve ownership aliases before counting: one physical card contributes once.
 function selectedSetPriceKeys(card,aliases=[]){
   const prefixes=new Set([...getCardOwnershipKeys(card),...(card._valueOwnershipKeys||[]),...aliases].filter(Boolean));
-  const result=new Set();
+  const result=new Set(), exclusive=getExclusiveExpansionPromoPrinting(card);
   for(const stored of memSetCardVariants){const split=String(stored).lastIndexOf('__');if(split<0||!prefixes.has(stored.slice(0,split)))continue;
     let key=stored.slice(split+2);if(key==='holo'&&card.baseFinish==='holo')key='standard';
     if(key.startsWith('v141:')){try{const p=JSON.parse(decodeURIComponent(key.slice(5)));if(!p[1]&&!p[2]&&p[3]==='standard'&&Array.isArray(p[4])&&!p[4].length){if(p[0]===card.baseFinish)key='standard';else if(p[0]==='reverse')key='reverseHolo';}}catch{}}
     if(key==='other'){const extras=(card._printingQuotes||[]).filter(r=>r.printing.type!==card.baseFinish&&r.printing.type!=='reverse');if(extras.length===1){const p=extras[0].printing;key='v141:'+encodeURIComponent(JSON.stringify([p.type,p.foil,p.subtype,p.size,p.stamp]));}}
+    if(exclusive && (key===namedVariantKey(exclusive)||['holo','reverseHolo'].includes(key)||isGenericPromoFinish(decodeNamedVariantKey(key),exclusive)))key='standard';
     if(['standard','holo','reverseHolo','other'].includes(key)||key.startsWith('v141:'))result.add(key);
   }
   return [...result];
