@@ -1,4 +1,4 @@
-<!-- PokeRoulette v254: Catalogue-wide identity audit, Energy names and linked Additionals. -->
+<!-- PokeRoulette v255: Catalogue-wide identity audit, Energy names and linked Additionals. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11289,7 +11289,7 @@ function paintProfileDexSelections(value){
   if(!details||!list)return;list.replaceChildren();details.hidden=!value.total;
   const summary=document.getElementById('profileDexValueSummary');
   if(summary)summary.textContent='Cards included in Dex value ('+value.total+')';
-  const selected=[...(value.selectedCards||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId)));
+  const selected=[...(value.selectedCards||[])].sort((a,b)=>(Number(a.pence===null)-Number(b.pence===null))||(b.pence??0)-(a.pence??0)||String(a.name).localeCompare(String(b.name))||String(a.setName).localeCompare(String(b.setName))||String(a.number).localeCompare(String(b.number),undefined,{numeric:true})||String(a.cardId).localeCompare(String(b.cardId)));
   for(const card of selected){
     const row=document.createElement('li');
     const title=[card.name,card.setName,card.number?'#'+card.number:''].filter(Boolean).join(' · ')||'Saved card '+card.cardId;
