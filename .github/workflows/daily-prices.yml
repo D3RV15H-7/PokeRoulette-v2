@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v254_alternative_printing_prices_setup.zip'
+      - 'PokeRoulette_v257_complete_setup.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -36,21 +36,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - name: Open the setup ZIP
         run: |
-          unzip -oq PokeRoulette_v254_alternative_printing_prices_setup.zip -d _app
+          unzip -oq PokeRoulette_v257_complete_setup.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
           for asset in CNAME manifest.json *.png *.ico; do
             if [ -f "$asset" ]; then cp "$asset" _app/; fi
           done
-
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
-
       - name: Restore saved prices
         uses: actions/cache/restore@v4
         with:
@@ -59,34 +56,29 @@ jobs:
             _app/.price-state/checkpoint.json
           key: shared-prices-v241-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: shared-prices-v241-
-
       - name: Refresh published product identities
         working-directory: _app
         run: |
           python3 scripts/build-product-map.py
           python3 scripts/build-audit-references.py
-
       - name: Run checks
         working-directory: _app
         run: |
           node --test tests/prices.test.mjs
           python3 -m unittest discover -s tests -p "test_*.py"
-
       - name: Update prices
         working-directory: _app
         env:
           PREVIOUS_SITE_URL: ${{ steps.pages.outputs.base_url }}
         run: node scripts/update-prices.mjs --previous-url "$PREVIOUS_SITE_URL/data/prices-v1.json"
-
       - name: Upload price diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: price-diagnostics-v254
+          name: price-diagnostics-v257
           path: _app/diagnostics/
           if-no-files-found: ignore
           retention-days: 7
-
       - name: Save prices for next time
         if: always() && hashFiles('_app/.price-state/checkpoint.json') != ''
         uses: actions/cache/save@v4
@@ -95,16 +87,13 @@ jobs:
             _app/data/prices-v1.json
             _app/.price-state/checkpoint.json
           key: shared-prices-v241-${{ github.run_id }}-${{ github.run_attempt }}
-
       - name: Prepare app
         working-directory: _app
         run: node scripts/prepare-pages.mjs
-
       - name: Upload app
         uses: actions/upload-pages-artifact@v4
         with:
           path: _app/_site
-
       - name: Publish app and prices
         id: deployment
         uses: actions/deploy-pages@v4
