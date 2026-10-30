@@ -1,4 +1,4 @@
-<!-- PokeRoulette v253: Catalogue-wide identity audit, Energy names and linked Additionals. -->
+<!-- PokeRoulette v254: Catalogue-wide identity audit, Energy names and linked Additionals. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5351,7 +5351,7 @@ function getSetVariantOptionsMarkup(card, zoom = false) {
     const checked = isSetCardVariantOwned(card,key);
     const value = printingPriceLabel(card,key);
     const price = value ? `<span style="font-size:.78em;opacity:.85;margin-left:.4em;white-space:nowrap">${escapeSetVariantHtml(value)}</span>` : '';
-    return `<button type="button" class="${optionClass}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label)}${price}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
+    return `<button type="button" class="${optionClass}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label,price)}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
   });
   if (!zoom) return buttons.join('');
   const columns = [];
@@ -5363,12 +5363,12 @@ function getSetVariantOptionsMarkup(card, zoom = false) {
   }
   return columns.join('');
 }
-function getSetVariantLabelMarkup(label) {
+function getSetVariantLabelMarkup(label, price = '') {
   const stamp = /^(?:(.+?) · )?Stamp (\([^)]+\))(?: · (.+))?$/.exec(label);
-  if (!stamp) return escapeSetVariantHtml(label);
+  if (!stamp) return escapeSetVariantHtml(label) + price;
   const prefix = stamp[1] ? stamp[1] + ' · ' : '';
   const lines = stamp[3] ? [prefix + 'Stamp ' + stamp[2], stamp[3]] : [prefix + 'Stamp', stamp[2]];
-  return lines.map((line, index) => `<span class="tcg-variant-label-line${stamp[3] && index === 0 && stamp[2] === '(Play! Pokémon)' ? ' tcg-play-stamp-label' : ''}">${escapeSetVariantHtml(line)}</span>`).join('');
+  return lines.map((line, index) => `<span class="tcg-variant-label-line${stamp[3] && index === 0 && stamp[2] === '(Play! Pokémon)' ? ' tcg-play-stamp-label' : ''}">${escapeSetVariantHtml(line)}${index === lines.length - 1 ? price : ''}</span>`).join('');
 }
 function fitSetVariantLabels(container) {
   if (!container) return;
