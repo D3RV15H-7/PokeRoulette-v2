@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v253_catalogue_audit_setup.zip'
+      - 'PokeRoulette_v254_alternative_printing_prices_setup.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -39,7 +39,7 @@ jobs:
 
       - name: Open the setup ZIP
         run: |
-          unzip -oq PokeRoulette_v253_catalogue_audit_setup.zip -d _app
+          unzip -oq PokeRoulette_v254_alternative_printing_prices_setup.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
@@ -82,7 +82,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: price-diagnostics-v253
+          name: price-diagnostics-v254
           path: _app/diagnostics/
           if-no-files-found: ignore
           retention-days: 7
