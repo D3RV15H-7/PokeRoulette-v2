@@ -4294,7 +4294,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>Refreshes on first view each day. Price date is the source’s update date.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.63</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.66</span></h4>
         <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
       </section>
     </div>
@@ -4754,10 +4754,11 @@ function sortSetCardVariantDefinitions(card, definitions) {
     const p = option?.printing || decodeNamedVariantKey(option?.key);
     if (option.key === 'standard') return 0;
     if (option.key === 'reverseHolo' || label === 'reverse' || (p?.type === 'reverse' && !p.foil && !p.stamp?.length)) return 1;
-    if (label === 'cosmos holo' || (p?.type === 'holo' && p.foil === 'cosmos')) return 2;
-    if (label === 'cosmos reverse' || (p?.type === 'reverse' && p.foil === 'cosmos')) return 3;
+    if (label === 'non holo' || label === 'non-holo' || (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard' && !p.stamp?.length)) return 2;
+    if (label === 'cosmos holo' || (p?.type === 'holo' && p.foil === 'cosmos')) return 3;
+    if (label === 'cosmos reverse' || (p?.type === 'reverse' && p.foil === 'cosmos')) return 4;
     if (option.key === 'holo' || label === 'holo' || (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard')) return 0;
-    if (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard') return 4;
+
     if (p?.stamp?.length && !isRegularExpansionReverse(card, p)) return 5;
     return option.key === 'other' ? 7 : 6;
   };
