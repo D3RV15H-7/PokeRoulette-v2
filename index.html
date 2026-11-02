@@ -3772,7 +3772,9 @@ svg.nav-artwork use{pointer-events:none}
 </style>
 <style>
 /* Preview sheet controls and compact version rows. */
-.zoom-preview-close-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:1px solid #64748b;border-radius:50%;background:#1e293b;color:#e2e8f0;font-size:24px;line-height:1;cursor:pointer}
+.zoom-preview-close-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:none;border-radius:50%;background:#334155;color:#fff;font-size:16px;line-height:1;cursor:pointer}
+.zoom-preview-drag-handle{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:44px;height:5px;border-radius:6px;background:#46536b;touch-action:none;z-index:2}
+.tcg-zoom-content>.tcg-zoom-toolbar{margin-top:10px}
 .zoom-right-actions .tcg-artwork-retry{display:none!important}
 .zoom-bottom-share{align-self:center;min-width:100px;margin:0.3rem auto 0.12rem;padding:8px 16px;font-size:.8rem}
 .zoom-versions-popup{left:12px;right:auto;top:56px}
@@ -4026,6 +4028,7 @@ svg.nav-artwork use{pointer-events:none}
 </div>
 <div class="tcg-zoom-modal" id="tcgZoomModal" onclick="closeTcgZoom()">
   <div class="tcg-zoom-content" id="zoomContainer" onclick="event.stopPropagation()">
+    <div class="zoom-preview-drag-handle" aria-hidden="true"></div>
     <div class="tcg-zoom-toolbar">
       <div class="zoom-left-actions">
         <button type="button" class="zoom-share-button zoom-versions-button" id="zoomVersionsBtn" onclick="stopZoomAutoplay();toggleZoomVersions(event)" aria-expanded="false" aria-haspopup="dialog" aria-controls="zoomVersionsPopup">Versions</button>
@@ -4078,7 +4081,6 @@ svg.nav-artwork use{pointer-events:none}
     </a>
       <button type="button" aria-label="Jump to last card" title="Jump to last card" class="tcg-zoom-arrow right" id="zoomRightArrow" onclick="jumpToZoomCardEnd(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 6 6 6-6 6m8-12 6 6-6 6"/></svg></button>
     </div>
-    <div id="tcgZoomPriceSource" class="tcg-price-source" aria-live="polite"></div>
     <button type="button" class="zoom-share-button zoom-bottom-share" id="zoomShareBtn" onclick="stopZoomAutoplay();shareZoomCard(event)" aria-label="Share card image" title="Share card image">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-4 4 4-4 4 4M6 11H4v10h16V11h-2"/></svg>
       <span id="zoomShareLabel">Share</span>
