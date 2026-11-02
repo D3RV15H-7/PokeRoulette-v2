@@ -5269,7 +5269,8 @@ function getAvailableSetCardVariants(card) {
     if (definitions.some(v => v.key === key)) continue;
     const printing = decodeNamedVariantKey(key);
     if (printing && basePrinting && namedVariantKey(printing) === namedVariantKey(basePrinting)) continue;
-    if (isSuppressedPlainHoloDuplicate(basePrinting, printing || (key === 'holo' ? normaliseNamedPrinting({type:'holo'}) : null))) continue;
+    if (basePrinting?.type === 'holo' && basePrinting?.foil === 'gold' && !basePrinting?.stamp?.length &&
+        (key === 'holo' || (printing?.type === 'holo' && !printing.foil && !printing.subtype && !printing.stamp?.length))) continue;
     if (isUnsupportedPlainPrinting(card, printing || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null))) continue;
     if (expansionPromo && (['holo','reverseHolo'].includes(key) || isGenericPromoFinish(printing, expansionPromo))) continue;
     definitions.push({ key, label: printing ? namedPrintingLabel(printing, card.baseFinish === 'holo' ? 'holo' : 'normal')
