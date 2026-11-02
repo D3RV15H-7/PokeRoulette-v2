@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v266_resilient_prices.zip'
+      - 'PokeRoulette_v266_resilient_prices_corrected.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -38,7 +38,7 @@ jobs:
           node-version: '22'
       - name: Open the v266 setup ZIP
         run: |
-          unzip -oq PokeRoulette_v266_resilient_prices.zip -d _app
+          unzip -oq PokeRoulette_v266_resilient_prices_corrected.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
