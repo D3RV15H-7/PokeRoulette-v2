@@ -4697,6 +4697,9 @@ function isExcludedCardPrinting(value) {
   const stamps = value.stamp || value.stamps || [];
   const tokens = [value.type, value.subtype, value.foil, value.edition, value.variantId, value.name, value.label, value.finish,
     ...(Array.isArray(stamps) ? stamps : [stamps])].map(normaliseVariantToken).filter(Boolean);
+  // Collector preference: exclude Australian 1999–2000 copyright printings
+  // from the selectable catalogue, without removing 1st Edition printings.
+  if (tokens.some(token => /(?:^|-)1999-2000(?:-copyright)?(?:-|$)/.test(token))) return true;
   // Staff versions are excluded, including combined expansion/staff stamps.
   // Prize Pack and ordinary league stamps remain collectible.
   if (value.staff === true || value.isStaff === true || tokens.some(token => /(?:^|-)staff(?:-|$)/.test(token))) return true;
@@ -5289,6 +5292,7 @@ function getAvailableSetCardVariants(card) {
     if (definitions.some(v => v.key === key)) continue;
     const printing = decodeNamedVariantKey(key);
     if (printing && basePrinting && namedVariantKey(printing) === namedVariantKey(basePrinting)) continue;
+    if (printing && isExcludedCardPrinting(printing)) continue;
     if (basePrinting?.type === 'holo' && basePrinting?.foil === 'gold' && !basePrinting?.stamp?.length &&
         (key === 'holo' || (printing?.type === 'holo' && !printing.foil && !printing.subtype && !printing.stamp?.length))) continue;
     if (isUnsupportedPlainPrinting(card, printing || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null))) continue;
@@ -7203,8 +7207,17 @@ function getCardArtworkSources(card) {
   }
   const recoverySet = setId === '2021swsh' ? 'mcd21' : (AUDITED_ARTWORK_SET_ALIASES[setId] || setId);
   const recovery = CARD_ARTWORK_RECOVERY_SOURCES[`${recoverySet}:${number}:${name}`];
-  const small = unique([...(recovery?.small || []), promoFront, verified, ...audited.small, ...registered.small, card.images?.small, card.smallImg, card.images?.large, card.largeImg, ...(card.smallImgFallbacks || []), ...extra]);
-  const large = unique([...(recovery?.large || []), promoFront, verified, ...audited.large, ...registered.large, card.images?.large, card.largeImg, card.images?.small, card.smallImg, ...(card.largeImgFallbacks || []), ...extra]);
+  // Original-era set scans are sometimes supplied as 1st Edition scans even
+  // for the regular/unlimited card. Prefer the independent numbered PokemonTCG
+  // image route for the base view; retain audited and alternate scans as
+  // fallbacks. Artwork matching remains strictly set+number+name scoped.
+  const vintageBaseSet = /^(?:base[1235]|gym[12]|neo[1-4])$/.test(recoverySet);
+  const preferredSmall = vintageBaseSet ? registered.small : audited.small;
+  const preferredLarge = vintageBaseSet ? registered.large : audited.large;
+  const fallbackSmall = vintageBaseSet ? audited.small : registered.small;
+  const fallbackLarge = vintageBaseSet ? audited.large : registered.large;
+  const small = unique([...(recovery?.small || []), promoFront, verified, ...preferredSmall, ...fallbackSmall, card.images?.small, card.smallImg, card.images?.large, card.largeImg, ...(card.smallImgFallbacks || []), ...extra]);
+  const large = unique([...(recovery?.large || []), promoFront, verified, ...preferredLarge, ...fallbackLarge, card.images?.large, card.largeImg, card.images?.small, card.smallImg, ...(card.largeImgFallbacks || []), ...extra]);
   // An alternate encoding of the EXACT scan is preferable to a guessed CDN
   // path, especially when a cached WebP was interrupted in the installed app.
   const alternateFormats = urls => [...new Set(urls.flatMap(source => {
