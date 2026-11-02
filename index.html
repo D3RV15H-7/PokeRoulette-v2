@@ -4750,17 +4750,22 @@ function namedPrintingLabel(printing, baseType) {
 }
 function sortSetCardVariantDefinitions(card, definitions) {
   const rank = option => {
+    const label = String(option?.label || '').trim().toLowerCase();
+    const p = option?.printing || decodeNamedVariantKey(option?.key);
     if (option.key === 'standard') return 0;
-    const p = decodeNamedVariantKey(option.key);
-    if (option.key === 'holo' || (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard')) return 1;
-    if (option.key === 'reverseHolo' || (p?.type === 'reverse' && !p.foil)) return 2;
-    if (p?.type === 'holo' && p.foil === 'cosmos') return 3;
-    if (p?.type === 'reverse' && p.foil === 'cosmos') return 4;
-    if (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard') return 5;
-    if (p?.stamp.length && !isRegularExpansionReverse(card, p)) return 7;
-    return option.key === 'other' ? 8 : 6;
+    if (option.key === 'reverseHolo' || label === 'reverse' || (p?.type === 'reverse' && !p.foil && !p.stamp?.length)) return 1;
+    if (label === 'cosmos holo' || (p?.type === 'holo' && p.foil === 'cosmos')) return 2;
+    if (label === 'cosmos reverse' || (p?.type === 'reverse' && p.foil === 'cosmos')) return 3;
+    if (option.key === 'holo' || label === 'holo' || (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard')) return 0;
+    if (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard') return 4;
+    if (p?.stamp?.length && !isRegularExpansionReverse(card, p)) return 5;
+    return option.key === 'other' ? 7 : 6;
   };
-  return definitions.sort((a, b) => rank(a) - rank(b));
+  return definitions.sort((a, b) => {
+    const rankDiff = rank(a) - rank(b);
+    if (rankDiff) return rankDiff;
+    return String(a?.label || '').localeCompare(String(b?.label || ''), undefined, { numeric: true, sensitivity: 'base' });
+  });
 }
 function isSimpleStandardPrinting(printing) {
   return Boolean(printing && printing.size === 'standard' && !printing.subtype && !printing.stamp.length);
