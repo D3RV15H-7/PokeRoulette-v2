@@ -4752,14 +4752,25 @@ function sortSetCardVariantDefinitions(card, definitions) {
   const rank = option => {
     if (option.key === 'standard') return 0;
     const p = decodeNamedVariantKey(option.key);
-    if (p?.stamp.length && !isRegularExpansionReverse(card, p)) return 6;
     if (option.key === 'holo' || (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard')) return 1;
-    if (option.key === 'reverseHolo' || p?.type === 'reverse') return 2;
+    if (option.key === 'reverseHolo' || (p?.type === 'reverse' && !p.foil)) return 2;
     if (p?.type === 'holo' && p.foil === 'cosmos') return 3;
-    if (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard') return 4;
-    return option.key === 'other' ? 7 : 5;
+    if (p?.type === 'reverse' && p.foil === 'cosmos') return 4;
+    if (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard') return 5;
+    if (p?.stamp.length && !isRegularExpansionReverse(card, p)) return 7;
+    return option.key === 'other' ? 8 : 6;
   };
   return definitions.sort((a, b) => rank(a) - rank(b));
+}
+function isSimpleStandardPrinting(printing) {
+  return Boolean(printing && printing.size === 'standard' && !printing.subtype && !printing.stamp.length);
+}
+function isGoldHoloBasePrinting(printing) {
+  return Boolean(isSimpleStandardPrinting(printing) && printing.type === 'holo' && printing.foil === 'gold');
+}
+function isSuppressedPlainHoloDuplicate(basePrinting, printing) {
+  return Boolean(isGoldHoloBasePrinting(basePrinting) && printing && printing.type === 'holo' &&
+    !printing.foil && isSimpleStandardPrinting(printing));
 }
 function shouldKeepNamedPrinting(value) {
   const p = normaliseNamedPrinting(value);
@@ -5186,7 +5197,13 @@ function getNamedCardVariantDefinitions(card) {
   const expansionPromo = getExclusiveExpansionPromoPrinting(card, expansionEvidence);
   if (expansionPromo) detailed = detailed.filter(p => !isGenericPromoFinish(p, expansionPromo));
   const simple = v => !v.foil && !v.subtype && !v.stamp.length && v.size === 'standard';
-  const basePrinting = detailed.find(v => v.type === baseType && simple(v)) ||
+  const preferredGoldBase = baseType === 'holo'
+    ? detailed.find(v => isGoldHoloBasePrinting(v)) || null
+    : null;
+  if (preferredGoldBase) {
+    detailed = detailed.filter(v => !isSuppressedPlainHoloDuplicate(preferredGoldBase, v));
+  }
+  const basePrinting = preferredGoldBase || detailed.find(v => v.type === baseType && simple(v)) ||
     detailed.find(v => v.type === baseType && !v.stamp.length && !v.subtype && v.size === 'standard') ||
     (expansionPromo || (expansionEvidence && detailed.find(v => v.type === baseType && v.size === 'standard' &&
       v.stamp.includes('set-logo') && !v.stamp.includes('staff'))));
@@ -5252,6 +5269,7 @@ function getAvailableSetCardVariants(card) {
     if (definitions.some(v => v.key === key)) continue;
     const printing = decodeNamedVariantKey(key);
     if (printing && basePrinting && namedVariantKey(printing) === namedVariantKey(basePrinting)) continue;
+    if (isSuppressedPlainHoloDuplicate(basePrinting, printing || (key === 'holo' ? normaliseNamedPrinting({type:'holo'}) : null))) continue;
     if (isUnsupportedPlainPrinting(card, printing || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null))) continue;
     if (expansionPromo && (['holo','reverseHolo'].includes(key) || isGenericPromoFinish(printing, expansionPromo))) continue;
     definitions.push({ key, label: printing ? namedPrintingLabel(printing, card.baseFinish === 'holo' ? 'holo' : 'normal')
@@ -5289,6 +5307,10 @@ function migrateNamedSetCardVariants(card) {
     move('holo', 'standard');
     move('reverseHolo', 'standard');
     move(namedVariantKey(normaliseNamedPrinting({type:expansionPromo.type})), 'standard');
+  }
+  if (isGoldHoloBasePrinting(base)) {
+    move('holo', 'standard');
+    move(namedVariantKey(normaliseNamedPrinting({type:'holo'})), 'standard');
   }
   for (const key of getOwnedSetCardVariants(card)) {
     const printing = decodeNamedVariantKey(key) || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null);
