@@ -3788,6 +3788,8 @@ svg.nav-artwork use{pointer-events:none}
 .tcg-zoom-variants .tcg-zoom-variant-column{display:contents}
 /* Dividers separate choices; neither column draws a trailing line. */
 .tcg-zoom-variants .tcg-zoom-variant-column .tcg-zoom-variant-option:last-child{border-bottom:none}
+/* The floating artwork is a shared element travelling between card positions. */
+.zoom-shared-card-sprite{position:fixed;z-index:10000;pointer-events:none;object-fit:fill;border-radius:8px;box-shadow:0 14px 38px #0008;transform:translateZ(0);will-change:left,top,width,height}
 /* Motion is owned by the source-card transition, not the old generic pop-in. */
 .tcg-zoom-content{will-change:transform}
 .tcg-zoom-modal .tcg-zoom-content{animation:none!important}
@@ -13690,51 +13692,72 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopZoomAut
 
 // Animate the full preview out of (and back into) the tapped thumbnail.
 // A stored rectangle also works when the Dex grid is temporarily hidden.
-const zoomCardMotion = { source: null, rect: null, cardId: null, closing: false, animation: null };
+const zoomCardMotion = { source: null, rect: null, cardId: null, closing: false, animation: null, sprite: null, panelAnimation: null };
 function zoomMotionRect(source) {
   if (!source) return null;
   const rect = source instanceof Element ? source.getBoundingClientRect() : source;
   if (!(rect?.width > 8 && rect?.height > 8)) return null;
-  // Never fly toward a card that has scrolled completely offscreen.
   if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) return null;
-  return { left:rect.left, top:rect.top, width:rect.width, height:rect.height };
+  return {left:rect.left,top:rect.top,width:rect.width,height:rect.height};
 }
-function zoomPanelKeyframe(panel, rect) {
-  const box = panel.getBoundingClientRect();
-  if (!rect || !(box.width > 0 && box.height > 0)) return { transform:'translateY(30px) scale(.94)', opacity:0 };
-  const sx = Math.max(.08, Math.min(1, rect.width / box.width));
-  const sy = Math.max(.08, Math.min(1, rect.height / box.height));
-  const dx = rect.left - box.left, dy = rect.top - box.top;
-  return { transform:`translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity:.45 };
+function cancelZoomSharedMotion() {
+  zoomCardMotion.animation?.cancel();
+  zoomCardMotion.panelAnimation?.cancel();
+  zoomCardMotion.animation = zoomCardMotion.panelAnimation = null;
+  zoomCardMotion.sprite?.remove();
+  zoomCardMotion.sprite = null;
+  const img = document.getElementById('tcgZoomImg');
+  if (img) img.style.visibility = '';
+  const panel = document.getElementById('zoomContainer');
+  if (panel) {panel.style.opacity='';panel.style.transform='';panel.style.transformOrigin='';panel.style.transition='';panel.classList.remove('zoom-card-motion');}
 }
-function animateZoomPanel(opening, rect, done) {
+// Shared-image transition: animate the *card artwork*, not the entire sheet.
+// The sheet remains anchored while a temporary image grows from the thumbnail;
+// closing reverses the same path (also when triggered by swipe-down).
+function animateZoomPanel(opening, thumbnailRect, done) {
   const panel=document.getElementById('zoomContainer');
   const modal=document.getElementById('tcgZoomModal');
-  if (!panel || !modal) { done?.(); return; }
-  zoomCardMotion.animation?.cancel();
-  zoomCardMotion.animation=null;
-  panel.style.transition='';
-  panel.style.transform='';
-  panel.classList.add('zoom-card-motion');
+  const image=document.getElementById('tcgZoomImg');
+  if (!panel || !modal || !image) {done?.();return;}
+  cancelZoomSharedMotion();
   const reduceMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  if (reduceMotion || !panel.animate) {
-    panel.classList.remove('zoom-card-motion');
-    done?.(); return;
-  }
-  const start=zoomPanelKeyframe(panel, rect);
-  const normal={transform:'translate(0px, 0px) scale(1, 1)',opacity:1};
-  const animation=panel.animate(opening ? [start,normal] : [normal,start],
-    {duration:opening?330:280,easing:opening?'cubic-bezier(.18,.8,.25,1)':'cubic-bezier(.55,0,.8,.3)',fill:'both'});
+  const from=zoomMotionRect(thumbnailRect);
+  const to=zoomMotionRect(image);
+  if (reduceMotion || !from || !to || !image.animate) {done?.();return;}
+  const sprite=document.createElement('img');
+  const sourceImage=zoomCardMotion.source;
+  sprite.src=(opening && sourceImage?.currentSrc) || image.currentSrc || image.src || sourceImage?.src || '';
+  sprite.alt='';sprite.setAttribute('aria-hidden','true');
+  sprite.className='zoom-shared-card-sprite';
+  Object.assign(sprite.style, {left:to.left+'px',top:to.top+'px',width:to.width+'px',height:to.height+'px'});
+  document.body.appendChild(sprite);
+  zoomCardMotion.sprite=sprite;
+  image.style.visibility='hidden';
+  const keyframe = r => ({left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',borderRadius:(r.width<to.width?'6px':'10px')});
+  const duration=opening?440:390;
+  const easing=opening?'cubic-bezier(.2,.75,.18,1)':'cubic-bezier(.55,0,.3,1)';
+  const animation=sprite.animate(opening?[keyframe(from),keyframe(to)]:[keyframe(to),keyframe(from)],{duration,easing,fill:'both'});
   zoomCardMotion.animation=animation;
-  modal.animate(opening ? [{opacity:.35},{opacity:1}] : [{opacity:1},{opacity:.35}],
-    {duration:opening?330:280,easing:'ease-out'});
-  animation.finished.then(()=>{
-    if(zoomCardMotion.animation!==animation)return;
-    zoomCardMotion.animation=null;
-    animation.cancel();
-    panel.classList.remove('zoom-card-motion');
+  // The preview chrome also contracts toward the tapped card; the separate
+  // image sprite stays sharp and completes the exact thumbnail-to-card path.
+  const box=panel.getBoundingClientRect();
+  const sx=Math.max(.08,Math.min(1,from.width/box.width));
+  const sy=Math.max(.08,Math.min(1,from.height/box.height));
+  const collapsed=`translate(${from.left-box.left}px, ${from.top-box.top}px) scale(${sx}, ${sy})`;
+  const expanded='translate(0px, 0px) scale(1, 1)';
+  panel.style.transformOrigin='top left';
+  panel.style.opacity=opening?'0':'1';
+  const panelFrames=opening
+    ? [{transform:collapsed,opacity:0,offset:0},{transform:expanded,opacity:0,offset:.28},{transform:expanded,opacity:1,offset:1}]
+    : [{transform:expanded,opacity:1,offset:0},{transform:collapsed,opacity:0,offset:.75},{transform:collapsed,opacity:0,offset:1}];
+  const panelAnimation=panel.animate(panelFrames,{duration,easing,fill:'both'});
+  zoomCardMotion.panelAnimation=panelAnimation;
+  const finish=()=>{
+    if (zoomCardMotion.animation!==animation) return;
+    cancelZoomSharedMotion();
     done?.();
-  }).catch(()=>{});
+  };
+  animation.finished.then(finish).catch(()=>{});
 }
 function findVisibleZoomThumbnail(cardId) {
   const card=currentCardsList[currentZoomIndex];
@@ -13758,10 +13781,11 @@ function openTcgZoom(index, fromModal = false, source = null) {
   zoomCardMotion.source=source instanceof Element ? source : null;
   zoomCardMotion.rect=zoomMotionRect(source);
   const modal = document.getElementById('tcgZoomModal');
-  document.getElementById('zoomContainer')?.classList.add('zoom-card-motion');
   if (modal) { modal.style.display = 'flex'; modal.style.zIndex='300'; }
   updateZoomModalContent();
-  requestAnimationFrame(()=>animateZoomPanel(true,zoomCardMotion.rect));
+  const panel=document.getElementById('zoomContainer');
+  if (panel && zoomCardMotion.rect && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) panel.style.opacity='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>animateZoomPanel(true,zoomCardMotion.rect)));
 }
 
 function getCardEbaySearchUrl(card) {
@@ -14305,13 +14329,12 @@ installZoomVersionsDismissal();
     const dy=t.clientY-start.y,dx=t.clientX-start.x;
     if(dy>14&&dy>Math.abs(dx)*1.35){start.active=true;start.dy=dy;
       if(event.cancelable)event.preventDefault();
-      panel.style.transition='none';panel.style.transform=`translateY(${Math.min(dy,260)}px)`;
+      // Do not translate the whole sheet: the close action animates the card into its thumbnail.
     }
   },{passive:false});
   const finish=event=>{
     if(!start)return;
     const wasActive=start.active,dy=start.dy;start=null;
-    panel.style.transition='transform 170ms ease';panel.style.transform='';
     if(wasActive&&dy>110&&modal.style.display==='flex')closeTcgZoom();
   };
   panel.addEventListener('touchend',finish,{passive:true});
@@ -14332,7 +14355,7 @@ function closeTcgZoom(instant = false) {
     animateZoomPanel(false,targetRect,()=>finishCloseTcgZoom());
     return;
   }
-  zoomCardMotion.animation?.cancel();zoomCardMotion.animation=null;
+  cancelZoomSharedMotion();
   finishCloseTcgZoom();
 }
 function finishCloseTcgZoom() {
@@ -14348,7 +14371,7 @@ function finishCloseTcgZoom() {
   const modal = document.getElementById('tcgZoomModal');
   if (modal) { modal.style.display = 'none'; modal.style.zIndex=''; }
   const panel=document.getElementById('zoomContainer');
-  if(panel){panel.style.transition='';panel.style.transform='';panel.classList.remove('zoom-card-motion');}
+  if(panel){panel.style.transition='';panel.style.transform='';panel.style.transformOrigin='';panel.style.opacity='';panel.classList.remove('zoom-card-motion');}
   zoomCardMotion.closing=false;
   zoomCardMotion.rect=null;
   zoomCardMotion.source=null;
