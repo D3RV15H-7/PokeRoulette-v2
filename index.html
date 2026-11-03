@@ -3773,7 +3773,7 @@ svg.nav-artwork use{pointer-events:none}
 <style>
 /* Preview sheet controls and compact version rows. */
 .zoom-preview-close-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:none;border-radius:50%;background:#334155;color:#fff;font-size:16px;line-height:1;cursor:pointer}
-.zoom-preview-drag-handle{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:44px;height:5px;border-radius:6px;background:#46536b;touch-action:none;z-index:2}
+.zoom-preview-drag-handle{touch-action:none;position:absolute;top:9px;left:50%;transform:translateX(-50%);width:44px;height:5px;border-radius:6px;background:#46536b;touch-action:none;z-index:2}
 .tcg-zoom-content>.tcg-zoom-toolbar{margin-top:10px}
 .zoom-right-actions .tcg-artwork-retry{display:none!important}
 .zoom-bottom-share{align-self:center;min-width:100px;margin:0.3rem auto 0.12rem;padding:8px 16px;font-size:.8rem}
@@ -13692,7 +13692,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopZoomAut
 
 // Animate the full preview out of (and back into) the tapped thumbnail.
 // A stored rectangle also works when the Dex grid is temporarily hidden.
-const zoomCardMotion = { source: null, rect: null, cardId: null, closing: false, animation: null, sprite: null, panelAnimation: null };
+const zoomCardMotion = { source: null, rect: null, cardId: null, closing: false, animation: null, sprite: null, panelAnimation: null, backdropAnimation: null };
 function zoomMotionRect(source) {
   if (!source) return null;
   const rect = source instanceof Element ? source.getBoundingClientRect() : source;
@@ -13703,7 +13703,8 @@ function zoomMotionRect(source) {
 function cancelZoomSharedMotion() {
   zoomCardMotion.animation?.cancel();
   zoomCardMotion.panelAnimation?.cancel();
-  zoomCardMotion.animation = zoomCardMotion.panelAnimation = null;
+  zoomCardMotion.backdropAnimation?.cancel();
+  zoomCardMotion.animation = zoomCardMotion.panelAnimation = zoomCardMotion.backdropAnimation = null;
   zoomCardMotion.sprite?.remove();
   zoomCardMotion.sprite = null;
   const img = document.getElementById('tcgZoomImg');
@@ -13752,6 +13753,12 @@ function animateZoomPanel(opening, thumbnailRect, done) {
     : [{transform:expanded,opacity:1,offset:0},{transform:collapsed,opacity:0,offset:.75},{transform:collapsed,opacity:0,offset:1}];
   const panelAnimation=panel.animate(panelFrames,{duration,easing,fill:'both'});
   zoomCardMotion.panelAnimation=panelAnimation;
+  // Reveal the actual page as the card shrinks (and darken it as it opens).
+  const dimAnimation=modal.animate(opening?
+    [{backgroundColor:'rgba(9,13,22,0)',backdropFilter:'blur(0px)'},{backgroundColor:'rgba(9,13,22,.94)',backdropFilter:'blur(12px)'}]:
+    [{backgroundColor:'rgba(9,13,22,.94)',backdropFilter:'blur(12px)'},{backgroundColor:'rgba(9,13,22,0)',backdropFilter:'blur(0px)'}],
+    {duration,easing,fill:'both'});
+  zoomCardMotion.backdropAnimation=dimAnimation;
   const finish=()=>{
     if (zoomCardMotion.animation!==animation) return;
     cancelZoomSharedMotion();
@@ -14312,30 +14319,105 @@ if (zoomViewArea) {
 
 installZoomVersionsDismissal();
 
-// Swipe downward on noninteractive preview content to dismiss; preserve card carousel and variant scrolling.
+// Interactive sheet-to-card dismissal. The image tracks the source thumbnail
+// continuously while the backdrop clears, instead of dragging a full-sized
+// opaque sheet down the screen. The gesture can be cancelled by swiping back.
+const zoomInteractiveDismiss = {gesture:null, animation:null, backdropAnimation:null};
+const zoomDismissClamp = n => Math.max(0,Math.min(1,n));
+function zoomDismissBackdrop(progress) {
+  const modal=document.getElementById('tcgZoomModal');
+  if (!modal) return;
+  modal.style.background=`rgba(9, 13, 22, ${(.94*(1-progress)).toFixed(3)})`;
+  modal.style.backdropFilter=`blur(${(12*(1-progress)).toFixed(2)}px)`;
+  modal.style.webkitBackdropFilter=`blur(${(12*(1-progress)).toFixed(2)}px)`;
+}
+function clearZoomInteractiveDismiss() {
+  zoomInteractiveDismiss.animation?.cancel();
+  zoomInteractiveDismiss.backdropAnimation?.cancel();
+  zoomInteractiveDismiss.animation=null;
+  zoomInteractiveDismiss.backdropAnimation=null;
+  zoomInteractiveDismiss.gesture=null;
+  const modal=document.getElementById('tcgZoomModal');
+  if (modal) {modal.style.background='';modal.style.backdropFilter='';modal.style.webkitBackdropFilter='';}
+  const panel=document.getElementById('zoomContainer');
+  if (panel) {panel.style.transform='';panel.style.transformOrigin='';panel.style.opacity='';}
+}
+function zoomDragTransform(progress, geometry) {
+  const scale=1+(geometry.scale-1)*progress;
+  const dx=geometry.dx*progress,dy=geometry.dy*progress;
+  return `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${scale.toFixed(5)})`;
+}
+function zoomDragGeometry(panel, image, source) {
+  const box=panel.getBoundingClientRect(),picture=image.getBoundingClientRect();
+  const target=zoomMotionRect(source);
+  // When the small card was hidden (Dex modal), fall back to a modest
+  // centre shrink rather than jumping to an unrelated offscreen position.
+  const scale=target?zoomDismissClamp(target.width/Math.max(1,picture.width)):.38;
+  return {scale:Math.max(.12,scale),dx:target
+    ? target.left-box.left-(picture.left-box.left)*scale
+    :box.width*(1-scale)/2,dy:target
+    ? target.top-box.top-(picture.top-box.top)*scale
+    :box.height*(1-scale)/2};
+}
 (function installZoomSheetDismissal(){
   const panel=document.getElementById('zoomContainer');
   const modal=document.getElementById('tcgZoomModal');
+  const handle=panel?.querySelector('.zoom-preview-drag-handle');
   if(!panel||!modal)return;
-  let start=null;
+  let gesture=null;
   const blocked=target=>Boolean(target?.closest('button,a,input,[role="button"],#tcgZoomVariants,#zoomVersionsPopup'));
-  panel.addEventListener('touchstart',event=>{
-    if(event.touches.length!==1||blocked(event.target)||panel.scrollTop>1){start=null;return;}
-    const t=event.touches[0];start={id:t.identifier,x:t.clientX,y:t.clientY,dy:0,active:false};
-  },{passive:true});
+  const start=event=>{
+    if (zoomCardMotion.closing || modal.style.display!=='flex' || event.touches.length!==1 ||
+        blocked(event.target) || (panel.scrollTop>1 && !handle?.contains(event.target))) {gesture=null;return;}
+    const t=event.touches[0];
+    gesture={id:t.identifier,x:t.clientX,y:t.clientY,dy:0,progress:0,active:false,geometry:null};
+  };
+  panel.addEventListener('touchstart',start,{passive:true});
   panel.addEventListener('touchmove',event=>{
-    if(!start||event.touches.length!==1)return;
-    const t=event.touches[0];if(t.identifier!==start.id)return;
-    const dy=t.clientY-start.y,dx=t.clientX-start.x;
-    if(dy>14&&dy>Math.abs(dx)*1.35){start.active=true;start.dy=dy;
-      if(event.cancelable)event.preventDefault();
-      // Do not translate the whole sheet: the close action animates the card into its thumbnail.
+    if(!gesture||event.touches.length!==1)return;
+    const t=event.touches[0];if(t.identifier!==gesture.id)return;
+    const dy=t.clientY-gesture.y,dx=t.clientX-gesture.x;
+    if(!gesture.active && (dy<=10 || dy<=Math.abs(dx)*1.2))return;
+    if(!gesture.active){
+      const image=document.getElementById('tcgZoomImg');
+      const card=currentCardsList[currentZoomIndex];
+      const source=findVisibleZoomThumbnail(card?.id);
+      gesture.geometry=zoomDragGeometry(panel,image,source ||
+        (card?.id===zoomCardMotion.cardId ? zoomCardMotion.rect : null));
+      gesture.active=true;
+      zoomInteractiveDismiss.gesture=gesture;
+      cancelZoomSharedMotion();
+      panel.style.transformOrigin='top left';
     }
+    if(event.cancelable)event.preventDefault();
+    gesture.dy=Math.max(0,dy);
+    gesture.progress=zoomDismissClamp(gesture.dy/Math.max(280,window.innerHeight*.42));
+    panel.style.transform=zoomDragTransform(gesture.progress,gesture.geometry);
+    panel.style.opacity=String(1-.22*gesture.progress);
+    zoomDismissBackdrop(gesture.progress);
   },{passive:false});
   const finish=event=>{
-    if(!start)return;
-    const wasActive=start.active,dy=start.dy;start=null;
-    if(wasActive&&dy>110&&modal.style.display==='flex')closeTcgZoom();
+    if(!gesture)return;
+    const current=gesture;gesture=null;
+    if(!current.active){zoomInteractiveDismiss.gesture=null;return;}
+    const complete=event.type==='touchend' &&
+      (current.progress>=.42 || current.dy>=135);
+    const from=current.progress,to=complete?1:0;
+    const duration=Math.max(130,Math.round((complete?300:240)*Math.abs(to-from)));
+    const frames=[{transform:zoomDragTransform(from,current.geometry),opacity:1-.22*from},
+                  {transform:zoomDragTransform(to,current.geometry),opacity:1-.22*to}];
+    const anim=panel.animate(frames,{duration,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});
+    zoomInteractiveDismiss.animation=anim;
+    const shade=modal.animate([
+      {backgroundColor:`rgba(9,13,22,${.94*(1-from)})`,backdropFilter:`blur(${12*(1-from)}px)`},
+      {backgroundColor:`rgba(9,13,22,${.94*(1-to)})`,backdropFilter:`blur(${12*(1-to)}px)`}
+    ],{duration,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});
+    zoomInteractiveDismiss.backdropAnimation=shade;
+    anim.finished.then(()=>{
+      if(zoomInteractiveDismiss.animation!==anim)return;
+      clearZoomInteractiveDismiss();
+      if(complete){zoomCardMotion.closing=true;finishCloseTcgZoom();}
+    }).catch(()=>{});
   };
   panel.addEventListener('touchend',finish,{passive:true});
   panel.addEventListener('touchcancel',finish,{passive:true});
@@ -14343,6 +14425,7 @@ installZoomVersionsDismissal();
 
 function closeTcgZoom(instant = false) {
   if (zoomCardMotion.closing) return;
+  if (zoomInteractiveDismiss.gesture || zoomInteractiveDismiss.animation) clearZoomInteractiveDismiss();
   zoomCardMotion.closing=true;
   // Use the live thumbnail when possible; otherwise return toward the opening card.
   const activeCard=currentCardsList[currentZoomIndex];
@@ -14359,6 +14442,7 @@ function closeTcgZoom(instant = false) {
   finishCloseTcgZoom();
 }
 function finishCloseTcgZoom() {
+  clearZoomInteractiveDismiss();
   stopZoomAutoplay();
   closeZoomVersions(false);
   resetZoomShare();
