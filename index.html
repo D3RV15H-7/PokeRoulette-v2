@@ -1722,7 +1722,7 @@ header { margin-bottom: clamp(0.05rem, 0.45dvh, 0.3rem); }
   padding: 0.15rem 0.1rem 0.25rem;
   scroll-snap-type: x proximity;
 }
-#pokeCard .tcg-card-item { min-height: 0; scroll-snap-align: start; }
+#pokeCard .tcg-card-item { min-height: 0; scroll-snap-align: center; }
 #pokeCard .tcg-thumb-frame { min-height: 0; flex: none; overflow: hidden; }
 #pokeCard .tcg-card-thumb {
   display: block;
@@ -1914,6 +1914,14 @@ html.is-browser body.has-active header { margin-bottom: 0.12rem; }
   padding-bottom: 0.35rem;
 }
 #pokeCard .tcg-card-item { flex: 0 0 var(--encounter-card-size); width: var(--encounter-card-size); min-width: var(--encounter-card-size); }
+/* Allow the first and last thumbnails to settle at the exact middle, too. */
+#tcgStrip::before, #tcgStrip::after {
+  content: '';
+  display: block;
+  flex: 0 0 max(0px, calc(50% - var(--encounter-card-size) / 2));
+  pointer-events: none;
+}
+
 #pokeCard .tcg-thumb-frame {
   width: var(--encounter-card-size);
   min-width: var(--encounter-card-size);
@@ -12370,6 +12378,7 @@ function updateDexCardsTitle(cleanName, cards = null, status = null) {
   }
 }
 
+let zoomDexReturnCardId=null;
 async function openDexCardsModal(p, bypassCache = false) {
   cancelDexCardsTopScroll();
   const requestId = ++dexCardsRequestId;
@@ -12393,6 +12402,17 @@ async function openDexCardsModal(p, bypassCache = false) {
       const status = tcgCardListStatus.get(cards);
       updateDexCardsTitle(cleanName, cards, status);
       currentCardsList = cards; sortCardsList(cards); renderDexCardsGrid(cards);
+      if (zoomDexReturnCardId) {
+        const desiredId=zoomDexReturnCardId;
+        zoomDexReturnCardId=null;
+        requestAnimationFrame(() => {
+          const target=Array.from(grid?.querySelectorAll('.dex-card-thumb-cell') || [])
+            .find(cell => cell.querySelector('.tcg-card-thumb')?.dataset?.cardId === desiredId);
+          const found=target || Array.from(grid?.querySelectorAll('.dex-card-thumb-cell') || [])
+            .find(cell => cell.dataset.liveCardId===desiredId);
+          found?.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+        });
+      }
     });
     const cardsList = await fetchTcgCardsData(p.name, p.species?.name, bypassCache, publish);
     if (requestId !== dexCardsRequestId || activeDexModalPoke !== p) return;
@@ -12452,6 +12472,7 @@ function renderDexCardsGrid(cardsList) {
     const isOwnedCard = isCardCollected(card);
     const cell = document.createElement('div');
     cell.className = 'dex-card-thumb-cell';
+    cell.dataset.liveCardId = String(card.id);
     cell.innerHTML = `
       <div class="tcg-thumb-frame ${isOwnedCard ? 'card-owned' : ''}" id="modal_frame_${card.id}">
         <div class="card-check-circle ${isOwnedCard ? 'checked' : ''}" id="modal_chk_${card.id}">✓</div>
@@ -13776,6 +13797,47 @@ function findVisibleZoomThumbnail(cardId) {
   }
   return null;
 }
+// Before dismissing, line up the small carousel with whichever card is now
+// active in the full-size preview. The target rectangle is measured AFTER the
+// strip moves, so the closing image finishes at the thumbnail's exact size.
+function getZoomReturnThumbnailRect() {
+  const card=currentCardsList[currentZoomIndex];
+  if (!card) return null;
+  if (!openedFromDexModal) {
+    const strip=document.getElementById('tcgStrip');
+    const item=strip && Array.from(strip.querySelectorAll('.tcg-card-item'))
+      .find(node => node.dataset.liveCardId===String(card.id));
+    const thumb=item?.querySelector('.tcg-card-thumb');
+    if (strip && item && thumb) {
+      const previousBehavior=strip.style.scrollBehavior;
+      strip.style.scrollBehavior='auto';
+      const stripBox=strip.getBoundingClientRect();
+      const itemBox=item.getBoundingClientRect();
+      const desired=strip.scrollLeft + (itemBox.left+itemBox.width/2)-(stripBox.left+stripBox.width/2);
+      strip.scrollLeft=Math.max(0,Math.min(strip.scrollWidth-strip.clientWidth,desired));
+      strip.style.scrollBehavior=previousBehavior;
+      const measured=zoomMotionRect(thumb);
+      if (measured) {
+        zoomCardMotion.cardId=card.id;
+        zoomCardMotion.rect=measured;
+        zoomCardMotion.source=thumb;
+        return measured;
+      }
+    }
+  }
+  // Dex temporarily hides its grid while the large preview is open. Use the
+  // exact thumbnail dimensions captured at opening, centrally positioned;
+  // when its grid is restored the current card will also be scrolled into view.
+  const existing=findVisibleZoomThumbnail(card.id);
+  if (existing) return zoomMotionRect(existing);
+  const original=zoomCardMotion.rect;
+  if (original) {
+    return {left:(window.innerWidth-original.width)/2,
+      top:(window.innerHeight-original.height)/2,
+      width:original.width,height:original.height};
+  }
+  return null;
+}
 function openTcgZoom(index, fromModal = false, source = null) {
   stopZoomAutoplay();
   stopTcgAutoplay();
@@ -14343,21 +14405,23 @@ function clearZoomInteractiveDismiss() {
   if (panel) {panel.style.transform='';panel.style.transformOrigin='';panel.style.opacity='';}
 }
 function zoomDragTransform(progress, geometry) {
-  const scale=1+(geometry.scale-1)*progress;
+  const scaleX=1+(geometry.scaleX-1)*progress;
+  const scaleY=1+(geometry.scaleY-1)*progress;
   const dx=geometry.dx*progress,dy=geometry.dy*progress;
-  return `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${scale.toFixed(5)})`;
+  return `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${scaleX.toFixed(5)}, ${scaleY.toFixed(5)})`;
 }
 function zoomDragGeometry(panel, image, source) {
   const box=panel.getBoundingClientRect(),picture=image.getBoundingClientRect();
   const target=zoomMotionRect(source);
   // When the small card was hidden (Dex modal), fall back to a modest
   // centre shrink rather than jumping to an unrelated offscreen position.
-  const scale=target?zoomDismissClamp(target.width/Math.max(1,picture.width)):.38;
-  return {scale:Math.max(.12,scale),dx:target
-    ? target.left-box.left-(picture.left-box.left)*scale
-    :box.width*(1-scale)/2,dy:target
-    ? target.top-box.top-(picture.top-box.top)*scale
-    :box.height*(1-scale)/2};
+  const scaleX=target?Math.max(.08,Math.min(1,target.width/Math.max(1,picture.width))):.38;
+  const scaleY=target?Math.max(.08,Math.min(1,target.height/Math.max(1,picture.height))):.38;
+  return {scaleX,scaleY,dx:target
+    ? target.left-box.left-(picture.left-box.left)*scaleX
+    :box.width*(1-scaleX)/2,dy:target
+    ? target.top-box.top-(picture.top-box.top)*scaleY
+    :box.height*(1-scaleY)/2};
 }
 (function installZoomSheetDismissal(){
   const panel=document.getElementById('zoomContainer');
@@ -14380,10 +14444,8 @@ function zoomDragGeometry(panel, image, source) {
     if(!gesture.active && (dy<=10 || dy<=Math.abs(dx)*1.2))return;
     if(!gesture.active){
       const image=document.getElementById('tcgZoomImg');
-      const card=currentCardsList[currentZoomIndex];
-      const source=findVisibleZoomThumbnail(card?.id);
-      gesture.geometry=zoomDragGeometry(panel,image,source ||
-        (card?.id===zoomCardMotion.cardId ? zoomCardMotion.rect : null));
+      const source=getZoomReturnThumbnailRect();
+      gesture.geometry=zoomDragGeometry(panel,image,source);
       gesture.active=true;
       zoomInteractiveDismiss.gesture=gesture;
       cancelZoomSharedMotion();
@@ -14427,11 +14489,8 @@ function closeTcgZoom(instant = false) {
   if (zoomCardMotion.closing) return;
   if (zoomInteractiveDismiss.gesture || zoomInteractiveDismiss.animation) clearZoomInteractiveDismiss();
   zoomCardMotion.closing=true;
-  // Use the live thumbnail when possible; otherwise return toward the opening card.
-  const activeCard=currentCardsList[currentZoomIndex];
-  const liveSource=findVisibleZoomThumbnail(activeCard?.id);
-  const targetRect=zoomMotionRect(liveSource) ||
-    (activeCard?.id===zoomCardMotion.cardId ? zoomCardMotion.rect : null);
+  // Navigate the small carousel to the currently previewed card first.
+  const targetRect=getZoomReturnThumbnailRect();
   if (!instant && document.getElementById('tcgZoomModal')?.style.display==='flex') {
     stopZoomAutoplay();
     closeZoomVersions(false);
@@ -14468,7 +14527,10 @@ function finishCloseTcgZoom() {
     img._tcgCard = null;
     img._tcgArtworkFallbacks = [];
   });
-  if (openedFromDexModal && activeDexModalPoke) openDexCardsModal(activeDexModalPoke);
+  if (openedFromDexModal && activeDexModalPoke) {
+    zoomDexReturnCardId=currentCardsList[currentZoomIndex]?.id || null;
+    openDexCardsModal(activeDexModalPoke);
+  }
 }
 // One live wheel becomes the encounter's re-spin ball. A temporary visual
 // copy travels between measured positions while the live layout settles.
