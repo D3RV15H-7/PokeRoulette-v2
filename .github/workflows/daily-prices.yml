@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v266_resilient_prices_corrected.zip'
+      - 'PokeRoulette_v268_new_set_artwork_setup.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -36,9 +36,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Open the v266 setup ZIP
+      - name: Open the v268 setup ZIP
         run: |
-          unzip -oq PokeRoulette_v266_resilient_prices_corrected.zip -d _app
+          unzip -oq PokeRoulette_v268_new_set_artwork_setup.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
@@ -60,6 +60,11 @@ jobs:
             shared-prices-v265-
             shared-prices-v264-
             shared-prices-v241-
+      - name: Refresh early-set artwork catalogue
+        working-directory: _app
+        env:
+          PREVIOUS_SITE_URL: ${{ steps.pages.outputs.base_url }}
+        run: node scripts/update-new-sets.mjs --previous-url "$PREVIOUS_SITE_URL/data/new-sets-v1.json"
       - name: Refresh published product identities
         working-directory: _app
         run: |
@@ -79,7 +84,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: price-diagnostics-v266
+          name: price-diagnostics-v268
           path: _app/diagnostics/
           if-no-files-found: ignore
           retention-days: 7
