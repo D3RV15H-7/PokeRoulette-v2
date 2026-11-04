@@ -1917,13 +1917,10 @@ html.is-browser body.has-active header { margin-bottom: 0.12rem; }
   padding-bottom: 0.35rem;
 }
 #pokeCard .tcg-card-item { flex: 0 0 var(--encounter-card-size); width: var(--encounter-card-size); min-width: var(--encounter-card-size); }
-/* Allow the first and last thumbnails to settle at the exact middle, too. */
-#tcgStrip::before, #tcgStrip::after {
-  content: '';
-  display: block;
-  flex: 0 0 max(0px, calc(50% - var(--encounter-card-size) / 2));
-  pointer-events: none;
-}
+/* Keep the strip flush-left at the beginning and flush-right at the end.
+   The return-to-thumbnail animation measures the actual visible card rect. */
+#tcgStrip::before, #tcgStrip::after { display: none; content: none; }
+#pokeCard .tcg-card-item { scroll-snap-align: start; }
 
 #pokeCard .tcg-thumb-frame {
   width: var(--encounter-card-size);
@@ -4331,7 +4328,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>Refreshes on first view each day. Price date is the source’s update date.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.69</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.70</span></h4>
         <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
       </section>
     </div>
@@ -5882,7 +5879,12 @@ function isRemovedMcDonalds2013Set(set) {
   return ['mcd13', '2013bw'].includes(String(set?.id || '').trim().toLowerCase());
 }
 function isExcludedCollectorSet(set) {
-  return isRemovedMcDonalds2013Set(set) || isDigitalOnlySet(set) || isExcludedDeckProductSet(set);
+  const name = String(set?.name || '').trim();
+  const id = String(set?.id || '').trim().toLowerCase();
+  const series = String(set?.series || '').trim();
+  return isRemovedMcDonalds2013Set(set) || isDigitalOnlySet(set) || isExcludedDeckProductSet(set) ||
+    /^(?:jumbo(?:\s+cards?)?|oversized(?:\s+cards?)?|oversize(?:\s+cards?)?)$/i.test(name) ||
+    /^(?:jumbo|oversized|oversize)$/i.test(series) || /^(?:jumbo|oversized)(?:-|$)/i.test(id);
 }
 // Brief catalogue records omit sizes, so verified jumbo-only releases also
 // need an ID/name rule before optional detail requests complete.
@@ -6643,7 +6645,7 @@ const VINTAGE_CARD_BY_IDENTITY = new Map(Object.entries(VINTAGE_CARD_CATALOGUES)
 ));
 const VINTAGE_SET_DETAILS = Object.freeze({
   si1: { name: 'Southern Islands', releaseDate: '2001/07/31', series: 'Neo' },
-  wp: { name: 'W Promotional', releaseDate: '1999/09/01', series: 'Base' },
+  wp: { name: 'W Stamp Promos', releaseDate: '1999/09/01', series: 'Base' },
   // This is the English movie distribution date, not the provider's 1996 placeholder.
   miscp: { name: 'Miscellaneous Promos', releaseDate: '2000/07/21', series: 'Miscellaneous' }
 });
@@ -6744,9 +6746,18 @@ function getSetLogoSources(set) {
     ? (/^https:\/\/assets\.tcgdex\.net\/.*\/logo$/i.test(url.trim()) ? url.trim() + '.png' : url.trim()) : '';
   const explicit = normalize(set?.logo || set?.images?.logo);
   if (explicit.startsWith('data:image/')) return [explicit];
+  // Recover a proven provider logo from the bundled catalogue when a live
+  // source returns the same expansion with a different ID or no image fields.
+  const exactName = String(set?.name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const candidates = BUNDLED_TCG_CATALOGUE_V115.filter(record =>
+    String(record.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '') === exactName && record.logo &&
+    (!Number(set?.total) || !Number(record.total) ||
+      Math.abs(Number(set.total) - Number(record.total)) <= 1));
+  const verifiedBundledLogo = candidates.length === 1 ? normalize(candidates[0].logo) : '';
   const sources = [...new Set([
-    path ? `https://assets.tcgdex.net/en/${path}/logo.png` : '',
     explicit,
+    verifiedBundledLogo,
+    path ? `https://assets.tcgdex.net/en/${path}/logo.png` : '',
     normalize(set?.images?.logo),
     /^[a-z0-9._-]+$/i.test(id) ? `https://images.pokemontcg.io/${encodeURIComponent(id)}/logo.png` : ''
   ].filter(Boolean))];
@@ -6828,13 +6839,70 @@ window.addEventListener('online', () => {
     if (img.isConnected && img.dataset.logoState === 'failed') attachSetLogo(img, record.set, img.loading === 'eager');
   }
 });
+function normaliseCollectorReleaseName(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+function reconcileCollectorSets(sets) {
+  // The bundled catalogue provides missing release metadata, not replacement
+  // card identities. Never merge differently named expansions or subsets.
+  const byName = new Map();
+  for (const entry of BUNDLED_TCG_CATALOGUE_V115) {
+    const key = normaliseCollectorReleaseName(entry.name);
+    if (!byName.has(key)) byName.set(key, []);
+    byName.get(key).push(entry);
+  }
+  const unique = new Map();
+  for (const original of Array.isArray(sets) ? sets : []) {
+    if (isExcludedCollectorSet(original)) continue;
+    const normalized = normaliseCollectorReleaseName(original.name);
+    const candidates = (byName.get(normalized) || []).filter(candidate =>
+      (!Number(original.total) || !Number(candidate.total) ||
+        Math.abs(Number(original.total) - Number(candidate.total)) <= 1));
+    const canonical = candidates.length === 1 ? candidates[0] : null;
+    const merged = {
+      ...original,
+      name: String(original.id).toLowerCase() === 'wp' ? 'W Stamp Promos' : original.name,
+      series: !original.series || /^other(?: series| sets)?$/i.test(original.series) ? (canonical?.series || original.series) : original.series,
+      releaseDate: original.releaseDate || canonical?.releaseDate || '',
+      logo: original.logo || original.images?.logo || canonical?.logo || '',
+      symbol: original.symbol || original.images?.symbol || canonical?.symbol || '',
+      total: Math.max(Number(original.total) || 0, Number(canonical?.total) || 0),
+      printedTotal: Math.max(Number(original.printedTotal) || 0, Number(canonical?.printedTotal) || 0)
+    };
+    const key = normaliseCollectorReleaseName(merged.name) + '|' + String(merged.total || 0);
+    const previous = unique.get(key);
+    if (!previous) { unique.set(key, merged); continue; }
+    // Identical names are not enough to prove two separate years are the
+    // same release. Only collapse same-day listings or entries missing dates.
+    const dateOf = row => String(row.releaseDate || '').replace(/\//g, '-');
+    if (dateOf(previous) && dateOf(merged) && dateOf(previous) !== dateOf(merged)) {
+      unique.set(key + '|date:' + dateOf(merged) + '|id:' + merged.id, merged);
+      continue;
+    }
+    const quality = row => Number(Boolean(row.releaseDate)) * 3 + Number(Boolean(row.logo)) * 2 +
+      Number(Boolean(row.series && !/^other$/i.test(row.series))) * 3;
+    // Prefer the existing explicitly categorised set; preserve its ID, which
+    // is used by collection ownership and pricing. Fill only absent fields.
+    const primary = quality(merged) > quality(previous) ? merged : previous;
+    const secondary = primary === merged ? previous : merged;
+    unique.set(key, {
+      ...primary,
+      series: primary.series && !/^other$/i.test(primary.series) ? primary.series : secondary.series,
+      releaseDate: primary.releaseDate || secondary.releaseDate,
+      logo: primary.logo || secondary.logo,
+      symbol: primary.symbol || secondary.symbol
+    });
+  }
+  return [...unique.values()];
+}
 function repairVintageSetDetails(sets) {
-  return sets.map(set => {
+  const repaired = (Array.isArray(sets) ? sets : []).map(set => {
     const checked = VINTAGE_SET_DETAILS[set.id];
-    if (!checked) return repairSetArtworkMetadata(set);
+    if (!checked) return { ...set };
     const count = Math.max(Number(set.total) || 0, VINTAGE_CARD_CATALOGUES[set.id].length);
-    return repairSetArtworkMetadata({ ...set, ...checked, total: count, printedTotal: count });
+    return { ...set, ...checked, total: count, printedTotal: count };
   });
+  return reconcileCollectorSets(repaired).map(repairSetArtworkMetadata);
 }
 // v83: checked English McDonald's releases with the correct 2023/2024 logos.
 // Preserve existing IDs and metadata; fill gaps even when an older cache is used.
@@ -10595,7 +10663,7 @@ function resolveTcgSetSeries(set) {
 
 function groupTcgSetsBySeries(sets) {
   const groups = new Map();
-  for (const set of sets) {
+  for (const set of reconcileCollectorSets(sets)) {
     const name = resolveTcgSetSeries(set);
     const key = name.toLowerCase();
     if (!groups.has(key)) groups.set(key, { key, name, sets: [] });
@@ -10741,7 +10809,7 @@ async function renderTcgSets(forceRefresh = false) {
   loading.style.display = 'none';
   const frag = document.createDocumentFragment();
  let eagerLogoCount = 0;
-  const groups = groupTcgSetsBySeries(sets.filter(set => set.id !== 'xya'));
+  const groups = groupTcgSetsBySeries(sets.filter(set => set.id !== 'xya' && !isExcludedCollectorSet(set)));
  for (const [index, group] of groups.entries()) {
   const section = createTcgSeriesSection(group, index);
   const list = section.querySelector('.tcg-series-sets');
