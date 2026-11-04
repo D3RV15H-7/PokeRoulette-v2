@@ -1378,7 +1378,10 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-logo[data-logo-state]:not([data-logo-state="ready"]),
 .tcg-set-detail-logo[data-logo-state]:not([data-logo-state="ready"]) { opacity: 0; }
 .tcg-set-info { flex: 1; min-width: 0; }
-.tcg-set-name { font-size: 0.9rem; font-weight: 800; }
+.tcg-set-name { font-size: 0.9rem; font-weight: 800; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tcg-set-logo-fallback { flex:0 0 100px; width:100px; height:55px; display:flex; align-items:center; justify-content:center; text-align:center; padding:5px; border-radius:8px; border:1px solid #41526b; background:linear-gradient(140deg,#172540,#101629); color:#dbeafe; font-weight:850; font-size:0.68rem; line-height:1.12; overflow-wrap:anywhere; }
+.tcg-set-logo-fallback[hidden] { display:none; }
+
 .tcg-set-meta {
   margin-top: 0.2rem;
   color: var(--sub);
@@ -4328,7 +4331,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>Refreshes on first view each day. Price date is the source’s update date.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.68</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.69</span></h4>
         <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
       </section>
     </div>
@@ -6785,6 +6788,8 @@ function attachSetLogo(img, set, eager = false, recovery = 0) {
     const legacy = /^https:\/\/images\.pokemontcg\.io\//i.test(img.currentSrc || img.src);
     if (legacy && ((img.naturalHeight >= 100 && ratio > .70 && ratio < .75) || isTcgCardBackImage(img))) { img.onerror(); return; }
     img.dataset.logoState = 'ready';
+    const fallback = img.parentElement?.querySelector('.tcg-set-logo-fallback');
+    if (fallback) fallback.hidden = true;
     rememberSetLogoUrl(set.id, record.sources[record.index]);
   };
   img.onerror = () => {
@@ -6803,13 +6808,15 @@ function attachSetLogo(img, set, eager = false, recovery = 0) {
       arm();
     } else {
       img.dataset.logoState = 'failed';
+      const fallback = img.parentElement?.querySelector('.tcg-set-logo-fallback');
+      if (fallback) fallback.hidden = false;
       if (recovery < 1) record.timer = setTimeout(() => {
         if (setLogoRecords.get(img) === record && img.isConnected) attachSetLogo(img, set, eager, recovery + 1);
       }, 2000);
     }
   };
   if (sources.length) { img.src = sources[0]; if (eager) arm(); }
-  else img.dataset.logoState = 'failed';
+  else { img.dataset.logoState = 'failed'; const fallback = img.parentElement?.querySelector('.tcg-set-logo-fallback'); if (fallback) fallback.hidden = false; }
 }
 
 function disposeSetLogos() {
@@ -8608,7 +8615,7 @@ async function loadPhysicalTcgSets(forceRefresh = false) {
     const sets = [...setsById.values()];
     if (!sets.length) throw new Error('API returned an empty set catalogue');
     const physicalSets = sets
-      .filter(set => !isExcludedCollectorSet(set))
+      .filter(set => set.id !== 'xya' && !isExcludedCollectorSet(set))
       .map(set => ({
         id: set.id,
         name: set.name,
@@ -9416,141 +9423,71 @@ async function enrichSetCardsWithTcgDex(cards, setId, setName, refreshPrice = fa
 }
 
 async function fetchYellowAAlternateCards(forceRefresh = false) {
-  const CACHE_KEY = 'pokeroulette_set_cards_v51_yellow-a-alternate';
+  const CACHE_KEY = 'pokeroulette_set_cards_v52_yellow-a-partial';
+  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v51_yellow-a-alternate';
   const CACHE_TIME = 24 * 60 * 60 * 1000;
-  if (!window.tcgSetCardsCache) {
-    window.tcgSetCardsCache = {};
+  window.tcgSetCardsCache ||= {};
+  const existing = window.tcgSetCardsCache[YELLOW_A_SET_ID];
+  if (Array.isArray(existing) && existing.length && !forceRefresh) return filterCollectorCards(existing);
+  const cached = [CACHE_KEY, OLD_CACHE_KEY].map(key => {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
+  }).find(value => Array.isArray(value?.data) && value.data.length);
+  if (!forceRefresh && cached && Date.now() - cached.savedAt < CACHE_TIME) {
+    window.tcgSetCardsCache[YELLOW_A_SET_ID] = cached.data;
+    return filterCollectorCards(cached.data);
   }
-  if (window.tcgSetCardsCache[YELLOW_A_SET_ID] && !forceRefresh) {
-    return filterCollectorCards(window.tcgSetCardsCache[YELLOW_A_SET_ID]);
-  }
-  if (!forceRefresh) {
-    try {
-      const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-      if (
-        cached &&
-        Array.isArray(cached.data) &&
-        cached.data.length === YELLOW_A_CARD_IDS.length &&
-        Date.now() - cached.savedAt < CACHE_TIME
-      ) {
-        window.tcgSetCardsCache[YELLOW_A_SET_ID] = cached.data;
-        return filterCollectorCards(cached.data);
-      }
-    } catch (error) {}
-  }
-
-  const headers = {};
-  if (POKEMON_TCG_API_KEY) {
-    headers['X-Api-Key'] = POKEMON_TCG_API_KEY;
-  }
-
-  const deadline = Date.now() + 45000;
+  const headers = POKEMON_TCG_API_KEY ? {'X-Api-Key': POKEMON_TCG_API_KEY} : {};
+  const batches = [];
+  for (let i = 0; i < YELLOW_A_CARD_IDS.length; i += 12) batches.push(YELLOW_A_CARD_IDS.slice(i, i + 12));
+  // Individual batch failures must not blank the whole 79-card collection.
+  // Limit concurrency to avoid provider throttling on mobile networks.
   const rawCards = [];
-  // Keep the query comfortably below Lucene clause/URL limits.
-  for (let i = 0; i < YELLOW_A_CARD_IDS.length; i += 24) {
-    const ids = YELLOW_A_CARD_IDS.slice(i, i + 24);
-    const query = ids.map(id => `id:${id}`).join(' OR ');
-    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=250`;
-    const response = await fetchWithRetry(url, { headers, deadline }, 1);
-    const json = await response.json();
-    if (Array.isArray(json?.data)) {
-      rawCards.push(...json.data);
-    }
+  for (let i = 0; i < batches.length; i += 2) {
+    const results = await Promise.allSettled(batches.slice(i, i + 2).map(async ids => {
+      const query = ids.map(id => `id:${id}`).join(' OR ');
+      const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(query)}&pageSize=100`;
+      const response = await fetchWithRetry(url, {headers, deadline:Date.now()+14000, timeoutMs:6500}, 1);
+      const json = await response.json();
+      return Array.isArray(json?.data) ? json.data : [];
+    }));
+    results.forEach(result => { if (result.status === 'fulfilled') rawCards.push(...result.value); });
   }
-
   const unique = new Map();
-  rawCards.forEach(card => {
-    const id = String(card?.id || '').toLowerCase();
-    if (YELLOW_A_CARD_ID_SET.has(id)) {
-      unique.set(id, card);
-    }
+  // Merge earlier successful records so a temporary outage cannot remove cards.
+  for (const card of cached?.data || []) {
+    if (YELLOW_A_CARD_ID_SET.has(String(card.id).toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
+  }
+  for (const card of rawCards) {
+    if (YELLOW_A_CARD_ID_SET.has(String(card?.id || '').toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
+  }
+  const formatted = [...unique.values()].filter(card => !isExcludedCollectorCard(card)).map(card => {
+    if (card.smallImg || card.largeImg) return card; // Preserves previously enriched records.
+    const sourceVariantEvidence = inferSetCardVariantsFromPokemonTcg(card);
+    const artwork = getCardArtworkSources(card);
+    return {
+      id:card.id, name:card.name || 'Unknown', pokemonId:getPokemonIdFromCardName(card.name),
+      smallImg:artwork.small[0] || TCG_CARD_ARTWORK_UNAVAILABLE,
+      smallImgFallbacks:artwork.small.slice(1),
+      largeImg:artwork.large[0] || TCG_CARD_ARTWORK_UNAVAILABLE,
+      largeImgFallbacks:artwork.large.slice(1),
+      setName:YELLOW_A_VIRTUAL_SET.name, sourceSetName:card.set?.name || '',
+      number:normalizeCardNumber(card.number), rarity:card.rarity || 'Promo',
+      rarityScore:typeof getRarityScore === 'function' ? getRarityScore(card.rarity) : 0,
+      priceGBP:extractCardPriceGBP(card), _priceQuote:card._priceQuote,
+      variants:sourceVariantEvidence, baseFinish:sourceVariantEvidence.baseFinish
+    };
   });
-  let formatted = Array.from(unique.values())
-    .filter(card => !isExcludedCollectorCard(card))
-    .filter(card =>
-      isValidFrontCardImage(card.images?.small || card.images?.large)
-    )
-    .map(card => {
-      const sourceVariantEvidence = inferSetCardVariantsFromPokemonTcg(card);
-      return {
-        id: card.id,
-        name: card.name || 'Unknown',
-        pokemonId: getPokemonIdFromCardName(card.name),
-        smallImg: card.images?.small || card.images?.large || '',
-        largeImg: card.images?.large || card.images?.small || '',
-        setName: YELLOW_A_VIRTUAL_SET.name,
-        sourceSetName: card.set?.name || '',
-        number: normalizeCardNumber(card.number),
-        rarity: card.rarity || 'Promo',
-        rarityScore:
-          typeof getRarityScore === 'function'
-            ? getRarityScore(card.rarity)
-            : 0,
-        priceGBP: extractCardPriceGBP(card),
-        _priceQuote: card._priceQuote,
-        variants: sourceVariantEvidence,
-        baseFinish: sourceVariantEvidence.baseFinish
-      };
-    });
-  // These are separate alternate-art printings, not variants of the original
-  // numbered cards. Run normal finish enrichment on each alternate printing.
-  const enrichmentDeadline = Date.now() + 12000;
-  formatted = await mapTcgLimited(formatted, async card => {
-      try {
-        const dexSet = await findTcgDexSetForPokemonTcgSet( String(card.id).split('-').slice(0, -1).join('-'), card.sourceSetName );
-        if (!dexSet) return card;
-        const suffix = String(card.id).split('-').pop();
-        const candidates = [ `${dexSet.id}-${suffix}`, `${dexSet.id}-${String(suffix).padStart(3, '0')}` ];
-        let dexCard = null;
-        for (const candidate of candidates) {
-          try {
-            const response = await fetchWithRetry(
-              `https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(candidate)}`,
-              { deadline: enrichmentDeadline, timeoutMs: 5000 },
-              0
-            );
-            if (response.ok) {
-              dexCard = await response.json();
-              if (dexCard) break;
-            }
-          } catch (error) {}
-        }
-        if (!dexCard) return card;
-        const fused = mergePhysicalVariantEvidence( card.variants, getTcgDexFinishEvidence(dexCard), dexCard );
-        return captureNamedCardVariantData({
-          ...card,
-          variants: {
-            standard: fused.standard !== false,
-            reverseHolo: Boolean(fused.reverseHolo),
-            other: false
-          },
-          baseFinish: fused.baseFinish,
-          priceGBP: updateTcgCardPriceFromDetail(card, dexCard, fused)
-        }, dexCard);
-      } catch (error) {
-        return card;
-      }
-    });
-  // Yellow A is a release checklist, so preserve its cross-expansion collector
-  // numbering rather than pretending it is one conventional numbered set.
-  formatted.sort((a, b) =>
-    String(a.number).localeCompare(String(b.number), undefined, {
-      numeric: true,
-      sensitivity: 'base'
-    })
-  );
-  if (formatted.length !== YELLOW_A_CARD_IDS.length) throw new Error('Incomplete Yellow A catalogue');
+  formatted.sort((a,b) => String(a.number).localeCompare(String(b.number),undefined,{numeric:true,sensitivity:'base'}));
+  if (!formatted.length) {
+    if (existing?.length) return filterCollectorCards(existing);
+    throw new Error('Yellow A provider temporarily unavailable and no saved cards exist');
+  }
   window.tcgSetCardsCache[YELLOW_A_SET_ID] = formatted;
-  try {
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ savedAt: Date.now(), data: formatted })
-    );
-  } catch (error) {}
-  console.log(
-    `[SETS] Yellow A loaded ${formatted.length}/${YELLOW_A_CARD_IDS.length} cards`
-  );
-  return formatted;
+  // Only stamp as fully fresh when all known identities have arrived; missing
+  // cards will be retried on next visit rather than hidden behind a 24h cache.
+  try {localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:formatted.length===YELLOW_A_CARD_IDS.length?Date.now():0,data:formatted}));} catch(_){}
+  if (formatted.length < YELLOW_A_CARD_IDS.length) console.warn(`[SETS] Yellow A partially available: ${formatted.length}/${YELLOW_A_CARD_IDS.length}`);
+  return filterCollectorCards(formatted);
 }
 
 function isolateNumberedSetVariants(setId, cards) {
@@ -10804,7 +10741,7 @@ async function renderTcgSets(forceRefresh = false) {
   loading.style.display = 'none';
   const frag = document.createDocumentFragment();
  let eagerLogoCount = 0;
- const groups = groupTcgSetsBySeries(sets);
+  const groups = groupTcgSetsBySeries(sets.filter(set => set.id !== 'xya'));
  for (const [index, group] of groups.entries()) {
   const section = createTcgSeriesSection(group, index);
   const list = section.querySelector('.tcg-series-sets');
@@ -10842,9 +10779,9 @@ if (isComplete) item.classList.add('set-complete');
   item.innerHTML = `
     ${isComplete ? `<span class="tcg-set-complete-tick" role="img" aria-label="Set 100% complete" title="Set 100% complete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>` : ''}
     <img class="tcg-set-logo" alt="">
-
+    <span class="tcg-set-logo-fallback" hidden aria-hidden="true">${escapeSetVariantHtml(set.name)}</span>
     <div class="tcg-set-info">
-      <div class="tcg-set-name">${set.name}</div>
+      <div class="tcg-set-name" style="font-size:${String(set.name).length > 32 ? '.70' : String(set.name).length > 26 ? '.78' : '.90'}rem" title="${escapeSetVariantHtml(set.name)}">${escapeSetVariantHtml(set.name)}</div>
 
       <div class="tcg-set-meta">
         ${formatTcgSetDisplayDate(set.releaseDate)}
@@ -14607,7 +14544,7 @@ function zoomDragGeometry(panel, image, source) {
     gesture.dy=Math.max(0,dy);
     gesture.progress=zoomDismissClamp(gesture.dy/Math.max(280,window.innerHeight*.42));
     panel.style.transform=zoomDragTransform(gesture.progress,gesture.geometry);
-    panel.style.opacity=String(1-.22*gesture.progress);
+    panel.style.opacity=String(Math.max(0,1-Math.pow(gesture.progress,1.4)));
     zoomDismissBackdrop(gesture.progress);
   },{passive:false});
   const finish=event=>{
@@ -14618,8 +14555,8 @@ function zoomDragGeometry(panel, image, source) {
       (current.progress>=.42 || current.dy>=135);
     const from=current.progress,to=complete?1:0;
     const duration=Math.max(130,Math.round((complete?300:240)*Math.abs(to-from)));
-    const frames=[{transform:zoomDragTransform(from,current.geometry),opacity:1-.22*from},
-                  {transform:zoomDragTransform(to,current.geometry),opacity:1-.22*to}];
+    const frames=[{transform:zoomDragTransform(from,current.geometry),opacity:Math.max(0,1-Math.pow(from,1.4))},
+                  {transform:zoomDragTransform(to,current.geometry),opacity:Math.max(0,1-Math.pow(to,1.4))}];
     const anim=panel.animate(frames,{duration,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});
     zoomInteractiveDismiss.animation=anim;
     const shade=modal.animate([
