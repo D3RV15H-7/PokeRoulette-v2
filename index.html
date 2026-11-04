@@ -1914,13 +1914,9 @@ html.is-browser body.has-active header { margin-bottom: 0.12rem; }
   padding-bottom: 0.35rem;
 }
 #pokeCard .tcg-card-item { flex: 0 0 var(--encounter-card-size); width: var(--encounter-card-size); min-width: var(--encounter-card-size); }
-/* Allow the first and last thumbnails to settle at the exact middle, too. */
-#tcgStrip::before, #tcgStrip::after {
-  content: '';
-  display: block;
-  flex: 0 0 max(0px, calc(50% - var(--encounter-card-size) / 2));
-  pointer-events: none;
-}
+/* Keep the encounter strip edge-aligned: first card starts at the left,
+   last card finishes at the right. Minimise uses each card's actual rect. */
+#tcgStrip::before, #tcgStrip::after { content: none; }
 
 #pokeCard .tcg-thumb-frame {
   width: var(--encounter-card-size);
@@ -13813,8 +13809,12 @@ function getZoomReturnThumbnailRect() {
       strip.style.scrollBehavior='auto';
       const stripBox=strip.getBoundingClientRect();
       const itemBox=item.getBoundingClientRect();
+      // Centre while there is room, but clamp at either end of the strip.
+      // The first/last card therefore remain edge-aligned, not centred by
+      // synthetic spacers. Measure AFTER repositioning for an exact return.
       const desired=strip.scrollLeft + (itemBox.left+itemBox.width/2)-(stripBox.left+stripBox.width/2);
-      strip.scrollLeft=Math.max(0,Math.min(strip.scrollWidth-strip.clientWidth,desired));
+      const end=Math.max(0,strip.scrollWidth-strip.clientWidth);
+      strip.scrollLeft=Math.max(0,Math.min(end,desired));
       strip.style.scrollBehavior=previousBehavior;
       const measured=zoomMotionRect(thumb);
       if (measured) {
