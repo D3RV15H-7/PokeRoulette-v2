@@ -10861,6 +10861,111 @@ function updateTcgSeriesOwnedCounts() {
   }
 }
 
+// Lightweight overview progress: read saved card fingerprints without fetching every set.
+// The full card records are still authoritative when available, but a cold cache
+// must never make an owned set look empty.
+function buildSavedSetProgressIndex() {
+  const byName = new Map(), byId = new Map();
+  const add = (map, key, number) => {
+    if (!key || !number) return;
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key).add(number);
+  };
+  const addFingerprint = fp => {
+    if (typeof fp !== 'string' || !fp.startsWith('fp_')) return;
+    const tail = fp.slice(3), split = tail.lastIndexOf('_');
+    if (split < 1 || split === tail.length - 1) return;
+    add(byName, tail.slice(0, split), tail.slice(split + 1));
+  };
+  for (const raw of memSetCardVariants) {
+    if (typeof raw !== 'string') continue;
+    const split = raw.lastIndexOf('__');
+    if (split < 0 || !isStoredSetVariantName(raw.slice(split + 2))) continue;
+    addFingerprint(raw.slice(0, split));
+  }
+  for (const raw of memSetCardCol) {
+    if (typeof raw !== 'string') continue;
+    if (raw.startsWith('fp_')) { addFingerprint(raw); continue; }
+    const split = raw.lastIndexOf('-');
+    if (split > 0) add(byId, raw.slice(0, split).toLowerCase(), raw.slice(split + 1).toLowerCase());
+  }
+  return { byName, byId };
+}
+
+function savedSetCardCount(set, index) {
+  if (!set || !index) return 0;
+  const clean = name => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const names = [set.name, resolveSetName(set), getMcDonaldsSetInfo(set.id)?.name];
+  const owned = new Set();
+  for (const name of names) {
+    const numbers = index.byName.get(clean(name));
+    if (numbers) for (const number of numbers) owned.add(number);
+  }
+  const legacy = index.byId.get(String(set.id || '').toLowerCase());
+  if (legacy) for (const number of legacy) owned.add(number);
+  return owned.size;
+}
+
+function calculateOverviewSetProgress(set, index, cachedCards = undefined) {
+  let total = getDisplayedSetCardTotal(set), countedFromCards = 0;
+  let cards = cachedCards;
+  if (cards === undefined) {
+    cards = window.tcgSetCardsCache?.[set.id];
+    if (!Array.isArray(cards) || !cards.length) {
+      try { cards = JSON.parse(localStorage.getItem(getSetCardsCacheKey(set.id)) || 'null')?.data; } catch (error) { cards = null; }
+    }
+  }
+  if (Array.isArray(cards) && cards.length) {
+    cards = filterCollectorCards(cards);
+    total = getDisplayedSetCardTotal(set, cards);
+    countedFromCards = cards.filter(card => isSetCardCollected(card)).length;
+  }
+  const fromSaved = savedSetCardCount(set, index);
+  const collected = total > 0 ? Math.min(total, Math.max(countedFromCards, fromSaved)) : 0;
+  return { total, collected, percentage: total ? Math.round(collected * 100 / total) : 0 };
+}
+
+// Repaint the existing tiles when Firebase ownership arrives; don't re-fetch
+// catalogues or invoke the expensive complete-profile calculation.
+function refreshVisibleSetOverviewProgress() {
+  if (activeTcgSet) return;
+  const grid = document.getElementById('setsGrid');
+  if (!grid || !grid.children.length) return;
+  const index = buildSavedSetProgressIndex();
+  for (const item of grid.querySelectorAll('.tcg-set-item')) {
+    const set = item._progressSet;
+    if (!set) continue;
+    const { total, collected, percentage } = calculateOverviewSetProgress(set, index);
+    const labels = item.querySelectorAll('.tcg-set-progress-info span');
+    if (labels[0]) labels[0].textContent = total ? `${collected} / ${total} collected` : 'Awaiting published card records';
+    if (labels[1]) labels[1].textContent = total ? `${percentage}%` : '';
+    const fill = item.querySelector('.tcg-set-progress-fill');
+    if (fill) fill.style.width = `${percentage}%`;
+    const complete = total > 0 && collected >= total;
+    item.classList.toggle('set-complete', complete);
+    let tick = item.querySelector('.tcg-set-complete-tick');
+    if (complete && !tick) {
+      tick = document.createElement('span');
+      tick.className = 'tcg-set-complete-tick';
+      tick.setAttribute('role', 'img');
+      tick.setAttribute('aria-label', 'Set 100% complete');
+      tick.title = 'Set 100% complete';
+      tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+      item.prepend(tick);
+    } else if (!complete && tick) tick.remove();
+  }
+  // These badges can be counted from the visible tile statuses.
+  for (const section of grid.querySelectorAll('.tcg-series-group')) {
+    const badge = section.querySelector('.tcg-series-owned-count');
+    if (!badge) continue;
+    const count = [...section.querySelectorAll('.tcg-set-item')].filter(item => {
+      const owned = item.querySelector('.tcg-set-progress-info span')?.textContent || '';
+      return /^([1-9]\d*)\s*\//.test(owned);
+    }).length;
+    badge.textContent = String(count);
+  }
+}
+
 async function renderTcgSets(forceRefresh = false) {
   closeSetCardBulkConfirmation();
   disposeSetThumbnails();
@@ -10893,6 +10998,7 @@ async function renderTcgSets(forceRefresh = false) {
   loading.style.display = 'none';
   const frag = document.createDocumentFragment();
  let eagerLogoCount = 0;
+  const savedProgressIndex = buildSavedSetProgressIndex();
   const groups = groupTcgSetsBySeries(sets.filter(set => set.id !== 'xya' && !isExcludedCollectorSet(set)));
  for (const [index, group] of groups.entries()) {
   const section = createTcgSeriesSection(group, index);
@@ -10902,29 +11008,12 @@ async function renderTcgSets(forceRefresh = false) {
   item.type = 'button';
   item.className = 'tcg-set-item';
   item.dataset.searchText = `${set.name} ${set.id} ${group.name} Series`.toLowerCase();
-  // Work out collection progress for this set
-  let collectedCount = 0;
-  let totalCount = getDisplayedSetCardTotal(set);
-  try {
-    let cachedCards = window.tcgSetCardsCache?.[set.id];
-    if (!Array.isArray(cachedCards) || !cachedCards.length) {
-      const cacheKey = getSetCardsCacheKey(set.id);
-      cachedCards = JSON.parse(localStorage.getItem(cacheKey) || 'null')?.data;
-    }
-    if (Array.isArray(cachedCards) && cachedCards.length) {
-      const cards = filterCollectorCards(cachedCards);
-      // Migrate old Sets ticks as soon as cached card data is available.
-      migrateLegacySetCardOwnership(cards);
-      totalCount = getDisplayedSetCardTotal(set, cards);
-      if (set.id === 'mep') { set.total = totalCount; set.printedTotal = totalCount; }
-      collectedCount = cards.filter(card =>
-        isSetCardCollected(card)
-      ).length;
-    }
-  } catch (e) {}
+  // Ownership is known even before card records are loaded on this device.
+  const { total: totalCount, collected: collectedCount, percentage } =
+    calculateOverviewSetProgress(set, savedProgressIndex);
+  item._progressSet = set;
+  if (set.id === 'mep') { set.total = totalCount; set.printedTotal = totalCount; }
 
-  const percentage = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
-   
 const isComplete = totalCount > 0 && collectedCount >= totalCount;
 if (isComplete) item.classList.add('set-complete');
    
@@ -10968,7 +11057,7 @@ if (isComplete) item.classList.add('set-complete');
   frag.appendChild(section);
 }
 grid.appendChild(frag);
-updateTcgSeriesOwnedCounts();
+refreshVisibleSetOverviewProgress();
 saveTcgSeriesViewState();
 filterTcgSetsBySearch();
 requestAnimationFrame(() => {
@@ -11879,6 +11968,7 @@ if (Array.isArray(data.setsCardVariantsCollection)) {
   memSetCardVariants = new Set(data.setsCardVariantsCollection.map(String));
 }
 saveLocalState();
+            refreshVisibleSetOverviewProgress();
             if (currentCardsList.length > 0) renderTcgCards(currentCardsList);
           } else { writeFullCollectionToCloud(); }
         } catch (err) {
@@ -11899,6 +11989,7 @@ if (Array.isArray(data.setsCardVariantsCollection)) {
   memSetCardVariants = new Set(data.setsCardVariantsCollection.map(String));
 }
 saveLocalState();
+            refreshVisibleSetOverviewProgress();
             if (currentCardsList.length > 0) renderTcgCards(currentCardsList);
           }
         }, (err) => {});
@@ -11913,6 +12004,7 @@ saveLocalState();
       if (loggedOutView) loggedOutView.style.display = 'flex';
       if (accountLabel) { accountLabel.innerText = 'Account'; accountLabel.style.color = 'var(--sub)'; }
       reloadMemoryFromLocal();
+      refreshVisibleSetOverviewProgress();
       if (curId) updateBtn(memCol.has(parseInt(curId, 10)));
       if (currentCardsList.length > 0) renderTcgCards(currentCardsList);
     }
