@@ -5441,8 +5441,13 @@ function getSetCardOwnershipCategory(card) {
 }
 function paintSetCardOwnershipIndicator(node, card) {
   const kind = getSetCardOwnershipCategory(card);
-  const categories = ['base', 'reverse', 'alternative'].filter(category =>
-    getOwnedSetCardVariants(card).some(key => getSetVariantCategory(card, key) === category));
+  // Treat each owned printing as its own segment, not just each distinct colour.
+  // For example Standard + Energy Reverse + Poke Ball Reverse = 1/3 green,
+  // 1/3 yellow, 1/3 yellow, with a visible divider between both yellows.
+  const ownedKeys = new Set(getOwnedSetCardVariants(card));
+  const selected = getAvailableSetCardVariants(card)
+    .filter(option => ownedKeys.has(option.key))
+    .map(option => ({label: option.label, category: getSetVariantCategory(card, option.key, option.label)}));
   node.classList.toggle('card-owned', Boolean(kind));
   const check = node.querySelector('.tcg-set-owned-check');
   if (!check) return;
@@ -5450,16 +5455,26 @@ function paintSetCardOwnershipIndicator(node, card) {
   if (kind) check.dataset.variantKind = kind;
   else delete check.dataset.variantKind;
   const colours = {base:'var(--green)', reverse:'var(--gold)', alternative:'#38bdf8'};
-  if (categories.length > 1) {
-    const stops = categories.map((category, i) =>
-      `${colours[category]} ${i * 100 / categories.length}% ${(i + 1) * 100 / categories.length}%`);
-    const startAngle = categories.length === 3 ? 240 : 180;
-    check.style.setProperty('--owned-variant-background', `conic-gradient(from ${startAngle}deg, ${stops.join(', ')})`);
-  } else if (categories.length === 1) {
-    check.style.setProperty('--owned-variant-background', colours[categories[0]]);
+  if (selected.length > 1) {
+    // A narrow dark angular separator remains visible when neighbouring
+    // selections have the same colour. Use degrees so it doesn't get thicker
+    // as the number of selected printings increases.
+    const segmentAngle = 360 / selected.length;
+    const separatorDegrees = Math.min(2.5, segmentAngle * 0.12);
+    const stops = selected.flatMap(({category}, i) => {
+      const start = i * segmentAngle;
+      const end = (i + 1) * segmentAngle;
+      return [
+        `${colours[category]} ${start}deg ${end - separatorDegrees}deg`,
+        `#111a2d ${end - separatorDegrees}deg ${end}deg`
+      ];
+    });
+    check.style.setProperty('--owned-variant-background', `conic-gradient(from 180deg, ${stops.join(', ')})`);
+  } else if (selected.length === 1) {
+    check.style.setProperty('--owned-variant-background', colours[selected[0].category]);
   } else check.style.removeProperty('--owned-variant-background');
-  check.setAttribute('aria-label', categories.length
-    ? categories.map(category => ({base:'Standard or Holo',reverse:'Reverse',alternative:'Alternative variant'}[category])).join(', ') + ' collected'
+  check.setAttribute('aria-label', selected.length
+    ? selected.map(({label}) => label).join(', ') + ' collected'
     : 'Choose card variants');
 }
 function updateSetCardOwnershipIndicators(card) {
