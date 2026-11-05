@@ -3799,6 +3799,9 @@ svg.nav-artwork use{pointer-events:none}
 .tcg-zoom-variants .tcg-zoom-variant-column{display:contents}
 /* Dividers separate choices; neither column draws a trailing line. */
 .tcg-zoom-variants .tcg-zoom-variant-column .tcg-zoom-variant-option:last-child{border-bottom:none}
+/* Only separate populated rows; never draw a rule below the final row. */
+.tcg-zoom-variants .tcg-zoom-variant-option + .tcg-zoom-variant-option { border-top: none; }
+.tcg-zoom-variants .tcg-zoom-variant-option.is-last-variant-row { border-bottom: none; }
 /* The floating artwork is a shared element travelling between card positions. */
 .zoom-shared-card-sprite{position:fixed;z-index:10000;pointer-events:none;object-fit:fill;border-radius:8px;box-shadow:0 14px 38px #0008;transform:translateZ(0);will-change:left,top,width,height}
 /* Motion is owned by the source-card transition, not the old generic pop-in. */
@@ -4789,18 +4792,21 @@ function namedPrintingLabel(printing, baseType) {
   return [prefix, ...decorations].filter(Boolean).join(' · ');
 }
 function sortSetCardVariantDefinitions(card, definitions) {
+  // Keep the base printing first, then reverse printings, non-holo,
+  // cosmos finishes, other foils, and finally stamped/special printings.
   const rank = option => {
     const label = String(option?.label || '').trim().toLowerCase();
     const p = option?.printing || decodeNamedVariantKey(option?.key);
     if (option.key === 'standard') return 0;
-    if (option.key === 'reverseHolo' || label === 'reverse' || (p?.type === 'reverse' && !p.foil && !p.stamp?.length)) return 1;
-    if (label === 'non holo' || label === 'non-holo' || (p?.type === 'normal' && !p.foil && !p.subtype && p.size === 'standard' && !p.stamp?.length)) return 2;
-    if (label === 'cosmos holo' || (p?.type === 'holo' && p.foil === 'cosmos')) return 3;
-    if (label === 'cosmos reverse' || (p?.type === 'reverse' && p.foil === 'cosmos')) return 4;
-    if (option.key === 'holo' || label === 'holo' || (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard')) return 0;
-
-    if (p?.stamp?.length && !isRegularExpansionReverse(card, p)) return 5;
-    return option.key === 'other' ? 7 : 6;
+    const isCosmos = /cosmos/.test(label) || p?.foil === 'cosmos';
+    const isReverse = /reverse/.test(label) || option.key === 'reverseHolo' || p?.type === 'reverse';
+    if (isCosmos && isReverse) return 41;
+    if (isReverse) return 10;
+    if (/non[ -]?holo/.test(label) || (p?.type === 'normal' && !p.foil && !p.subtype && !p.stamp?.length)) return 20;
+    if (isCosmos) return 40;
+    if (p?.stamp?.length || /stamp|stamped|1st edition|prerelease|pre-release/.test(label)) return 60;
+    if (option.key === 'other') return 80;
+    return 50;
   };
   return definitions.sort((a, b) => {
     const rankDiff = rank(a) - rank(b);
@@ -5417,11 +5423,15 @@ function escapeSetVariantHtml(value) {
 function getSetVariantCategory(card, key, label) {
   const options = getAvailableSetCardVariants(card);
   const option = options.find(v => v.key === key);
-  if (option && (key === 'standard' || options.length === 1)) return 'base';
-  const text = label || option?.label || '';
-  if (/^Reverse(?: \(saved\))?$/.test(text)) return 'reverse';
-  if (isRegularExpansionReverse(card, decodeNamedVariantKey(key))) return 'reverse';
-  if (/^(Standard|Holo)(?: \(saved\))?$/.test(text)) return 'base';
+  // Base printings (including exclusive stamped and reverse bases) stay green.
+  if (key === 'standard' || options.length === 1) return 'base';
+  const text = String(label || option?.label || '');
+  const printing = option?.printing || decodeNamedVariantKey(key);
+  // Every additional reverse printing is yellow: Energy Reverse,
+  // Poké Ball Reverse, Cosmos Reverse, etc.
+  if (/reverse/i.test(text) || key === 'reverseHolo' || printing?.type === 'reverse' ||
+      isRegularExpansionReverse(card, printing)) return 'reverse';
+  // All non-base printings (including secondary Holo) are alternatives.
   return 'alternative';
 }
 function getSetCardOwnershipCategory(card) {
@@ -5461,11 +5471,12 @@ function getSetVariantOptionsMarkup(card, zoom = false) {
   const options = getAvailableSetCardVariants(card);
   const optionClass = zoom ? 'tcg-zoom-variant-option' : 'tcg-variant-option';
   const circleClass = zoom ? 'tcg-zoom-variant-circle' : 'tcg-variant-circle';
-  const buttons = options.map(({key,label}) => {
+  const lastRowStart = Math.floor((options.length - 1) / (zoom && options.length > 3 ? 2 : 1)) * (zoom && options.length > 3 ? 2 : 1);
+  const buttons = options.map(({key,label}, index) => {
     const checked = isSetCardVariantOwned(card,key);
     const value = printingPriceLabel(card,key);
     const price = value ? `<span style="font-size:.78em;opacity:.85;margin-left:.4em;white-space:nowrap">${escapeSetVariantHtml(value)}</span>` : '';
-    return `<button type="button" class="${optionClass}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label,price)}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
+    return `<button type="button" class="${optionClass}${zoom && index >= lastRowStart ? ' is-last-variant-row' : ''}" data-variant="${escapeSetVariantHtml(key)}" data-variant-kind="${getSetVariantCategory(card,key,label)}" aria-pressed="${checked}" title="${escapeSetVariantHtml(label)}"><span class="tcg-variant-label">${getSetVariantLabelMarkup(label,price)}</span><span class="${circleClass} ${checked ? 'checked' : ''}" aria-hidden="true">✓</span></button>`;
   });
   if (!zoom) return buttons.join('');
   // Compact, row-major grid: extra printings never create empty three-row blocks.
