@@ -5214,8 +5214,32 @@ function isGenericPromoFinish(printing, promo) {
   return Boolean(printing && promo && ['normal','holo','reverse'].includes(printing.type) &&
     printing.size === 'standard' && !printing.stamp.length && !printing.foil && !printing.subtype);
 }
+// Mega Evolution Energy #009-#016 are the anniversary-stamped Holo
+// printings. A provider's plain Holo finish flag describes the same card,
+// not an additional unstamped physical printing. Restrict this correction
+// to the eight confirmed energy names and numbers, not the entire expansion.
+function isMeeAnniversaryEnergyCard(card) {
+  if (!card) return false;
+  const id = String(card.setId || card.set?.id || card.id?.replace(/-[^-]+$/, '') || '').toLowerCase();
+  const token = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const setName = token(card.setName || card.set?.name);
+  if (id !== 'mee' && setName !== 'mega-evolution-energy') return false;
+  const number = Number(String(card.number || card.localId || card.id?.split('-').pop() || '').split('/')[0]);
+  const expected = {9:'basic-grass-energy', 10:'basic-fire-energy', 11:'basic-water-energy',
+    12:'basic-lightning-energy', 13:'basic-psychic-energy', 14:'basic-fighting-energy',
+    15:'basic-darkness-energy', 16:'basic-metal-energy'};
+  return expected[number] === token(card.name) || expected[number] === 'basic-' + token(card.name);
+}
+function getMeeAnniversaryBasePrinting() {
+  return normaliseNamedPrinting({type:'holo',stamp:['30th-anniversary']});
+}
 function getNamedCardVariantDefinitions(card) {
   if (!card) return [];
+  if (isMeeAnniversaryEnergyCard(card)) {
+    // One physical printing: the holo itself bears the anniversary stamp.
+    // Keep the base storage key stable to preserve existing collection data.
+    return [{key:'standard', label:'Stamp (30th Anniversary)', printing:getMeeAnniversaryBasePrinting()}];
+  }
   const correction = getCardVariantSupplement(card);
   const anniversary = getThirtyCelebrationVariantSupplement(card);
   const expansionEvidence = getExpansionCardPrintingEvidence(card);
@@ -5309,6 +5333,9 @@ function getNamedCardVariantDefinitions(card) {
 }
 function getAvailableSetCardVariants(card) {
   const definitions = getNamedCardVariantDefinitions(card);
+  // Old saved Holo and stamped keys are aliases of this one physical card,
+  // not separate selectable printings.
+  if (isMeeAnniversaryEnergyCard(card)) return definitions;
   const expansionPromo = getExclusiveExpansionPromoPrinting(card);
   const basePrinting = definitions.find(v => v.key === 'standard')?.printing;
   for (const key of getOwnedSetCardVariants(card)) {
@@ -5338,6 +5365,16 @@ function getAvailableSetCardVariants(card) {
 }
 function migrateNamedSetCardVariants(card) {
   const definitions = getNamedCardVariantDefinitions(card);
+  if (isMeeAnniversaryEnergyCard(card)) {
+    const owned = getOwnedSetCardVariants(card);
+    const aliases = owned.filter(key => key !== 'standard');
+    if (!aliases.length) return false;
+    const baseKey = getSetCardVariantKey(card, 'standard');
+    for (const key of aliases) memSetCardVariants.delete(getSetCardVariantKey(card, key));
+    if (baseKey) memSetCardVariants.add(baseKey);
+    invalidateSetVariantOwnershipIndex();
+    return true;
+  }
   const extras = definitions.filter(v => v.key !== 'standard' && v.key !== 'reverseHolo');
   let changed = false;
   const move = (old, next) => {
