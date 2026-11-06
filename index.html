@@ -3552,6 +3552,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .search-box .pr-search-field > .pr-search-clear:active { transform:translateY(-50%) scale(.95); }
 #setsModal .tcg-expanding-search .pr-search-field { height:100%; }
 #setsModal .tcg-expanding-search .pr-search-clear { right:4px; width:26px; height:26px; }
+/* Dex filter: the original input bottom margin must be on the wrapper, not
+   inside it, otherwise the absolutely positioned clear button sits too low. */
+#dexModal .pr-search-field:has(> #dexFilterInput) { margin-bottom:0.5rem; }
+#dexModal .pr-search-field > #dexFilterInput { margin-bottom:0; padding-right:3rem; }
+#dexModal .pr-search-field > .pr-search-clear { right:8px; top:50%; width:27px; height:27px; }
 /* v2.73 search control polish: an expanded search shows only its clear/close X. */
 #setsModal .tcg-expanding-search.is-expanded > .tcg-set-search-toggle {
   opacity:0; visibility:hidden; pointer-events:none;
