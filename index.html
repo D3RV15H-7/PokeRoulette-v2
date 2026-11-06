@@ -5988,11 +5988,39 @@ function isExcludedDeckProductSet(set) {
 function isRemovedMcDonalds2013Set(set) {
   return ['mcd13', '2013bw'].includes(String(set?.id || '').trim().toLowerCase());
 }
+// Display the two intended 2026 releases only: "30th Celebration" (30th)
+// and "30th Celebration: Classic Collection" (30th-c). External catalogues
+// and old local caches can also introduce "30th Classic Collection" as an
+// extra record. Never delete ownership data: this only filters set listings.
+function isRedundant30thClassicCollectionSet(set) {
+  const id = String(set?.id || '').trim().toLowerCase();
+  const name = String(set?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (id === '30th-c') return false; // Retain existing collection identity.
+  if (['cel25c', 'cel25cc', 'me55c'].includes(id)) return true;
+  return name === 'celebrations classic collection' ||
+    name === '30th classic collection' ||
+    name === '30th celebration classic collection';
+}
+function normalize30thCatalogueSets(sets) {
+  const result = [];
+  const seen = new Set();
+  for (const item of Array.isArray(sets) ? sets : []) {
+    if (!item || isExcludedCollectorSet(item)) continue;
+    const id = String(item.id || '').trim().toLowerCase();
+    if (id === '30th-c') {
+      if (seen.has('30th-c')) continue;
+      seen.add('30th-c');
+      result.push({ ...item, name: '30th Celebration: Classic Collection' });
+    } else result.push(item);
+  }
+  return result;
+}
 function isExcludedCollectorSet(set) {
   const name = String(set?.name || '').trim();
   const id = String(set?.id || '').trim().toLowerCase();
   const series = String(set?.series || '').trim();
-  return isRemovedMcDonalds2013Set(set) || isDigitalOnlySet(set) || isExcludedDeckProductSet(set) ||
+  return isRedundant30thClassicCollectionSet(set) ||
+    isRemovedMcDonalds2013Set(set) || isDigitalOnlySet(set) || isExcludedDeckProductSet(set) ||
     /^(?:jumbo(?:\s+cards?)?|oversized(?:\s+cards?)?|oversize(?:\s+cards?)?)$/i.test(name) ||
     /^(?:jumbo|oversized|oversize)$/i.test(series) || /^(?:jumbo|oversized)(?:-|$)/i.test(id);
 }
@@ -8373,9 +8401,10 @@ function getBundledTcgCatalogue() {
   const sets = BUNDLED_TCG_CATALOGUE_V115.map(set => {
     const id = names.get(normalizeSetMatchName(set.name)) || set.id;
     return { ...set, id, name: id === '30th-c' ? '30th Celebration: Classic Collection' : set.name };
-  }).filter(set => !isExcludedCollectorSet(set));
-  if (!sets.some(set => set.id === YELLOW_A_SET_ID)) sets.push({ ...YELLOW_A_VIRTUAL_SET });
-  return includeConfirmedTcgReleases(ensureMcDonaldsSets(repairVintageSetDetails(sets))).sort((a,b) => String(b.releaseDate).localeCompare(String(a.releaseDate)));
+  });
+  const cleanedSets = normalize30thCatalogueSets(sets);
+  if (!cleanedSets.some(set => set.id === YELLOW_A_SET_ID)) cleanedSets.push({ ...YELLOW_A_VIRTUAL_SET });
+  return includeConfirmedTcgReleases(ensureMcDonaldsSets(repairVintageSetDetails(cleanedSets))).sort((a,b) => String(b.releaseDate).localeCompare(String(a.releaseDate)));
 }
 
 function formatPokemonCatalogueResults(results, cleanName, complete, cacheKey) {
@@ -8739,7 +8768,7 @@ const CONFIRMED_UPCOMING_TCG_SETS = Object.freeze([
     logo: '', symbol: '', pendingChecklist: false }
 ]);
 function includeConfirmedTcgReleases(sets) {
-  const result = new Map((Array.isArray(sets) ? sets : []).filter(Boolean).map(set => [String(set.id).toLowerCase(), set]));
+  const result = new Map(normalize30thCatalogueSets(sets).map(set => [String(set.id).toLowerCase(), set]));
   // New sets from the published catalogue are source-verified, unlike guessed IDs.
   for (const entry of publishedEarlyCatalogue.sets || []) {
     if (!entry?.id || !entry?.name || isExcludedCollectorSet(entry)) continue;
@@ -8774,7 +8803,7 @@ function includeConfirmedTcgReleases(sets) {
       });
     } else result.set(announced.id, { ...announced });
   }
-  return [...result.values()].sort((a, b) =>
+  return normalize30thCatalogueSets([...result.values()]).sort((a, b) =>
     String(b.releaseDate || '').replace(/\//g, '-').localeCompare(String(a.releaseDate || '').replace(/\//g, '-')));
 }
 // TCGdex is an independent source of newly indexed sets and their image paths.
@@ -11358,7 +11387,7 @@ async function renderTcgSets(forceRefresh = false) {
   const frag = document.createDocumentFragment();
  let eagerLogoCount = 0;
   const savedProgressIndex = buildSavedSetProgressIndex();
-  const groups = groupTcgSetsBySeries(sets.filter(set => set.id !== 'xya' && !isExcludedCollectorSet(set)));
+  const groups = groupTcgSetsBySeries(normalize30thCatalogueSets(sets).filter(set => set.id !== 'xya'));
  for (const [index, group] of groups.entries()) {
   const section = createTcgSeriesSection(group, index);
   const list = section.querySelector('.tcg-series-sets');
