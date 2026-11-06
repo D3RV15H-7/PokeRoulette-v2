@@ -3531,6 +3531,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .card-image-loading{position:relative;}
 .card-image-loading::after{content:"";position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid rgba(148,163,184,.3);border-top-color:#38bdf8;border-radius:50%;animation:cardImageSpin .85s linear infinite;pointer-events:none;z-index:3;}
 @keyframes cardImageSpin{to{transform:rotate(360deg)}}
+.delta-checklist-credit{font-size:11px;line-height:1.4;color:#aab6cc;text-align:center;margin:10px 8px 4px}.delta-checklist-credit a{color:#a2d8ff;text-decoration:underline}
 </style>
 <style>
 /* v186 fixes */
@@ -4337,7 +4338,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>Refreshes on first view each day. Price date is the source’s update date.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.71</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.72</span></h4>
         <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
       </section>
     </div>
@@ -8516,12 +8517,194 @@ function getPublishedEarlyCardList(setId) {
     };
   }).sort((a,b)=>String(a.number).localeCompare(String(b.number),undefined,{numeric:true}));
 }
+// v2.72: English Delta Reign numbered checklist, transcribed from Bulbapedia's
+// Delta Reign (TCG) article (revision inspected 2026-11-06).
+// Source: https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)
+// Bulbapedia text: CC BY-NC-SA 2.5; attribution and licence retained below.
+// Only factual card identities are used. No Bulbapedia images, logos or prices are copied.
+const DELTA_REIGN_CHECKLIST_SOURCE = Object.freeze({
+  title:'Delta Reign (TCG)', url:"https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)",
+  attribution:'Bulbapedia contributors', licence:'CC BY-NC-SA 2.5',
+  licenceUrl:"https://creativecommons.org/licenses/by-nc-sa/2.5/", revision:'4663217'
+});
+const DELTA_REIGN_NUMBERED_NAMES = Object.freeze([
+  "Heracross",
+  "Surskit",
+  "Masquerain",
+  "Cacnea",
+  "Cacturne",
+  "Combee",
+  "Vespiquen",
+  "Shaymin",
+  "Virizion",
+  "Wimpod",
+  "Mega Golisopod ex",
+  "Sprigatito",
+  "Floragato",
+  "Meowscarada ex",
+  "Smoliv",
+  "Dolliv",
+  "Arboliva",
+  "Growlithe",
+  "Arcanine",
+  "Magmar",
+  "Magmortar",
+  "Torkoal",
+  "Heat Rotom ex",
+  "Heatmor",
+  "Mantine",
+  "Kyogre",
+  "Frillish",
+  "Jellicent",
+  "Wishiwashi ex",
+  "Electabuzz",
+  "Electivire",
+  "Jolteon",
+  "Raikou ex",
+  "Rotom",
+  "Thundurus",
+  "Pincurchin",
+  "Pawmi",
+  "Pawmo",
+  "Pawmot",
+  "Wattrel",
+  "Kilowattrel",
+  "Miraidon",
+  "Drowzee",
+  "Hypno",
+  "Giratina",
+  "Golett",
+  "Mega Golurk ex",
+  "Enamorus",
+  "Sandshrew",
+  "Sandslash",
+  "Onix",
+  "Steelix",
+  "Groudon",
+  "Landorus",
+  "Nidoran♀",
+  "Nidorina",
+  "Nidoqueen",
+  "Spinarak",
+  "Ariados",
+  "Sableye",
+  "Carvanha",
+  "Sharpedo",
+  "Darkrai",
+  "Purrloin",
+  "Liepard",
+  "Zorua",
+  "Zoroark ex",
+  "Inkay",
+  "Mega Malamar ex",
+  "Morpeko",
+  "Zarude",
+  "Druddigon",
+  "Jangmo-o",
+  "Hakamo-o",
+  "Kommo-o",
+  "Cyclizar",
+  "Tauros",
+  "Eevee",
+  "Delibird",
+  "Azurill",
+  "Swablu",
+  "Altaria",
+  "Kecleon",
+  "Mega Rayquaza ex",
+  "Tornadus",
+  "Fletchling",
+  "Fletchinder",
+  "Talonflame ex",
+  "Aarune",
+  "Adventure Lantern",
+  "Custom Vest",
+  "Emcee's Hype",
+  "Grisham",
+  "Legendary Pyroduct",
+  "Legendary Pyroduct",
+  "Legendary Summit",
+  "Legendary Summit",
+  "Legendary Trench",
+  "Legendary Trench",
+  "Mega Rayquaza Cap",
+  "Tasty Rice Ball",
+  "Tate & Liza's Training",
+  "Zinnia's Trust",
+  "Masquerain",
+  "Sprigatito",
+  "Growlithe",
+  "Magmortar",
+  "Electivire",
+  "Pincurchin",
+  "Enamorus",
+  "Groudon",
+  "Zorua",
+  "Inkay",
+  "Eevee",
+  "Azurill",
+  "Altaria",
+  "Kecleon",
+  "Mega Golisopod ex",
+  "Heat Rotom ex",
+  "Wishiwashi ex",
+  "Raikou ex",
+  "Mega Golurk ex",
+  "Mega Malamar ex",
+  "Talonflame ex",
+  "Aarune",
+  "Adventure Lantern",
+  "Custom Vest",
+  "Emcee's Hype",
+  "Pokémon Catcher",
+  "Tate & Liza's Training",
+  "Zinnia's Trust",
+  "Bubbly W Energy",
+  "Growing G Energy",
+  "Nitro R Energy",
+  "Mega Golisopod ex",
+  "Raikou ex",
+  "Mega Golurk ex",
+  "Mega Rayquaza ex",
+  "Aarune",
+  "Zinnia's Trust",
+  "Mega Rayquaza ex"
+]);
+function getDeltaReignChecklistCards() {
+  return DELTA_REIGN_NUMBERED_NAMES.map((name,index) => {
+    const number=String(index+1).padStart(3,'0');
+    return { id:`me06-${number}`, number, localId:number, setId:'me06',
+      setName:'Delta Reign', name, pokemonId:getPokemonIdFromCardName(name),
+      smallImg:TCG_CARD_ARTWORK_UNAVAILABLE, largeImg:TCG_CARD_ARTWORK_UNAVAILABLE,
+      smallImgFallbacks:[], largeImgFallbacks:[],
+      rarity:'', rarityScore:0,priceGBP:null,baseFinish:'normal',
+      variants:{standard:true,reverseHolo:false,other:false},
+      _earlyPreview:true,_checklistSource:'bulbapedia'
+    };
+  });
+}
+function mergeDeltaReignRecords(records) {
+  const byNumber=new Map(getDeltaReignChecklistCards().map(card=>[Number(card.number),card]));
+  for(const card of records||[]) {
+    const number=Number(String(card?.number||card?.localId||'').split('/')[0]);
+    if(!Number.isInteger(number)||number<1||number>141) continue;
+    const reference=byNumber.get(number);
+    // Keep genuine provider data (including verified scans, variants and prices)
+    // over checklist-only records. Never replace it with placeholder data.
+    const norm=value=>String(value||'').toLowerCase().replace(/ex/g,'').replace(/[^a-z0-9]+/g,'');
+    const sameSet = String(card?.setId||card?.set?.id||'me06').toLowerCase()==='me06' ||
+      String(card?.setName||card?.set?.name||'').toLowerCase().includes('delta reign');
+    if(sameSet && card?.name && card?.id && norm(card.name)===norm(reference.name)) byNumber.set(number,{...reference,...card});
+  }
+  return [...byNumber.values()].sort((a,b)=>Number(a.number)-Number(b.number));
+}
+
 // Officially announced English expansions may appear before the card APIs finish indexing.
 // These records are metadata-only: never invent a checklist, artwork or market price.
 const CONFIRMED_UPCOMING_TCG_SETS = Object.freeze([
   { id: 'me06', name: 'Delta Reign', series: 'Mega Evolution',
-    releaseDate: '2026/11/06', total: 0, printedTotal: 0,
-    logo: '', symbol: '', pendingChecklist: true }
+    releaseDate: '2026/11/06', total: 141, printedTotal: 103,
+    logo: '', symbol: '', pendingChecklist: false }
 ]);
 function includeConfirmedTcgReleases(sets) {
   const result = new Map((Array.isArray(sets) ? sets : []).filter(Boolean).map(set => [String(set.id).toLowerCase(), set]));
@@ -9689,14 +9872,27 @@ function isolateNumberedSetVariants(setId, cards) {
 }
 
 async function fetchCardsForSet(setId, forceRefresh = false) {
+  // v2.72: an identity-only released checklist should not wait for a network
+  // request before allowing its set to open. Use cached provider records
+  // immediately; Refresh Cards explicitly probes live providers.
+  if (setId === 'me06' && !forceRefresh) {
+    let saved = window.tcgSetCardsCache?.me06 || [];
+    if (!saved.length) {
+      try { saved = JSON.parse(localStorage.getItem(getSetCardsCacheKey('me06')) || 'null')?.data || []; } catch (_) {}
+    }
+    loadPublishedEarlyCatalogue(false).catch(() => {});
+    return mergeDeltaReignRecords([...getPublishedEarlyCardList('me06'),...saved]);
+  }
   await loadPublishedEarlyCatalogue(forceRefresh);
   if (isExcludedDeckProductSet({ id: setId })) return [];
+
   if (tcgSetRequests.has(setId)) return tcgSetRequests.get(setId);
   const request = (async () => {
     try {
       const cards = await loadCardsForSet(setId, forceRefresh);
       const live = cards?.length ? applyCachedVariantSupplements(cards) : [];
       const early = getPublishedEarlyCardList(setId);
+      if (setId === 'me06') return mergeDeltaReignRecords([...early,...live]);
       if (!live.length) return early;
       if (!early.length) return live;
       // Never displace a verified live record with preview metadata.
@@ -9712,7 +9908,7 @@ async function fetchCardsForSet(setId, forceRefresh = false) {
         const saved = JSON.parse(localStorage.getItem(key));
         if (saved?.data?.length) return applyCachedVariantSupplements(filterCollectorCards(saved.data));
       } catch (cacheError) {}
-      return getPublishedEarlyCardList(setId);
+      return setId === 'me06' ? mergeDeltaReignRecords(getPublishedEarlyCardList(setId)) : getPublishedEarlyCardList(setId);
     }
   })();
   tcgSetRequests.set(setId, request);
@@ -10235,6 +10431,7 @@ const percentage = totalCount > 0 ? Math.round((collectedCount / totalCount) * 1
 
 </div>
 
+${set.id === 'me06' ? `<div class="delta-checklist-credit">Card checklist: <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>. Art and prices supplied separately.</div>` : ''}
 <div class="tcg-set-cards" id="tcgSetCards"></div>
 `;
   attachSetLogo(grid.querySelector('.tcg-set-detail-logo'), set, true);
