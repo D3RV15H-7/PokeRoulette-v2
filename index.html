@@ -3586,7 +3586,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-stroke:.35px #7acbd8;
   filter:drop-shadow(0 1px 1px #030917);}
 
-/* v2.74: card-specific rarity and promo mark alongside name. */
+/* v2.75: card-specific rarity and promo mark alongside name. */
 .tcg-identity-rarity { white-space:nowrap; font-weight:900; letter-spacing:-.09em; color:#1b2232; -webkit-text-stroke:.4px #edf2f7; text-shadow:0 1px 1px #9aa5b1; }
 .tcg-identity-rarity.rarity-black { color:#111827; -webkit-text-stroke:.5px #cdd5e0; }
 .tcg-identity-rarity.rarity-silver { color:#d9e0e9; -webkit-text-stroke:.45px #778ca7; text-shadow:0 1px 2px #1a2a42; }
@@ -4401,10 +4401,10 @@ svg.nav-artwork use{pointer-events:none}
       <section class="info-section prices">
         <h4>PRICES &amp; CARD DATA</h4>
         <p>GBP estimates prioritise Cardmarket Trend, then TCGplayer Market and Cardmarket AVG when available. Missing quotes display N/A; source dates reflect supplied pricing data. Prices update via the existing daily GitHub workflow.</p>
-        <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately; this is not an automatic Bulbapedia feed.</p>
+        <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.74</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.75</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -13316,8 +13316,58 @@ function isPhysicalPromoPrinting(card) {
     /(?:^|\s)(?:black star promos?|promotional cards?|sv promos?|swsh promos?|xy promos?|sun & moon promos?|wizards black star promos?|mega evolution promos?)(?:$|\s)/i.test(setName) ||
     /^(?:promo|black star promo)$/.test(rarity);
 }
+// Published rarity data is built by the daily workflow from exact card records.
+// Do not use name-only matching: the same Pokemon occurs in many sets/printings.
+let publishedRarityIndex=null;
+let publishedRarityRequest=null;
+function normalizeRarityNumber(value){
+  return String(value||'').toUpperCase().trim().replace(/^0+(?=\d)/,'');
+}
+function normalizeRarityIdentity(value){
+  return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .replace(/[’‘]/g,"'").replace(/[–—]/g,'-').replace(/\s+/g,' ').trim();
+}
+function resolvePublishedCardRarity(card){
+  if(!card||!publishedRarityIndex?.cards)return null;
+  const ids=[card._tcgDexDetailId,card.id];
+  const ownName=normalizeRarityIdentity(card.name);
+  const ownNumber=normalizeRarityIdentity(card.number||card.localId);
+  for(const idValue of ids){
+    const id=String(idValue||'').toLowerCase();
+    const row=publishedRarityIndex.cards[id];
+    if(!row||!row.rarity)continue;
+    if(normalizeRarityIdentity(row.name)!==ownName)continue;
+    if(normalizeRarityNumber(row.number)!==normalizeRarityNumber(ownNumber))continue;
+    // Identity includes the source set id, not just the card name and number.
+    if(!id.startsWith(String(row.setId).toLowerCase()+'-'))continue;
+    return row;
+  }
+  return null;
+}
+function enrichCardPublishedRarity(card){
+  const row=resolvePublishedCardRarity(card);
+  if(!row)return false;
+  // Published card records take priority over generic rarity inferred elsewhere.
+  if(card.rarity!==row.rarity){card.rarity=row.rarity;card.rarityScore=getRarityScore(row.rarity);}
+  card._rarityPending=false;
+  card._rarityProvenance=row.source;
+  return true;
+}
+async function loadPublishedCardRarities(){
+  if(publishedRarityIndex)return publishedRarityIndex;
+  if(publishedRarityRequest)return publishedRarityRequest;
+  publishedRarityRequest=(async()=>{
+    const response=await fetch(new URL('data/card-rarities-v1.json',document.baseURI),{cache:'default'});
+    if(!response.ok)throw Error('Rarity catalogue HTTP '+response.status);
+    const data=await response.json();
+    if(data?.schemaVersion!==1||!data.cards||typeof data.cards!=='object')throw Error('Invalid rarity catalogue');
+    return publishedRarityIndex=data;
+  })();
+  try{return await publishedRarityRequest;}finally{publishedRarityRequest=null;}
+}
 function cardRarityDisplay(card) {
   if (isPhysicalPromoPrinting(card)) return {symbol:'★',label:'Black Star Promo',kind:'promo'};
+  enrichCardPublishedRarity(card);
   const original=String(card?.rarity||'').trim();
   const key=original.toLowerCase().replace(/[-_]/g,' ').replace(/\s+/g,' ').trim();
   if (!key || ['unknown','none','not applicable','promo'].includes(key)) return null;
@@ -14902,6 +14952,10 @@ function updateZoomModalContent() {
   }
   prepareZoomCardShare(card);
   renderZoomCardIdentity(tcgZoomTitle, card);
+  // Fetch only once, without blocking the preview or the wheel.
+  if(!publishedRarityIndex)loadPublishedCardRarities().then(()=>{
+    if(currentCardsList[currentZoomIndex]===card)renderZoomCardIdentity(tcgZoomTitle,card);
+  }).catch(()=>{});
   if (tcgZoomMeta) tcgZoomMeta.innerText = `${card.setName} · #${card.number}`;
   const openSetButton = document.getElementById('zoomOpenSetBtn');
   if (openSetButton) {
