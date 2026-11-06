@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'PokeRoulette_v272_Delta_Reign_Bulbapedia_Setup.zip'
+      - 'PokeRoulette_v275_Rarity_Enrichment_Setup.zip'
       - '.github/workflows/daily-prices.yml'
       - 'index.html'
       - '*.png'
@@ -36,9 +36,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Open the v272 setup ZIP
+      - name: Open the v275 setup ZIP
         run: |
-          unzip -oq PokeRoulette_v272_Delta_Reign_Bulbapedia_Setup.zip -d _app
+          unzip -oq PokeRoulette_v275_Rarity_Enrichment_Setup.zip -d _app
           if grep -q 'function loadSharedPrices' index.html; then
             cp index.html _app/index.html
           fi
@@ -70,6 +70,9 @@ jobs:
         run: |
           python3 scripts/build-product-map.py
           python3 scripts/build-audit-references.py
+      - name: Build verified rarity catalogue
+        working-directory: _app
+        run: node scripts/build-rarity-map.mjs
       - name: Run checks
         working-directory: _app
         run: |
@@ -96,6 +99,9 @@ jobs:
             _app/data/prices-v1.json
             _app/.price-state/checkpoint.json
           key: shared-prices-v266-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Validate rarity catalogue
+        working-directory: _app
+        run: node --test tests/rarity-enrichment.test.mjs
       - name: Prepare app
         working-directory: _app
         run: node scripts/prepare-pages.mjs
