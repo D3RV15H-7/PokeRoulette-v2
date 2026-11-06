@@ -3552,6 +3552,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .search-box .pr-search-field > .pr-search-clear:active { transform:translateY(-50%) scale(.95); }
 #setsModal .tcg-expanding-search .pr-search-field { height:100%; }
 #setsModal .tcg-expanding-search .pr-search-clear { right:4px; width:26px; height:26px; }
+/* v2.73 search control polish: an expanded search shows only its clear/close X. */
+#setsModal .tcg-expanding-search.is-expanded > .tcg-set-search-toggle {
+  opacity:0; visibility:hidden; pointer-events:none;
+}
+#setsModal .tcg-expanding-search.is-expanded .pr-search-clear {
+  visibility:visible; pointer-events:auto;
+}
 /* Prevent native iOS/WebKit search cancellation from overlapping our button. */
 .pr-search-field input[type="search"]::-webkit-search-cancel-button { -webkit-appearance:none; appearance:none; display:none; }
 #infoModal .info-content a { color:#93c5fd; text-decoration:underline; }
@@ -10773,6 +10780,8 @@ function updateSlidingSetSearch(panelId, buttonId, inputId, expanded, query, nam
   const label = `${expanded ? 'Hide' : 'Show'} ${name} search`;
   button.title = label;
   button.setAttribute('aria-label', label);
+  // The dynamically inserted X must also appear when an expanded search is empty.
+  if (typeof input._prUpdateClear === 'function') input._prUpdateClear();
 }
 
 function updateCurrentSetSearchControls() {
@@ -17840,11 +17849,24 @@ async function battleStart(){
     clear.title = 'Clear search';
     clear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     holder.appendChild(clear);
-    const update = () => { clear.hidden = !input.value.length || input.disabled; };
+    const isExpandedSetSearch = () =>
+      (id === 'tcgSetSearchInput' || id === 'tcgSetCardSearchInput') &&
+      !!input.closest('.tcg-expanding-search')?.classList.contains('is-expanded');
+    const update = () => {
+      clear.hidden = input.disabled || (!input.value.length && !isExpandedSetSearch());
+      clear.setAttribute('aria-label', input.value ? 'Clear search' : 'Close search');
+      clear.title = input.value ? 'Clear search' : 'Close search';
+    };
+    input._prUpdateClear = update;
     clear.addEventListener('pointerdown', e => e.preventDefault());
     clear.addEventListener('click', e => {
       e.preventDefault(); e.stopPropagation();
-      if (!input.value) return;
+      if (!input.value) {
+        if (id === 'tcgSetSearchInput') toggleTcgCatalogueSearch(false);
+        if (id === 'tcgSetCardSearchInput') toggleCurrentSetSearch(false);
+        update();
+        return;
+      }
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles:true }));
       input.dispatchEvent(new Event('change', { bubbles:true }));
