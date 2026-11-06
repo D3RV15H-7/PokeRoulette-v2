@@ -3140,6 +3140,9 @@ body:not(.has-active) #wheelWrap #wheel {
   background: var(--owned-variant-background, var(--green));
   border-color: transparent;
   background-origin: border-box;
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 /*Match the glyph colour in all card collection checkboxes.*/
 .card-check-circle.checked,
@@ -5456,20 +5459,28 @@ function paintSetCardOwnershipIndicator(node, card) {
   else delete check.dataset.variantKind;
   const colours = {base:'var(--green)', reverse:'var(--gold)', alternative:'#38bdf8'};
   if (selected.length > 1) {
-    // A narrow dark angular separator remains visible when neighbouring
-    // selections have the same colour. Use degrees so it doesn't get thicker
-    // as the number of selected printings increases.
-    const segmentAngle = 360 / selected.length;
-    const separatorDegrees = Math.min(2.5, segmentAngle * 0.12);
-    const stops = selected.flatMap(({category}, i) => {
-      const start = i * segmentAngle;
-      const end = (i + 1) * segmentAngle;
-      return [
-        `${colours[category]} ${start}deg ${end - separatorDegrees}deg`,
-        `#111a2d ${end - separatorDegrees}deg ${end}deg`
-      ];
+    // Draw complete vector wedges with straight, anti-aliased separators.
+    // Conic-gradient gaps used to produce jagged edges at 24px on iOS.
+    const count = selected.length;
+    const angle = 2 * Math.PI / count;
+    const point = (radians) => [
+      (50 + 50 * Math.cos(radians)).toFixed(4),
+      (50 + 50 * Math.sin(radians)).toFixed(4)
+    ];
+    const paths = selected.map(({category}, index) => {
+      const start = -Math.PI / 2 + index * angle;
+      const end = start + angle;
+      const [sx, sy] = point(start);
+      const [ex, ey] = point(end);
+      const fill = category === 'base' ? '#10b981' : category === 'reverse' ? '#facc15' : '#38bdf8';
+      return `<path d="M50 50 L${sx} ${sy} A50 50 0 ${angle > Math.PI ? 1 : 0} 1 ${ex} ${ey} Z" fill="${fill}"/>`;
     });
-    check.style.setProperty('--owned-variant-background', `conic-gradient(from 180deg, ${stops.join(', ')})`);
+    const lines = selected.map((_, index) => {
+      const [x, y] = point(-Math.PI / 2 + index * angle);
+      return `<path d="M50 50 L${x} ${y}"/>`;
+    });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g>${paths.join('')}</g><g fill="none" stroke="#172238" stroke-width="2.6" stroke-linecap="butt" stroke-linejoin="round">${lines.join('')}</g></svg>`;
+    check.style.setProperty('--owned-variant-background', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
   } else if (selected.length === 1) {
     check.style.setProperty('--owned-variant-background', colours[selected[0].category]);
   } else check.style.removeProperty('--owned-variant-background');
@@ -9753,7 +9764,77 @@ async function fetchSvpCatalogueCards(url, headers) {
   return [...merged.values()];
 }
 
+// The August 2002 New York e-Reader Sample printing has ten real, unusually
+// numbered cards. Catalogue APIs often index the release but omit its cards.
+// Preserve its unique `sp` ownership identities instead of substituting the
+// visually similar (but different) Expedition Base Set printing.
+const SAMPLE_EREADER_CHECKLIST = Object.freeze([
+  ['002','Hoppip'], ['004','Koffing'], ['016','Pikachu'],
+  ['019','Gastly'], ['021','Machop'], ['042','Machoke'],
+  ['048','Chansey'], ['074','Rapidash'], ['083','Pichu'], ['088','Machamp']
+]);
+let sampleArtworkCheckAt = 0;
+let sampleArtworkRequest = null;
+function buildEReaderSampleCards(verifiedCards = []) {
+  const normalize = name => String(name || '').toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Never use generic Expedition artwork for these unique demonstration prints.
+  const byName = new Map(verifiedCards.filter(card =>
+    card?.name && typeof card.smallImg === 'string' &&
+    /^https:\/\/assets\.tcgdex\.net\//i.test(card.smallImg)
+  ).map(card => [normalize(card.name),card]));
+  return SAMPLE_EREADER_CHECKLIST.map(([number,name]) => {
+    const verified = byName.get(normalize(name));
+    return {
+      id:`sp-${number}`, setId:'sp', number, localId:number,
+      name, setName:'Sample Set (e-Reader Promos)',
+      pokemonId:getPokemonIdFromCardName(name),
+      smallImg:verified?.smallImg || TCG_CARD_ARTWORK_UNAVAILABLE,
+      largeImg:verified?.largeImg || TCG_CARD_ARTWORK_UNAVAILABLE,
+      smallImgFallbacks:[], largeImgFallbacks:[],
+      rarity:'Promo', rarityScore:0, priceGBP:null,
+      baseFinish:'normal', variants:{standard:true, reverseHolo:false, other:false},
+      _samplePrinting:true
+    };
+  });
+}
+async function loadEReaderSampleCards(forceRefresh = false) {
+  const cacheKey = getSetCardsCacheKey('sp');
+  let cached = window.tcgSetCardsCache?.sp;
+  if (!Array.isArray(cached)) {
+    try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')?.data; } catch (_) {}
+  }
+  const known = Array.isArray(cached) ? cached : [];
+  const cards = buildEReaderSampleCards(known);
+  if (!window.tcgSetCardsCache) window.tcgSetCardsCache = {};
+  window.tcgSetCardsCache.sp = cards;
+  // The checklist is immediate. A slow or unavailable provider must not
+  // prevent the user from opening the collection at all.
+  const shouldCheck = forceRefresh || Date.now() - sampleArtworkCheckAt > 6 * 3600000;
+  if (shouldCheck && !sampleArtworkRequest) {
+    sampleArtworkCheckAt = Date.now();
+    sampleArtworkRequest = (async () => {
+      try {
+        const source = await fetchJsonWithRetry('https://api.tcgdex.net/v2/en/sets/sp',
+          {timeoutMs:3500,deadline:Date.now()+4500},0);
+        if (String(source?.id).toLowerCase() !== 'sp' || !Array.isArray(source.cards)) return;
+        const sourced = source.cards.filter(card => card?.name && card?.image).map(card => ({
+          name:card.name, smallImg:`${String(card.image).replace(/\/$/,'')}/low.webp`,
+          largeImg:`${String(card.image).replace(/\/$/,'')}/high.webp`
+        }));
+        if (!sourced.length) return;
+        const updated = buildEReaderSampleCards(sourced);
+        window.tcgSetCardsCache.sp = updated;
+        try { localStorage.setItem(cacheKey,JSON.stringify({savedAt:Date.now(),data:updated})); } catch (_) {}
+        publishTcgProgress('sp',updated);
+      } catch (_) { /* Keep the known 10-card checklist. */ }
+      finally { sampleArtworkRequest=null; }
+    })();
+  }
+  return cards;
+}
+
 async function loadCardsForSet(setId, forceRefresh = false) {
+  if (setId === 'sp') return loadEReaderSampleCards(forceRefresh);
   if (SUPPLEMENTAL_PROMO_BY_SET.has(setId)) return loadSupplementalPromoCards(setId, forceRefresh);
   if (setId === YELLOW_A_SET_ID) {
     return fetchYellowAAlternateCards(forceRefresh);
