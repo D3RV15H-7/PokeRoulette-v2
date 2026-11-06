@@ -3531,7 +3531,30 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .card-image-loading{position:relative;}
 .card-image-loading::after{content:"";position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid rgba(148,163,184,.3);border-top-color:#38bdf8;border-radius:50%;animation:cardImageSpin .85s linear infinite;pointer-events:none;z-index:3;}
 @keyframes cardImageSpin{to{transform:rotate(360deg)}}
-.delta-checklist-credit{font-size:11px;line-height:1.4;color:#aab6cc;text-align:center;margin:10px 8px 4px}.delta-checklist-credit a{color:#a2d8ff;text-decoration:underline}
+
+/* v2.73: accessible search-clear controls on every catalogue/Pokémon search. */
+.pr-search-field { position:relative; display:block; width:100%; min-width:0; }
+.search-box > .pr-search-field { flex:1 1 0; min-width:0; }
+.pr-search-field > input { box-sizing:border-box; width:100%; }
+.search-box .pr-search-field > input { padding-right:2.6rem; }
+.pr-search-field > input:not(.tcg-set-search-input) { padding-right:2.55rem; }
+.pr-search-clear {
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:28px; height:28px; padding:0; border:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#dce6f3; background:#344155; cursor:pointer; z-index:3;
+  box-shadow:none; opacity:1; transition:opacity .12s ease;
+}
+.pr-search-clear[hidden] { display:none !important; }
+.pr-search-clear svg { width:15px; height:15px; pointer-events:none; }
+.pr-search-clear:focus-visible { outline:2px solid #10b981; outline-offset:2px; }
+.search-box .pr-search-field > .pr-search-clear { background:#253247; border:0; padding:0; box-shadow:none; width:28px; height:28px; font-size:inherit; }
+.search-box .pr-search-field > .pr-search-clear:active { transform:translateY(-50%) scale(.95); }
+#setsModal .tcg-expanding-search .pr-search-field { height:100%; }
+#setsModal .tcg-expanding-search .pr-search-clear { right:4px; width:26px; height:26px; }
+/* Prevent native iOS/WebKit search cancellation from overlapping our button. */
+.pr-search-field input[type="search"]::-webkit-search-cancel-button { -webkit-appearance:none; appearance:none; display:none; }
+#infoModal .info-content a { color:#93c5fd; text-decoration:underline; }
 </style>
 <style>
 /* v186 fixes */
@@ -4315,31 +4338,28 @@ svg.nav-artwork use{pointer-events:none}
     </div>
     <div class="info-content">
       <section class="info-section info-wheel">
-        <h4>POKEROULETTE WHEEL</h4>
-        <p>Tap the Poké Ball or swipe the wheel to spin. Search by Pokémon name or Pokédex number. Explore evolutions, different artwork, card previews and sharing.</p>
-        <p><strong class="variant-base">Green counts:</strong> loaded / saved.<br><strong class="variant-reverse">Yellow counts:</strong> partial / loading.<br>Sources: PokéAPI, Pokémon TCG API, TCGdex and supplementary artwork / references.</p>
+        <h4>POKÉROULETTE WHEEL</h4>
+        <p>Tap the Poké Ball or swipe to spin; search by Pokémon name or Pokédex number. Explore evolutions, card artwork, previews and sharing. Tap × to clear a search.</p>
+        <p><strong class="variant-base">Green counts:</strong> loaded / saved. <strong class="variant-reverse">Yellow counts:</strong> partial / loading. Pokémon data: PokéAPI; card catalogue and imagery: TCGdex, supplementary card APIs and verified manual references.</p>
       </section>
       <section class="info-section">
         <h4>COLLECTION &amp; SETS</h4>
-        <p>Collect cards in Dex (National Pokédex) or Sets. Card badges:</p>
-        <div class="info-badge-key"><span><strong class="variant-base">Green:</strong> Standard / Holo</span><span><strong class="variant-reverse">Yellow:</strong> Reverse</span><span><strong class="variant-alt">Blue:</strong> Alternative.</span></div>
-        <p>Split badges show collected versions; progress counts cards.</p>
-        <p><strong>Add All:</strong> Standard / Holo (if base).<br><strong>Remove All:</strong> Clears the set.<br><strong>Magnifying glass:</strong> Search; Clear text to reset.<br>Collection saves locally; sign in via Profile to sync across devices.</p>
+        <p>Track cards in Dex or Sets. <strong class="variant-base">Green</strong> = base Standard / Holo; <strong class="variant-reverse">yellow</strong> = any Reverse; <strong class="variant-alt">blue</strong> = other printings. Split ticks show individual selected versions, including matching colours.</p>
+        <p><strong>Add All</strong> selects eligible base prints; <strong>Remove All</strong> clears a set. Search or filter collections; tap × to clear. Collection saves locally; sign in through Profile to sync across devices.</p>
       </section>
       <section class="info-section battles">
         <h4>BATTLE</h4>
-        <p>Pick or randomise 1v1, 3v3 or 6v6 teams, then Battle.<br><strong>▶</strong> Normal speed, <strong>▶▶</strong> 2× speed, <strong>END</strong> skips the battle.</p>
-        <p><strong>Special:</strong> Tap when ready to queue your next attack; recharges after use (10 secs). Never automatic for your team.</p>
-        <p><strong>Potion:</strong> restores 25% max HP at ≤50% HP, once per Pokémon.<br>1 / 2 / 3 potions per 1v1 / 3v3 / 6v6 battle.<br>Opponent specials and potions are automatic.</p>
+        <p>Choose or randomise teams for 1v1, 3v3 or 6v6. <strong>▶</strong> normal, <strong>▶▶</strong> 2×, <strong>END</strong> finishes. <strong>Special</strong> is manually queued for your team with a 10-second recharge.</p>
+        <p><strong>Potions</strong> restore 25% max HP at ≤50% HP; 1 / 2 / 3 potions for 1v1 / 3v3 / 6v6. Opponent specials and potions are automatic.</p>
       </section>
       <section class="info-section prices">
-        <h4>PRICES &amp; DATA</h4>
-        <p>GBP estimates: <strong>Cardmarket Trend</strong> first, then <strong>TCGplayer Market</strong>, then <strong>Cardmarket AVG</strong>. Unavailable: <strong>Market N/A</strong>.</p>
-        <p>Refreshes on first view each day. Price date is the source’s update date.</p>
+        <h4>PRICES &amp; CARD DATA</h4>
+        <p>GBP estimates prioritise Cardmarket Trend, then TCGplayer Market and Cardmarket AVG when available. Missing quotes display N/A; source dates reflect supplied pricing data. Prices update via the existing daily GitHub workflow.</p>
+        <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately; this is not an automatic Bulbapedia feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.72</span></h4>
-        <p>Unofficial fan app; not affiliated with Nintendo or The Pokémon Company. Pokémon names and content belong to Nintendo / Creatures Inc. / GAME FREAK Inc. Other content belongs to its rights holders. Prices are estimates.</p>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.73</span></h4>
+        <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
   </div>
@@ -10431,7 +10451,7 @@ const percentage = totalCount > 0 ? Math.round((collectedCount / totalCount) * 1
 
 </div>
 
-${set.id === 'me06' ? `<div class="delta-checklist-credit">Card checklist: <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>. Art and prices supplied separately.</div>` : ''}
+
 <div class="tcg-set-cards" id="tcgSetCards"></div>
 `;
   attachSetLogo(grid.querySelector('.tcg-set-detail-logo'), set, true);
@@ -17798,6 +17818,49 @@ async function battleStart(){
  }
 }
 
+</script>
+<script>
+
+/* v2.73: a clear (×) button at the end of every real card/Pokémon search field. */
+(function installPokeSearchClearButtons(){
+  const ids = ['sInput','dexFilterInput','tcgSetSearchInput','tcgSetCardSearchInput','battleOwnedSearch'];
+  function install(id) {
+    const input = document.getElementById(id);
+    if (!input || input.dataset.pokeClearInstalled === '1') return;
+    const parent = input.parentNode;
+    if (!parent) return;
+    const holder = document.createElement('span');
+    holder.className = 'pr-search-field';
+    parent.insertBefore(holder, input);
+    holder.appendChild(input);
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'pr-search-clear';
+    clear.setAttribute('aria-label', 'Clear search');
+    clear.title = 'Clear search';
+    clear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    holder.appendChild(clear);
+    const update = () => { clear.hidden = !input.value.length || input.disabled; };
+    clear.addEventListener('pointerdown', e => e.preventDefault());
+    clear.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (!input.value) return;
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+      update();
+      input.focus({preventScroll:true});
+    });
+    input.addEventListener('input',update);
+    input.addEventListener('change',update);
+    input.dataset.pokeClearInstalled = '1';
+    update();
+  }
+  function installAll(){ ids.forEach(install); }
+  installAll();
+  const grid = document.getElementById('setsGrid');
+  if (grid) new MutationObserver(() => install('tcgSetCardSearchInput')).observe(grid, {childList:true,subtree:false});
+})();
 </script>
 </body>
 </html>
