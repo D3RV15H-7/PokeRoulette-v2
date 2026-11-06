@@ -3586,6 +3586,21 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-stroke:.35px #7acbd8;
   filter:drop-shadow(0 1px 1px #030917);}
 
+/* v2.74: card-specific rarity and promo mark alongside name. */
+.tcg-identity-rarity { white-space:nowrap; font-weight:900; letter-spacing:-.09em; color:#1b2232; -webkit-text-stroke:.4px #edf2f7; text-shadow:0 1px 1px #9aa5b1; }
+.tcg-identity-rarity.rarity-black { color:#111827; -webkit-text-stroke:.5px #cdd5e0; }
+.tcg-identity-rarity.rarity-silver { color:#d9e0e9; -webkit-text-stroke:.45px #778ca7; text-shadow:0 1px 2px #1a2a42; }
+.tcg-identity-rarity.rarity-gold,.tcg-identity-rarity.rarity-mega-gold { color:#f5ca50; -webkit-text-stroke:.35px #b57918; text-shadow:0 1px 2px #4b3213; }
+.tcg-identity-rarity.rarity-pink { color:#f385bc; -webkit-text-stroke:.4px #6d2354; }
+.tcg-identity-rarity.rarity-rainbow,.tcg-identity-rarity.rarity-mega-attack { color:#d6a5fb; -webkit-text-stroke:.4px #8e61c2; }
+.tcg-identity-rarity.rarity-black-white { color:#f9fafb; -webkit-text-stroke:.6px #111827; }
+.tcg-identity-rarity.rarity-prism { color:#b9a1fc; }
+.tcg-identity-rarity.rarity-common,.tcg-identity-rarity.rarity-uncommon { color:#111827; -webkit-text-stroke:.55px #d1d5db; }
+.tcg-identity-promo-star { position:relative; display:inline-flex; align-items:center; justify-content:center; color:#111827; font-size:1.55em; line-height:1; -webkit-text-stroke:.8px #d1d5db; }
+.tcg-identity-promo-star > span { position:absolute; left:50%; top:53%; transform:translate(-50%,-50%) rotate(-14deg); font-size:.23em; font-weight:1000; letter-spacing:-.02em; color:white; -webkit-text-stroke:0; text-shadow:0 0 1px #fff; }
+.tcg-zoom-view-area .tcg-zoom-title { grid-template-columns:minmax(34px,1fr) minmax(0,max-content) minmax(34px,1fr); }
+.tcg-identity-ex[data-mechanic="GX"] { background-image:linear-gradient(140deg,#f9fbff,#8edbef,#3164b3); }
+.tcg-identity-ex[data-mechanic="V"],.tcg-identity-ex[data-mechanic="VMAX"],.tcg-identity-ex[data-mechanic="VSTAR"] { background-image:linear-gradient(140deg,#f3f4f6,#a6c6db,#5487af);letter-spacing:-.045em; }
 </style>
 <style>
 /* v186 fixes */
@@ -4389,7 +4404,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately; this is not an automatic Bulbapedia feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.73</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.74</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -10244,7 +10259,7 @@ async function loadCardsForSet(setId, forceRefresh = false) {
           normalizeCardNumber(card.number),
         rarity:
           card.rarity ||
-          'Common',
+          'Unknown',
         rarityScore:
   typeof getRarityScore === 'function'
     ? getRarityScore(card.rarity)
@@ -13244,46 +13259,121 @@ function renderCardName(element, name) {
   element.replaceChildren(fragment);
 }
 
-// Rarity badges are presentation only. Unknown/promotional rarities are not guessed.
+// Physical TCG rarity marks. Bulbapedia/Pokemon TCG rarity names inform this
+// mapping; the rarity for each printing must come from that card's data.
+const CARD_RARITY_MARKS = Object.freeze({
+  common:{symbol:'●',kind:'common'},
+  uncommon:{symbol:'◆',kind:'uncommon'},
+  rare:{symbol:'★',kind:'black'},
+  'double rare':{symbol:'★★',kind:'black'},
+  'ultra rare':{symbol:'★★',kind:'silver'},
+  'illustration rare':{symbol:'★',kind:'gold'},
+  'special illustration rare':{symbol:'★★',kind:'gold'},
+  'hyper rare':{symbol:'★★★',kind:'gold'},
+  'shiny rare':{symbol:'☆',kind:'gold'},
+  'shiny ultra rare':{symbol:'☆☆',kind:'gold'},
+  'ace spec rare':{symbol:'★',kind:'pink'},
+  'mega hyper rare':{symbol:'★',kind:'mega-gold'},
+  'mega attack rare':{symbol:'★★',kind:'mega-attack'},
+  'black white rare':{symbol:'★',kind:'black-white'},
+  'rare holo':{symbol:'★',kind:'black'},
+  'rare holo ex':{symbol:'★',kind:'black'},
+  'rare holo gx':{symbol:'★',kind:'black'},
+  'rare holo v':{symbol:'★',kind:'black'},
+  'rare holo vmax':{symbol:'★',kind:'black'},
+  'rare holo vstar':{symbol:'★',kind:'black'},
+  'rare holo lv.x':{symbol:'★',kind:'black'},
+  'rare shiny gx':{symbol:'☆',kind:'gold'},
+  'rare prism':{symbol:'◇',kind:'prism'},
+  'rare break':{symbol:'★',kind:'black'},
+  'rare ace':{symbol:'★',kind:'black'},
+  'rare prime':{symbol:'★',kind:'black'},
+  'trainer gallery rare holo':{symbol:'★',kind:'black'},
+  'galarian gallery':{symbol:'★',kind:'black'},
+  'rare secret classic':{symbol:'★',kind:'black'},
+  'rare rainbow':{symbol:'★',kind:'rainbow'},
+  'rainbow rare':{symbol:'★',kind:'rainbow'},
+  'secret rare':{symbol:'★',kind:'black'},
+  'radiant rare':{symbol:'★',kind:'black'},
+  'amazing rare':{symbol:'★',kind:'rainbow'},
+  'rare prism star':{symbol:'◇',kind:'prism'},
+  'prism star':{symbol:'◇',kind:'prism'},
+  'trainer gallery rare':{symbol:'★',kind:'black'},
+  'character rare':{symbol:'★',kind:'black'},
+  'character super rare':{symbol:'★',kind:'black'},
+  'rare shiny':{symbol:'☆',kind:'gold'},
+  'rare ultra':{symbol:'★',kind:'black'},
+  'promo rare':{symbol:'★',kind:'black'},
+  'rare secret':{symbol:'★',kind:'black'}
+});
+function isPhysicalPromoPrinting(card) {
+  const setId=String(card?.set?.id||card?.setId||card?.artworkTcgDexSetId||card?.artworkPokemonSetId||'').toLowerCase();
+  const id=String(card?.id||'').toLowerCase();
+  const sourceSet=setId || id.split('-')[0];
+  const setName=String(card?.setName||card?.set?.name||'');
+  const rarity=String(card?.rarity||'').toLowerCase();
+  return (typeof isPhysicalPromoSetId==='function' && isPhysicalPromoSetId(sourceSet)) ||
+    /(?:^|\s)(?:black star promos?|promotional cards?|sv promos?|swsh promos?|xy promos?|sun & moon promos?|wizards black star promos?|mega evolution promos?)(?:$|\s)/i.test(setName) ||
+    /^(?:promo|black star promo)$/.test(rarity);
+}
 function cardRarityDisplay(card) {
-  const rarity = String(card?.rarity || '').trim().toLowerCase();
-  if (!rarity || rarity === 'unknown' || rarity === 'promo') return null;
-  if (rarity === 'common') return {symbol:'●', label:'Common', kind:'common'};
-  if (rarity === 'uncommon') return {symbol:'◆', label:'Uncommon', kind:'uncommon'};
-  if (rarity.includes('rare') || rarity.includes('star')) {
-    return {symbol:'★', label:String(card.rarity), kind:'rare'};
-  }
+  if (isPhysicalPromoPrinting(card)) return {symbol:'★',label:'Black Star Promo',kind:'promo'};
+  const original=String(card?.rarity||'').trim();
+  const key=original.toLowerCase().replace(/[-_]/g,' ').replace(/\s+/g,' ').trim();
+  if (!key || ['unknown','none','not applicable','promo'].includes(key)) return null;
+  const match=CARD_RARITY_MARKS[key];
+  if (match) return {...match,label:original};
+  // Recognise explicit older rarity labels, never infer rarity from ex/GX/V
+  // or from the card number: those do not uniquely determine a printing.
+  if (/^(?:rare holo(?:foil)?|holo rare)(?:\s+(?:ex|gx|v|vmax|vstar))?$/.test(key))
+    return {symbol:'★',label:original,kind:'black'};
+  if (/^rare(?:\s+(?:holo|secret|ultra|rainbow|shiny))?$/.test(key))
+    return {symbol:'★',label:original,kind:'black'};
   return null;
 }
-function renderZoomCardIdentity(container, card) {
-  if (!container) return;
-  const name = String(card?.name || '');
-  const rarity = cardRarityDisplay(card);
-  // Only separate an actual EX/ex name suffix, not words containing "ex".
-  const match = /^(.*?)(\s+)(ex)$/i.exec(name.trim());
-  const main = match ? match[1] : name;
-  const nameSpan = document.createElement('span');
-  nameSpan.className = 'tcg-identity-name';
-  renderCardName(nameSpan, main);
-  const left = document.createElement('span');
-  left.className = 'tcg-identity-side tcg-identity-rarity';
-  if (rarity) {
+function cardNameMechanic(name) {
+  const text=String(name||'').trim();
+  // Match terminal names only. Both "Banette-GX" and "Tatsugiri ex" qualify.
+  const match=/^(.*?)(?:\s+|[-–])((?:V-?UNION)|VMAX|VSTAR|LV\.?X|BREAK|GX|EX|ex|V)$/i.exec(text);
+  if(!match || !match[1]) return {main:text,suffix:''};
+  return {main:match[1],suffix:match[2]};
+}
+function renderZoomCardIdentity(container,card) {
+  if(!container)return;
+  const name=String(card?.name||'');
+  const rarity=cardRarityDisplay(card);
+  const parts=cardNameMechanic(name);
+  const left=document.createElement('span');
+  left.className='tcg-identity-side tcg-identity-rarity';
+  if(rarity){
     left.classList.add('rarity-'+rarity.kind);
-    left.textContent = rarity.symbol;
-    left.title = rarity.label;
-    left.setAttribute('aria-label', 'Rarity: '+rarity.label);
+    if(rarity.kind==='promo') {
+      const badge=document.createElement('span');
+      badge.className='tcg-identity-promo-star';
+      badge.textContent='★';
+      const label=document.createElement('span');
+      label.textContent='PROMO';
+      badge.appendChild(label);
+      left.appendChild(badge);
+    } else left.textContent=rarity.symbol;
+    left.title=rarity.label;
+    left.setAttribute('aria-label','Rarity: '+rarity.label);
   }
-  const right = document.createElement('span');
-  right.className = 'tcg-identity-side tcg-identity-suffix';
-  if (match) {
-    const suffix = document.createElement('span');
-    suffix.className = 'tcg-identity-ex';
-    suffix.textContent = match[3];
-    suffix.setAttribute('aria-label', match[3].toLowerCase() === 'ex' ? 'ex card' : match[3]);
-    right.appendChild(suffix);
+  const middle=document.createElement('span');
+  middle.className='tcg-identity-name';
+  renderCardName(middle,parts.main);
+  const right=document.createElement('span');
+  right.className='tcg-identity-side tcg-identity-suffix';
+  if(parts.suffix){
+    const badge=document.createElement('span');
+    badge.className='tcg-identity-ex';
+    badge.dataset.mechanic=parts.suffix.toUpperCase();
+    badge.textContent=parts.suffix;
+    badge.setAttribute('aria-label',parts.suffix+' card');
+    right.appendChild(badge);
   }
-  container.replaceChildren(left,nameSpan,right);
-  container.setAttribute('aria-label', [name,rarity?.label&&'rarity '+rarity.label].filter(Boolean).join(', '));
+  container.replaceChildren(left,middle,right);
+  container.setAttribute('aria-label',[name,rarity&&'rarity '+rarity.label].filter(Boolean).join(', '));
 }
 
 function renderDexCardsGrid(cardsList) {
