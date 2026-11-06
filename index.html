@@ -3567,6 +3567,25 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 /* Prevent native iOS/WebKit search cancellation from overlapping our button. */
 .pr-search-field input[type="search"]::-webkit-search-cancel-button { -webkit-appearance:none; appearance:none; display:none; }
 #infoModal .info-content a { color:#93c5fd; text-decoration:underline; }
+
+/* v2.73: precise rarity symbol and ex suffix around the full-size card title. */
+.tcg-zoom-view-area .tcg-zoom-title {
+  display: grid; grid-template-columns: minmax(22px,1fr) minmax(0,max-content) minmax(22px,1fr);
+  align-items: center; justify-content: center; gap: .4rem; padding: 0 1.25rem;
+  box-sizing: border-box; overflow: visible;
+}
+.tcg-identity-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tcg-identity-side { min-width:0; font-size:.85em; line-height:1; }
+.tcg-identity-rarity { text-align:right; color:#cbd5e1; }
+.tcg-identity-rarity.rarity-common {font-size:.8em}
+.tcg-identity-rarity.rarity-uncommon {font-size:.8em}
+.tcg-identity-rarity.rarity-rare {color:#f5d268}
+.tcg-identity-suffix { text-align:left; }
+.tcg-identity-ex {display:inline-block;font-size:.85em;font-weight:950;letter-spacing:-.06em;
+  font-style:italic;line-height:1;background:linear-gradient(150deg,#d4fdff 10%,#78dfea 48%,#246aaa 85%);
+  background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-stroke:.35px #7acbd8;
+  filter:drop-shadow(0 1px 1px #030917);}
+
 </style>
 <style>
 /* v186 fixes */
@@ -4748,7 +4767,10 @@ function getOwnedSetCardVariants(card) {
     }
     setVariantOwnershipIndex = { ref: memSetCardVariants, size: memSetCardVariants.size, byCard };
   }
-  return [...(setVariantOwnershipIndex.byCard.get(fingerprint) || [])];
+  // Keep previous Jumbo ownership keys stored for compatibility, but never count
+  // or display them as collectible versions.
+  return [...(setVariantOwnershipIndex.byCard.get(fingerprint) || [])]
+    .filter(key => !isExcludedJumboVariantOption({key}));
 }
 function normaliseVariantToken(value) {
   const token = String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 90);
@@ -4756,6 +4778,10 @@ function normaliseVariantToken(value) {
 }
 function isExcludedCardPrinting(value) {
   if (!value || typeof value !== 'object') return false;
+  // Oversized printings are intentionally outside the collection catalogue.
+  // Apply before variant normalisation, including records with descriptive labels.
+  if (/(?:^|[-\s_])(?:jumbo|oversized|oversize)(?:$|[-\s_])/i.test(
+        [value.size, value.name, value.label, value.variantId].filter(Boolean).join(' '))) return true;
   const stamps = value.stamp || value.stamps || [];
   const tokens = [value.type, value.subtype, value.foil, value.edition, value.variantId, value.name, value.label, value.finish,
     ...(Array.isArray(stamps) ? stamps : [stamps])].map(normaliseVariantToken).filter(Boolean);
@@ -5373,8 +5399,13 @@ function getNamedCardVariantDefinitions(card) {
   }
   return sortSetCardVariantDefinitions(card, definitions);
 }
+function isExcludedJumboVariantOption(option) {
+  const printing = option?.printing || decodeNamedVariantKey(option?.key);
+  return /^(jumbo|oversize|oversized)$/i.test(String(printing?.size || '').trim()) ||
+    /(?:^|[\s·_-])(?:jumbo|oversize|oversized)(?:$|[\s·_-])/i.test(String(option?.label || option?.key || ''));
+}
 function getAvailableSetCardVariants(card) {
-  const definitions = getNamedCardVariantDefinitions(card);
+  const definitions = getNamedCardVariantDefinitions(card).filter(option => !isExcludedJumboVariantOption(option));
   // Old saved Holo and stamped keys are aliases of this one physical card,
   // not separate selectable printings.
   if (isMeeAnniversaryEnergyCard(card)) return definitions;
@@ -5385,6 +5416,7 @@ function getAvailableSetCardVariants(card) {
     const printing = decodeNamedVariantKey(key);
     if (printing && basePrinting && namedVariantKey(printing) === namedVariantKey(basePrinting)) continue;
     if (printing && isExcludedCardPrinting(printing)) continue;
+    if (isExcludedJumboVariantOption({key, printing})) continue;
     if (basePrinting?.type === 'holo' && basePrinting?.foil === 'gold' && !basePrinting?.stamp?.length &&
         (key === 'holo' || (printing?.type === 'holo' && !printing.foil && !printing.subtype && !printing.stamp?.length))) continue;
     if (isUnsupportedPlainPrinting(card, printing || (key === 'reverseHolo' ? normaliseNamedPrinting({type:'reverse'}) : null))) continue;
@@ -5463,7 +5495,10 @@ function getSetVariantCategory(card, key, label) {
   if (key === 'standard' || options.length === 1) return 'base';
   const text = String(label || option?.label || '');
   const printing = option?.printing || decodeNamedVariantKey(key);
-  // Every additional reverse printing is yellow: Energy Reverse,
+  // A stamped alternative is blue even if the underlying foil is reverse.
+  // The base printing is already handled above and remains green.
+  if (printing?.stamp?.length || /\bstamp(?:ed)?\b/i.test(text)) return 'alternative';
+  // Every non-stamped reverse printing is yellow: Energy Reverse,
   // Poké Ball Reverse, Cosmos Reverse, etc.
   if (/reverse/i.test(text) || key === 'reverseHolo' || printing?.type === 'reverse' ||
       isRegularExpansionReverse(card, printing)) return 'reverse';
@@ -11133,6 +11168,34 @@ function resolveTcgSetSeries(set) {
   return names[key] || series || 'Other';
 }
 
+// Keep a named Classic Collection directly after its corresponding main set.
+// Apply this only when both entries are in the same series; unrelated sets
+// continue to follow the normal newest-first release-date ordering.
+function orderTcgClassicCollectionsBelowParents(dateSortedSets) {
+  const sorted = [...dateSortedSets];
+  const normalise = name => String(name || '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const classicSuffix = /(?:\s+classic collection)$/;
+  const parentNames = new Set(sorted.filter(set => !classicSuffix.test(normalise(set.name)))
+    .map(set => normalise(set.name)));
+  const children = new Map();
+  const remaining = [];
+  for (const set of sorted) {
+    const name = normalise(set.name);
+    const parent = classicSuffix.test(name) ? name.replace(classicSuffix, '').trim() : '';
+    if (parent && parentNames.has(parent)) {
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(set);
+    } else remaining.push(set);
+  }
+  const result = [];
+  for (const set of remaining) {
+    result.push(set);
+    result.push(...(children.get(normalise(set.name)) || []));
+  }
+  return result;
+}
+
 function groupTcgSetsBySeries(sets) {
   const groups = new Map();
   for (const set of reconcileCollectorSets(sets)) {
@@ -11143,7 +11206,9 @@ function groupTcgSetsBySeries(sets) {
   }
   const dateKey = set => String(set.releaseDate || '').replace(/\//g, '-');
   const newestFirst = (a, b) => dateKey(b).localeCompare(dateKey(a));
-  for (const group of groups.values()) group.sets.sort(newestFirst);
+  for (const group of groups.values()) {
+    group.sets = orderTcgClassicCollectionsBelowParents(group.sets.sort(newestFirst));
+  }
   const ordered = [...groups.values()].sort((a, b) => newestFirst(a.sets[0], b.sets[0]));
   // Keep this special collection near Black & White / HeartGold & SoulSilver,
   // regardless of the release year of its newest set.
@@ -13179,6 +13244,48 @@ function renderCardName(element, name) {
   element.replaceChildren(fragment);
 }
 
+// Rarity badges are presentation only. Unknown/promotional rarities are not guessed.
+function cardRarityDisplay(card) {
+  const rarity = String(card?.rarity || '').trim().toLowerCase();
+  if (!rarity || rarity === 'unknown' || rarity === 'promo') return null;
+  if (rarity === 'common') return {symbol:'●', label:'Common', kind:'common'};
+  if (rarity === 'uncommon') return {symbol:'◆', label:'Uncommon', kind:'uncommon'};
+  if (rarity.includes('rare') || rarity.includes('star')) {
+    return {symbol:'★', label:String(card.rarity), kind:'rare'};
+  }
+  return null;
+}
+function renderZoomCardIdentity(container, card) {
+  if (!container) return;
+  const name = String(card?.name || '');
+  const rarity = cardRarityDisplay(card);
+  // Only separate an actual EX/ex name suffix, not words containing "ex".
+  const match = /^(.*?)(\s+)(ex)$/i.exec(name.trim());
+  const main = match ? match[1] : name;
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'tcg-identity-name';
+  renderCardName(nameSpan, main);
+  const left = document.createElement('span');
+  left.className = 'tcg-identity-side tcg-identity-rarity';
+  if (rarity) {
+    left.classList.add('rarity-'+rarity.kind);
+    left.textContent = rarity.symbol;
+    left.title = rarity.label;
+    left.setAttribute('aria-label', 'Rarity: '+rarity.label);
+  }
+  const right = document.createElement('span');
+  right.className = 'tcg-identity-side tcg-identity-suffix';
+  if (match) {
+    const suffix = document.createElement('span');
+    suffix.className = 'tcg-identity-ex';
+    suffix.textContent = match[3];
+    suffix.setAttribute('aria-label', match[3].toLowerCase() === 'ex' ? 'ex card' : match[3]);
+    right.appendChild(suffix);
+  }
+  container.replaceChildren(left,nameSpan,right);
+  container.setAttribute('aria-label', [name,rarity?.label&&'rarity '+rarity.label].filter(Boolean).join(', '));
+}
+
 function renderDexCardsGrid(cardsList) {
   const grid = document.getElementById('dexCardsGrid');
   if (!grid) return;
@@ -14704,7 +14811,7 @@ function updateZoomModalContent() {
     showTcgZoomArtwork(tcgZoomImg, card);
   }
   prepareZoomCardShare(card);
-  renderCardName(tcgZoomTitle, card.name);
+  renderZoomCardIdentity(tcgZoomTitle, card);
   if (tcgZoomMeta) tcgZoomMeta.innerText = `${card.setName} · #${card.number}`;
   const openSetButton = document.getElementById('zoomOpenSetBtn');
   if (openSetButton) {
