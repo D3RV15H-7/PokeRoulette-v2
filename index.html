@@ -3601,6 +3601,52 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .tcg-zoom-view-area .tcg-zoom-title { grid-template-columns:minmax(34px,1fr) minmax(0,max-content) minmax(34px,1fr); }
 .tcg-identity-ex[data-mechanic="GX"] { background-image:linear-gradient(140deg,#f9fbff,#8edbef,#3164b3); }
 .tcg-identity-ex[data-mechanic="V"],.tcg-identity-ex[data-mechanic="VMAX"],.tcg-identity-ex[data-mechanic="VSTAR"] { background-image:linear-gradient(140deg,#f3f4f6,#a6c6db,#5487af);letter-spacing:-.045em; }
+/* v2.76: printing marks belong beside the set/card number, never beside the title. */
+.tcg-zoom-view-area .tcg-zoom-title { display:flex; flex-wrap:nowrap; align-items:center; justify-content:center; gap:.42rem; }
+.tcg-identity-name { flex:0 1 auto; }
+.tcg-identity-suffix { flex:0 0 auto; font-size:1.15em; }
+.tcg-identity-ex {font-size:1.08em;line-height:1.1;letter-spacing:-.035em;}
+.tcg-zoom-meta {display:inline-flex;align-items:center;justify-content:center;gap:.42rem;min-width:0;}
+.tcg-zoom-meta-label {min-width:0;}
+.tcg-zoom-meta-rarity {display:inline-flex;position:relative;flex:none;align-items:center;justify-content:center;
+  width:1.32em;height:1.22em;vertical-align:middle;font-size:1em;line-height:1; font-weight:900;
+  color:#101827;-webkit-text-stroke:.42px #dce5ed;text-shadow:0 1px 1px #7d90a8;}
+.tcg-zoom-meta-rarity.rarity-silver {color:#dce5ed;-webkit-text-stroke:.35px #71859e;text-shadow:0 1px 1px #172334;}
+.tcg-zoom-meta-rarity.rarity-gold,.tcg-zoom-meta-rarity.rarity-mega-gold,
+.tcg-zoom-meta-rarity.rarity-legacy-holo-gold {color:#f6cc54;-webkit-text-stroke:.35px #9b6b19;text-shadow:0 1px 2px #302818;}
+.tcg-zoom-meta-rarity.rarity-pink {color:#ec82bb;-webkit-text-stroke:.25px #753653;}
+.tcg-zoom-meta-rarity.rarity-rainbow {color:#d9a1f0;}
+.tcg-zoom-meta-rarity.rarity-mega-attack {color:#e7a2cb;}
+.tcg-zoom-meta-rarity.rarity-prism {color:#bea8ef;}
+.tcg-zoom-meta-rarity.rarity-black-white {color:#f7f7f7;-webkit-text-stroke:.5px #111827;}
+/* v2.77: English print-symbol geometry: two stars slope downward to the right;
+   three stars make an apex-up triangle. All use the same source rarity class. */
+.tcg-zoom-meta-rarity[data-stars="2"] {width:1.65em;height:1.30em;}
+.tcg-zoom-meta-rarity[data-stars="3"] {width:2.00em;height:1.55em;}
+.tcg-zoom-meta-rarity .rarity-star {position:absolute;font-size:1.02em;line-height:1;left:0;top:0;}
+.tcg-zoom-meta-rarity[data-stars="2"] .rarity-star:nth-child(1) {left:0;top:0;}
+.tcg-zoom-meta-rarity[data-stars="2"] .rarity-star:nth-child(2) {left:.56em;top:.30em;}
+.tcg-zoom-meta-rarity[data-stars="3"] .rarity-star:nth-child(1) {left:.49em;top:0;}
+.tcg-zoom-meta-rarity[data-stars="3"] .rarity-star:nth-child(2) {left:0;top:.53em;}
+.tcg-zoom-meta-rarity[data-stars="3"] .rarity-star:nth-child(3) {left:.99em;top:.53em;}
+.tcg-zoom-meta-rarity.rarity-gold .rarity-star,
+.tcg-zoom-meta-rarity.rarity-silver .rarity-star,
+.tcg-zoom-meta-rarity.rarity-pink .rarity-star { -webkit-text-stroke:.55px #fff1c6; }
+.tcg-zoom-meta-rarity.rarity-silver .rarity-star {-webkit-text-stroke:.5px #fff;}
+.tcg-zoom-meta-rarity.rarity-black .rarity-star {color:#0b1018;-webkit-text-stroke:.7px #d4dbe5;}
+.tcg-zoom-meta-rarity.rarity-gold .rarity-star {color:#facb54;}
+.tcg-zoom-meta-rarity[data-outline="true"] .rarity-star {color:transparent;-webkit-text-stroke:1.65px #f3c84c;text-shadow:none;}
+.tcg-zoom-meta-rarity.rarity-mega-attack .rarity-star:nth-child(1) {color:#f4a1c4;-webkit-text-stroke:.45px #ffe0ec;}
+.tcg-zoom-meta-rarity.rarity-mega-attack .rarity-star:nth-child(2) {color:#a4e8ba;-webkit-text-stroke:.45px #e7ffe9;}
+/* Mechanic is a separate attribute: never infer casing from an uppercased data value. */
+.tcg-zoom-view-area .tcg-identity-ex {font-size:1.23em;line-height:1;font-weight:1000;letter-spacing:-.065em;}
+.tcg-identity-ex[data-style="EX_gold"] {background-image:linear-gradient(165deg,#fff4b8 0%,#f6bf3d 35%,#ad6716 70%,#ffeb91 100%);-webkit-text-stroke:.5px #6c410d;}
+.tcg-identity-ex[data-style="ex_silver"] {background-image:linear-gradient(145deg,#f9ffff 3%,#a6dce9 32%,#456c89 70%,#dcf8ff 100%);-webkit-text-stroke:.45px #426c84;}
+.tcg-identity-ex[data-style="ex_mega"] {background-image:linear-gradient(145deg,#f7e56c 5%,#ffd23b 40%,#b78306 75%,#ffe982 100%);-webkit-text-stroke:1.3px #080b11;filter:drop-shadow(0 1px 1px #f0c937);}
+.tcg-identity-ex[data-style="GX_standard"] {background-image:linear-gradient(150deg,#f5feff 4%,#8bdce7 34%,#2969a9 73%,#dcffff 100%);-webkit-text-stroke:.5px #326fa3;}
+.tcg-identity-ex[data-style="V_standard"],.tcg-identity-ex[data-style="VMAX_standard"],.tcg-identity-ex[data-style="VSTAR_standard"] {background-image:linear-gradient(150deg,#fff 0%,#b5d1e4 45%,#4b779d 85%);-webkit-text-stroke:.45px #56758e;}
+
+.tcg-zoom-meta-rarity .tcg-identity-promo-star {font-size:1.55em;}
 </style>
 <style>
 /* v186 fixes */
@@ -4404,7 +4450,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.75</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.77</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -13278,7 +13324,7 @@ const CARD_RARITY_MARKS = Object.freeze({
   'black white rare':{symbol:'★',kind:'black-white'},
   'rare holo':{symbol:'★',kind:'black'},
   'rare holo ex':{symbol:'★',kind:'black'},
-  'rare holo gx':{symbol:'★',kind:'black'},
+  'rare holo gx':{symbol:'★',kind:'legacy-holo-gold'},
   'rare holo v':{symbol:'★',kind:'black'},
   'rare holo vmax':{symbol:'★',kind:'black'},
   'rare holo vstar':{symbol:'★',kind:'black'},
@@ -13371,6 +13417,13 @@ function cardRarityDisplay(card) {
   const original=String(card?.rarity||'').trim();
   const key=original.toLowerCase().replace(/[-_]/g,' ').replace(/\s+/g,' ').trim();
   if (!key || ['unknown','none','not applicable','promo'].includes(key)) return null;
+  // The two silver Ultra Rare stars were introduced with Scarlet & Violet.
+  // Older GX/EX-era Ultra Rares (e.g. Hidden Fates Onix GX #36)
+  // show a single metallic/gold star on the printed card instead.
+  const printingSet=String(card?.set?.id||card?.setId||card?.artworkTcgDexSetId||card?.id||'').toLowerCase();
+  const legacyUltra=/^(?:base|gym|fossil|jungle|neo|ecard|ex|dp|pl|hgss|bw|xy|sm|swsh)/.test(printingSet) ||
+    /^(?:hidden fates|celestial storm|unified minds|team up|burning shadows)$/i.test(String(card?.setName||''));
+  if(key==='ultra rare' && legacyUltra) return {symbol:'★',kind:'legacy-holo-gold',label:original};
   const match=CARD_RARITY_MARKS[key];
   if (match) return {...match,label:original};
   // Recognise explicit older rarity labels, never infer rarity from ex/GX/V
@@ -13388,27 +13441,70 @@ function cardNameMechanic(name) {
   if(!match || !match[1]) return {main:text,suffix:''};
   return {main:match[1],suffix:match[2]};
 }
+// Print-specific overrides can be added here after verification against a scan.
+// Key format: exact provider set ID + card number, lowercased.
+const CARD_MECHANIC_STYLE_OVERRIDES=Object.freeze({});
+function mechanicStyleForCard(card,suffix){
+  const raw=String(suffix||'');
+  const setId=String(card?.set?.id||card?.setId||card?.artworkTcgDexSetId||'').toLowerCase();
+  const number=normalizeRarityNumber(card?.number||card?.localId).toLowerCase();
+  const override=CARD_MECHANIC_STYLE_OVERRIDES[setId+'-'+number];
+  if(override)return override;
+  // Uppercase EX and lowercase ex represent different eras and have distinct marks.
+  if(raw==='EX')return 'EX_gold';
+  if(raw==='ex'){
+    // Only Mega Evolution POKEMON ex have the black/yellow lettering. Ordinary
+    // Pokemon ex in the same set still use the silver symbol.
+    const name=String(card?.name||'');
+    if(/^Mega\s+.+\s+ex$/i.test(name))return 'ex_mega';
+    return 'ex_silver';
+  }
+  if(raw==='GX')return 'GX_standard';
+  if(['V','VMAX','VSTAR'].includes(raw))return raw+'_standard';
+  return 'legacy_standard';
+}
+function renderZoomRarityMark(card) {
+  const rarity=cardRarityDisplay(card);
+  if(!rarity)return null;
+  const mark=document.createElement('span');
+  mark.className='tcg-zoom-meta-rarity rarity-'+rarity.kind;
+  mark.title=rarity.label;
+  mark.setAttribute('aria-label','Rarity: '+rarity.label);
+  // Render stars independently. A string of Unicode stars makes the two/three
+  // marks sit horizontally and cannot reproduce the diagonal printing layout.
+  if(rarity.kind==='promo') {
+    const badge=document.createElement('span');
+    badge.className='tcg-identity-promo-star';
+    badge.textContent='★';
+    const label=document.createElement('span');
+    label.textContent='PROMO';
+    badge.appendChild(label);
+    mark.appendChild(badge);
+  } else if (/^[★☆]{2,3}$/.test(rarity.symbol)) {
+    mark.dataset.stars=String(rarity.symbol.length);
+    if(rarity.symbol.includes('☆'))mark.dataset.outline='true';
+    for(const symbol of rarity.symbol){
+      const star=document.createElement('span');
+      star.className='rarity-star';star.textContent=symbol;
+      mark.appendChild(star);
+    }
+  } else {
+    mark.textContent=rarity.symbol;
+  }
+  return mark;
+}
+function renderZoomCardMeta(container,card){
+  if(!container)return;
+  const label=document.createElement('span');
+  label.className='tcg-zoom-meta-label';
+  label.textContent=`${card.setName} · #${card.number}`;
+  const mark=renderZoomRarityMark(card);
+  container.replaceChildren(label,...(mark?[mark]:[]));
+}
 function renderZoomCardIdentity(container,card) {
   if(!container)return;
   const name=String(card?.name||'');
-  const rarity=cardRarityDisplay(card);
   const parts=cardNameMechanic(name);
-  const left=document.createElement('span');
-  left.className='tcg-identity-side tcg-identity-rarity';
-  if(rarity){
-    left.classList.add('rarity-'+rarity.kind);
-    if(rarity.kind==='promo') {
-      const badge=document.createElement('span');
-      badge.className='tcg-identity-promo-star';
-      badge.textContent='★';
-      const label=document.createElement('span');
-      label.textContent='PROMO';
-      badge.appendChild(label);
-      left.appendChild(badge);
-    } else left.textContent=rarity.symbol;
-    left.title=rarity.label;
-    left.setAttribute('aria-label','Rarity: '+rarity.label);
-  }
   const middle=document.createElement('span');
   middle.className='tcg-identity-name';
   renderCardName(middle,parts.main);
@@ -13418,12 +13514,13 @@ function renderZoomCardIdentity(container,card) {
     const badge=document.createElement('span');
     badge.className='tcg-identity-ex';
     badge.dataset.mechanic=parts.suffix.toUpperCase();
+    badge.dataset.style=mechanicStyleForCard(card,parts.suffix);
     badge.textContent=parts.suffix;
     badge.setAttribute('aria-label',parts.suffix+' card');
     right.appendChild(badge);
   }
-  container.replaceChildren(left,middle,right);
-  container.setAttribute('aria-label',[name,rarity&&'rarity '+rarity.label].filter(Boolean).join(', '));
+  container.replaceChildren(middle,right);
+  container.setAttribute('aria-label',name);
 }
 
 function renderDexCardsGrid(cardsList) {
@@ -14954,9 +15051,9 @@ function updateZoomModalContent() {
   renderZoomCardIdentity(tcgZoomTitle, card);
   // Fetch only once, without blocking the preview or the wheel.
   if(!publishedRarityIndex)loadPublishedCardRarities().then(()=>{
-    if(currentCardsList[currentZoomIndex]===card)renderZoomCardIdentity(tcgZoomTitle,card);
+    if(currentCardsList[currentZoomIndex]===card)renderZoomCardMeta(tcgZoomMeta,card);
   }).catch(()=>{});
-  if (tcgZoomMeta) tcgZoomMeta.innerText = `${card.setName} · #${card.number}`;
+  renderZoomCardMeta(tcgZoomMeta,card);
   const openSetButton = document.getElementById('zoomOpenSetBtn');
   if (openSetButton) {
     openSetButton.title = `Find ${card.name} in ${card.setName}`;
