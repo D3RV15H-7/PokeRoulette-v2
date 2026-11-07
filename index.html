@@ -4675,7 +4675,7 @@ svg.nav-artwork use{pointer-events:none}
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.85</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.90</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -13760,14 +13760,15 @@ function renderZoomRarityMark(card) {
   mark.title=rarity.label;
   mark.setAttribute('aria-label','Rarity: '+rarity.label);
   const assetKey=rarityLogoAssetKey(rarity);
-  if(assetKey&&(INLINE_LOGO_ASSETS[assetKey] || EXTRA_RARITY_LOGO_ASSETS[assetKey])){
+  if(assetKey){
+    const rarityImage=createInlineLogoImage(assetKey,rarity.label,'tcg-rarity-logo-image');
+    if(!rarityImage)return mark;
     mark.classList.remove('rarity-vector');
     mark.classList.add('rarity-asset');
     const iconStars=(String(rarity.symbol||'').match(/[★☆]/g)||[]).length;
     if(iconStars>1)mark.dataset.stars=String(iconStars);
     if(rarity.kind==='promo')mark.classList.add('rarity-promo');
-    const img=createInlineLogoImage(assetKey, rarity.label, 'tcg-rarity-logo-image');
-    if(img)mark.appendChild(img);
+    mark.appendChild(rarityImage);
     return mark;
   }
   const ns='http://www.w3.org/2000/svg';
@@ -14652,6 +14653,7 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
       }
     }
   } catch (err) {
+    console.error('[PokeRoulette] Card variations failed to load:', err);
     if (!isSpinning && requestId === activeTcgRequestId) {
       currentCardsList = [];
       if (countText) {
