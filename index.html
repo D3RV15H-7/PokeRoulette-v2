@@ -4820,7 +4820,7 @@ body.has-active #wheelWrap {
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.103</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.104</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -7543,6 +7543,11 @@ function normalizeSpecialCollectorReleases(sets) {
       set = { ...set, id:'hgssp', name:'HGSS Black Star Promos', series:'HeartGold & SoulSilver', releaseDate:'2010/02/11', total:25, printedTotal:25 };
     } else if (id === 'mee' || name === 'mega evolution energy' || name === 'mega evolution energies') {
       set = { ...set, id:'mee', name:'Mega Evolution Energy', series:'Mega Evolution', releaseDate:'2025/09/25', total:16, printedTotal:16 };
+    } else if (id === 'mep' || name === 'mep black star promos' || name === 'mega evolution promos' || name === 'mega evolution black star promos') {
+      // TCGdex's promo detail may omit releaseDate even when its bundled set
+      // catalogue supplies the verified September 2025 series start date.
+      // Preserve ID, counts and artwork: never overwrite card/ownership data.
+      set = { ...set, releaseDate: '2025/09/26', series:'Mega Evolution' };
     } else if (id === 'rc' || name === 'radiant collection') {
       set = { ...set, id:'rc', name:'Radiant Collection', series:'Black & White', releaseDate:'2013/11/06', total:25, printedTotal:25 };
     }
@@ -7807,7 +7812,7 @@ async function fetchPhysicalPromoSets(forceRefresh = false) {
     return {
       id: brief.id, name: brief.id === 'mep' ? MEP_PROMO_SET.name : (detail.name || brief.name),
       series: detail.serie?.name || '', total: count, printedTotal: count,
-      releaseDate: String(detail.releaseDate || '').replace(/-/g, '/'),
+      releaseDate: String(detail.releaseDate || (brief.id === 'mep' ? MEP_PROMO_SET.releaseDate : '')).replace(/-/g, '/'),
       images: { logo: detail.logo ? `${detail.logo}.png` : brief.logo ? `${brief.logo}.png` : MEP_PROMO_SET.images.logo,
         symbol: (detail.symbol || brief.symbol) ? `${detail.symbol || brief.symbol}.png` : '' }
     };
@@ -11127,7 +11132,7 @@ const percentage = totalCount > 0 ? Math.round((collectedCount / totalCount) * 1
       </div>
 
       <div class="tcg-set-detail-meta">
-  ${formatTcgSetDisplayDate(set.releaseDate)}
+  ${formatTcgSetDisplayDate(set.releaseDate, set.id)}
   ·
   ${totalCount} cards
 </div>
@@ -12134,7 +12139,7 @@ if (isComplete) item.classList.add('set-complete');
       <div class="tcg-set-name" style="font-size:${String(set.name).length > 32 ? '.70' : String(set.name).length > 26 ? '.78' : '.90'}rem" title="${escapeSetVariantHtml(set.name)}">${escapeSetVariantHtml(set.name)}</div>
 
       <div class="tcg-set-meta">
-        ${formatTcgSetDisplayDate(set.releaseDate)}
+        ${formatTcgSetDisplayDate(set.releaseDate, set.id)}
         ·
         ${totalCount ? `${totalCount} cards` : 'Card checklist pending'}
       </div>
@@ -17339,8 +17344,9 @@ async function loadPokemonDirectory(forceRefresh = false) {
   await loadPokemonDirectory();
   scheduleCollectionValueRefresh(0);
 })();
-function formatTcgSetDisplayDate(value) {
-  const raw = String(value || '').trim();
+function formatTcgSetDisplayDate(value, setId = '') {
+  // Set-level fallback for cached MEP promo listings with blank dates.
+  const raw = String(value || (String(setId || '').toLowerCase() === 'mep' ? '2025/09/26' : '')).trim();
   if (!raw) return '';
   // API dates are normally YYYY/MM/DD (occasionally YYYY-MM-DD).
   const match = raw.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
