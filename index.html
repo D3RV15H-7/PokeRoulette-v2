@@ -4820,7 +4820,7 @@ body.has-active #wheelWrap {
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.106</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.107</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -5842,12 +5842,27 @@ function getNamedCardVariantDefinitions(card) {
     detailed.find(v => v.type === baseType && !v.stamp.length && !v.subtype && v.size === 'standard') ||
     (expansionPromo || (expansionEvidence && detailed.find(v => v.type === baseType && v.size === 'standard' &&
       v.stamp.includes('set-logo') && !v.stamp.includes('staff'))));
-  const definitions = [{ key: 'standard', label: basePrinting ? namedPrintingLabel(basePrinting, baseType)
-    : baseType === 'holo' ? 'Holo' : baseType === 'reverse' ? 'Reverse' : 'Standard', printing: basePrinting || null }];
+  // Every base Holo in the 2026 main 30th Celebration expansion bears
+  // the anniversary stamp. Keep the existing `standard` ownership and
+  // price-quote key; do not manufacture a separately priced stamp version.
+  // Secret Gold Holo cards retain their distinct foil wording.
+  const anniversaryBasePrinting = anniversary ? normaliseNamedPrinting({
+    type:'holo', foil:basePrinting?.foil || '', stamp:['30th-anniversary']
+  }) : null;
+  const definitions = [{ key: 'standard',
+    label: anniversary ? (basePrinting?.foil === 'gold' ? 'Gold Holo' : 'Holo') + ' · Stamp (30th Anniversary)'
+      : basePrinting ? namedPrintingLabel(basePrinting, baseType)
+      : baseType === 'holo' ? 'Holo' : baseType === 'reverse' ? 'Reverse' : 'Standard',
+    printing:anniversaryBasePrinting || basePrinting || null }];
   const seen = new Set([namedVariantKey(basePrinting || normaliseNamedPrinting({type:baseType}))]);
   const add = printing => {
     const p = normaliseNamedPrinting(printing);
     if (!p || isUnsupportedPlainPrinting(card, p) || isGenericPromoFinish(p, expansionPromo)) return;
+    // Generic Holo rows and copies bearing only the set's intrinsic 30th
+    // stamp refer to the same base printing, not additional collectables.
+    // A distinct foil, retailer stamp, reverse, etc. must remain selectable.
+    if (anniversary && p.type === 'holo' && !p.foil && !p.subtype &&
+        (!p.stamp.length || p.stamp.every(stamp => stamp === '30th-anniversary'))) return;
     const identity = namedVariantKey(p);
     if (seen.has(identity)) return;
     seen.add(identity);
@@ -5912,8 +5927,17 @@ function getAvailableSetCardVariants(card) {
   // not separate selectable printings.
   if (isMeeAnniversaryEnergyCard(card) || isThirtyClassicStampedHoloCard(card)) return definitions;
   const expansionPromo = getExclusiveExpansionPromoPrinting(card);
+  const anniversary = typeof getThirtyCelebrationVariantSupplement === 'function' &&
+    getThirtyCelebrationVariantSupplement(card);
   const basePrinting = definitions.find(v => v.key === 'standard')?.printing;
   for (const key of getOwnedSetCardVariants(card)) {
+    // Legacy duplicate base Holo/anniversary-stamp selections are mapped to
+    // the green base, never displayed as additional selectable printings.
+    if (anniversary && (key === 'holo' || (() => {
+      const p = decodeNamedVariantKey(key);
+      return p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard' &&
+        (!p.stamp.length || p.stamp.every(stamp => stamp === '30th-anniversary'));
+    })())) continue;
     if (definitions.some(v => v.key === key)) continue;
     const printing = decodeNamedVariantKey(key);
     if (printing && basePrinting && namedVariantKey(printing) === namedVariantKey(basePrinting)) continue;
@@ -5972,6 +5996,18 @@ function migrateNamedSetCardVariants(card) {
     changed = true; invalidateSetVariantOwnershipIndex();
   };
   const base = definitions.find(v => v.key === 'standard')?.printing;
+  // The main 2026 set now has a stamped Holo base. Consolidate legacy
+  // generic-Holo and intrinsic-anniversary-stamp keys to preserve ownership.
+  if (typeof getThirtyCelebrationVariantSupplement === 'function' &&
+      getThirtyCelebrationVariantSupplement(card)) {
+    move('holo', 'standard');
+    for (const key of getOwnedSetCardVariants(card)) {
+      const p = decodeNamedVariantKey(key);
+      if (p?.type === 'holo' && !p.foil && !p.subtype && p.size === 'standard' &&
+          (!p.stamp.length || p.stamp.every(stamp => stamp === '30th-anniversary')))
+        move(key, 'standard');
+    }
+  }
   // A named printing may itself be the base (for example Cosmos-only promos).
   // Preserve its old tick without presenting the same physical version twice.
   if (base) move(namedVariantKey(base), 'standard');
@@ -12577,6 +12613,11 @@ function selectedSetPriceKeys(card,aliases=[]){
   const result=new Set(), exclusive=getExclusiveExpansionPromoPrinting(card);
   for(const stored of memSetCardVariants){const split=String(stored).lastIndexOf('__');if(split<0||!prefixes.has(stored.slice(0,split)))continue;
     let key=stored.slice(split+2);if(key==='holo'&&card.baseFinish==='holo')key='standard';
+    if(typeof getThirtyCelebrationVariantSupplement==='function' && getThirtyCelebrationVariantSupplement(card) && key.startsWith('v141:')){
+      const p=decodeNamedVariantKey(key);
+      if(p?.type==='holo'&&!p.foil&&!p.subtype&&p.size==='standard'&&
+          (!p.stamp.length||p.stamp.every(stamp=>stamp==='30th-anniversary')))key='standard';
+    }
     if(key.startsWith('v141:')){try{const p=JSON.parse(decodeURIComponent(key.slice(5)));if(!p[1]&&!p[2]&&p[3]==='standard'&&Array.isArray(p[4])&&!p[4].length){if(p[0]===card.baseFinish)key='standard';else if(p[0]==='reverse')key='reverseHolo';}}catch{}}
     if(key==='other'){const extras=(card._printingQuotes||[]).filter(r=>r.printing.type!==card.baseFinish&&r.printing.type!=='reverse');if(extras.length===1){const p=extras[0].printing;key='v141:'+encodeURIComponent(JSON.stringify([p.type,p.foil,p.subtype,p.size,p.stamp]));}}
     if(exclusive && (key===namedVariantKey(exclusive)||['holo','reverseHolo'].includes(key)||isGenericPromoFinish(decodeNamedVariantKey(key),exclusive)))key='standard';
