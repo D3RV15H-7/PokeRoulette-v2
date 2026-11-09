@@ -4820,7 +4820,7 @@ body.has-active #wheelWrap {
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. For Delta Reign, the English 141-card checklist is cross-checked with PokéBeach and PokéCottage; published front scans are tried from numbered English image sources including TCGdex and Serebii; unavailable scans retain the checklist. External checklists are not treated as image licences. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.112</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.113</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -8030,7 +8030,7 @@ function getMeeEnergyArtworkOverride(card) {
   if (!expected || (name && !name.includes(expected))) return null;
   return MEE_ENERGY_ARTWORK[number] || null;
 }
-// v2.112: Optional, audited local artwork overlay. Absence is not an error.
+// v2.113: Optional, audited local artwork overlay. Absence is not an error.
 // The manifest is separate from the card catalogue and never supplies prices.
 const LOCAL_ARTWORK_MANIFEST_URL = './data/artwork-manifest.json';
 let localArtworkByIdentity = new Map();
@@ -8072,7 +8072,8 @@ async function loadLocalArtworkManifest(forceRefresh = false) {
         const file = String(entry?.file || '');
         if (!/^[a-z0-9-]+$/.test(setId) || !/^[0-9]{3}$/.test(number) ||
             Number(number) < 1 || !name ||
-            !/^images\/[a-z0-9-]+\/[0-9]{3}\.(?:webp|png|jpe?g)$/i.test(file) ||
+            !/^images\/[a-z0-9-]+\/[0-9]{3}(?:-[^\/\\?#\r\n]+)?\.(?:webp|png|jpe?g)$/i.test(file) ||
+            file.includes('..') ||
             file.split('/')[1] !== String(entry?.folder || setId)) continue;
         // Exact English-checklist check protects against Japanese numbering.
         if (setId === 'me06') {
@@ -8086,7 +8087,7 @@ async function loadLocalArtworkManifest(forceRefresh = false) {
       localArtworkManifestLoaded = true;
       return localArtworkByIdentity;
     } catch (error) {
-      // A pre-v2.112 Pages deployment does not contain a manifest yet.
+      // A pre-v2.113 Pages deployment does not contain a manifest yet.
       // Never drop previously validated local records because of an outage.
       console.info('[ARTWORK] Local artwork manifest unavailable:', error.message);
       return localArtworkByIdentity;
@@ -9513,7 +9514,7 @@ const DELTA_REIGN_NUMBERED_NAMES = Object.freeze([
   "Zinnia's Trust",
   "Mega Rayquaza ex"
 ]);
-// v2.112: Numbered public English-gallery image fallback. The English
+// v2.113: Numbered public English-gallery image fallback. The English
 // checklist number is used verbatim (no Storm Emeralda number substitution).
 // If a provider does not serve an image, the existing image loader tries the
 // next candidate; neither image URLs nor pixels are used as pricing evidence.
@@ -9539,7 +9540,7 @@ function getDeltaReignChecklistCards() {
     };
   });
 }
-// v2.112: Fetch the confirmed English expansion directly from TCGdex instead of
+// v2.113: Fetch the confirmed English expansion directly from TCGdex instead of
 // waiting for third-party checklists or a global provider catalogue refresh.
 // The English collector number (me06-001 etc.) is the only attachment key.
 // PokéBeach/PokéCottage are reviewed checklist references, NOT image hotlinks.
@@ -10337,7 +10338,7 @@ const CARD_VARIANT_SUPPLEMENTS = Object.freeze({
 // https://bulbapedia.bulbagarden.net/wiki/30th_Celebration_(TCG)
 // https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_30th_Anniversary
 // Separately numbered MEP promos and the Classic Collection are excluded.
-// v2.112: The three unnumbered RGB Mews are unstamped holo printings.
+// v2.113: The three unnumbered RGB Mews are unstamped holo printings.
 // Match on the 2026 main set AND the R/G/B identity, not on the Mew name alone.
 function getThirtyRgbMewRank(card) {
   if (!card) return -1;
@@ -10872,7 +10873,7 @@ function isolateNumberedSetVariants(setId, cards) {
 }
 
 async function fetchCardsForSet(setId, forceRefresh = false) {
-  // v2.112: A reviewed 141-card checklist is always available offline.
+  // v2.113: A reviewed 141-card checklist is always available offline.
   // TCGdex has started publishing Delta Reign scans, so fetch the English
   // numbered catalogue directly instead of returning placeholders forever.
   if (setId === 'me06') {
@@ -11148,7 +11149,7 @@ function orderThirtiethClassicCards(setId, cards) {
   }).sort((a,b) => a.position - b.position || a.i - b.i).map(item => item.card);
 }
 
-// v2.112: place the lettered RGB Mews at the end in red, green, blue
+// v2.113: place the lettered RGB Mews at the end in red, green, blue
 // order regardless of provider sorting or previously cached card order.
 function orderThirtiethMainRgbMews(setId, cards) {
   if (!Array.isArray(cards)) return cards;
