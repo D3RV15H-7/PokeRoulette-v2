@@ -108,6 +108,11 @@ jobs:
       - name: Prepare app
         working-directory: _app
         run: node scripts/prepare-pages.mjs
+      - name: Build verified local artwork manifest
+        run: |
+          if [ -f tools/build_artwork_manifest.py ]; then
+            python3 tools/build_artwork_manifest.py
+          fi
       - name: Include verified local card artwork
         run: |
           # Preserve the existing prepared site and pricing data.
