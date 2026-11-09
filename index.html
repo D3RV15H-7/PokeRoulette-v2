@@ -4817,10 +4817,10 @@ body.has-active #wheelWrap {
       <section class="info-section prices">
         <h4>PRICES &amp; CARD DATA</h4>
         <p>GBP estimates prioritise Cardmarket Trend, then TCGplayer Market and Cardmarket AVG when available. Missing quotes display N/A; source dates reflect supplied pricing data. Prices update via the existing daily GitHub workflow.</p>
-        <p>New-set checklists may be added from reviewed sources before artwork becomes available. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
+        <p>New-set checklists may be added from reviewed sources before artwork becomes available. For Delta Reign, the English 141-card checklist is cross-checked with PokéBeach and PokéCottage; published front scans are retrieved from verified TCGdex card IDs only. External checklists are not treated as image licences. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.107</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.109</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -5794,6 +5794,11 @@ function getMeeAnniversaryBasePrinting() {
 }
 function getNamedCardVariantDefinitions(card) {
   if (!card) return [];
+  if (typeof getThirtyRgbMewRank === 'function' && getThirtyRgbMewRank(card) >= 0) {
+    // RGB Mew has exactly one unstamped holo printing; preserve standard
+    // ownership and its existing market price key.
+    return [{key:'standard', label:'Holo', printing:normaliseNamedPrinting({type:'holo'})}];
+  }
   if (isThirtyClassicStampedHoloCard(card)) {
     // Keep the original base ownership key and base-market quote. A second
     // checkbox for the identical stamp would double-count the same card.
@@ -9411,20 +9416,134 @@ function getDeltaReignChecklistCards() {
     };
   });
 }
-function mergeDeltaReignRecords(records) {
-  const byNumber=new Map(getDeltaReignChecklistCards().map(card=>[Number(card.number),card]));
-  for(const card of records||[]) {
-    const number=Number(String(card?.number||card?.localId||'').split('/')[0]);
-    if(!Number.isInteger(number)||number<1||number>141) continue;
-    const reference=byNumber.get(number);
-    // Keep genuine provider data (including verified scans, variants and prices)
-    // over checklist-only records. Never replace it with placeholder data.
-    const norm=value=>String(value||'').toLowerCase().replace(/ex/g,'').replace(/[^a-z0-9]+/g,'');
-    const sameSet = String(card?.setId||card?.set?.id||'me06').toLowerCase()==='me06' ||
-      String(card?.setName||card?.set?.name||'').toLowerCase().includes('delta reign');
-    if(sameSet && card?.name && card?.id && norm(card.name)===norm(reference.name)) byNumber.set(number,{...reference,...card});
+// v2.109: Fetch the confirmed English expansion directly from TCGdex instead of
+// waiting for third-party checklists or a global provider catalogue refresh.
+// The English collector number (me06-001 etc.) is the only attachment key.
+// PokéBeach/PokéCottage are reviewed checklist references, NOT image hotlinks.
+const DELTA_REIGN_VERIFIED_CACHE_KEY = 'pokeroulette_delta_reign_english_v2109';
+let deltaReignVerifiedRequest = null;
+let deltaReignLastAttempt = 0;
+const DELTA_REIGN_VERIFIED_TTL = 6 * 60 * 60 * 1000;
+function normalizeDeltaReignNumber(value) {
+  const match = String(value ?? '').trim().match(/^0*(\d{1,3})(?:\/103)?$/);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  return Number.isInteger(n) && n >= 1 && n <= 141 ? n : 0;
+}
+function validatedDeltaReignEnglishCards(detail) {
+  if (!detail || String(detail.id || '').toLowerCase() !== 'me06' || !Array.isArray(detail.cards))
+    throw new Error('Not the confirmed English Delta Reign expansion');
+  const checklist = DELTA_REIGN_NUMBERED_NAMES;
+  const results = new Map();
+  for (const brief of detail.cards) {
+    const n = normalizeDeltaReignNumber(brief.localId);
+    const expectedId = `me06-${String(n).padStart(3, '0')}`;
+    if (!n || String(brief.id || '').toLowerCase() !== expectedId || !brief.name) continue;
+    // Require an exact card number from the verified English expansion;
+    // never match Japanese Storm Emeralda numbers or by Pokémon name alone.
+    const normalize = name => String(name || '').normalize('NFKD')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const expectedName = checklist[n - 1];
+    const aliases = {132:'bubblywaterenergy',133:'growinggrassenergy',134:'nitrofireenergy'};
+    if (normalize(brief.name) !== normalize(expectedName) &&
+        normalize(brief.name) !== aliases[n]) continue;
+    const base = typeof brief.image === 'string' &&
+      /^https:\/\/assets\.tcgdex\.net\/en\//i.test(brief.image)
+      ? brief.image.replace(/\/$/, '') : '';
+    const num = String(n).padStart(3, '0');
+    results.set(n, {
+      id:expectedId, setId:'me06', setName:'Delta Reign', name:brief.name,
+      localId:num, number:num,
+      artworkTcgDexSetId:'me06', _tcgDexDetailId:expectedId,
+      smallImg:base ? `${base}/low.webp` : TCG_CARD_ARTWORK_UNAVAILABLE,
+      largeImg:base ? `${base}/high.webp` : TCG_CARD_ARTWORK_UNAVAILABLE,
+      smallImgFallbacks:base ? [`${base}/high.webp`] : [],
+      largeImgFallbacks:base ? [`${base}/low.webp`] : [],
+      rarity:brief.rarity || '',
+      _earlyPreview:!base, _deltaReignVerified:true,
+      // Do not infer card finishes or fabricate a market quote from images.
+      priceGBP:null
+    });
   }
-  return [...byNumber.values()].sort((a,b)=>Number(a.number)-Number(b.number));
+  if (!results.size) throw new Error('TCGdex returned no matching English Delta Reign identities');
+  return [...results.values()];
+}
+async function loadVerifiedDeltaReignCards(forceRefresh = false) {
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(DELTA_REIGN_VERIFIED_CACHE_KEY) || 'null'); } catch (_) {}
+  const validSaved = Array.isArray(cached?.cards) && cached.cards.length > 0;
+  if (!forceRefresh && validSaved && Date.now() - cached.savedAt < DELTA_REIGN_VERIFIED_TTL)
+    return cached.cards;
+  if (deltaReignVerifiedRequest) return deltaReignVerifiedRequest;
+  if (!forceRefresh && Date.now() - deltaReignLastAttempt < 60000)
+    return validSaved ? cached.cards : [];
+  deltaReignLastAttempt = Date.now();
+  deltaReignVerifiedRequest = (async () => {
+    try {
+      const detail = await fetchJsonWithRetry('https://api.tcgdex.net/v2/en/sets/me06',
+        {timeoutMs:7000,deadline:Date.now()+9000,...(forceRefresh?{cache:'reload'}:{})}, 1);
+      const cards = validatedDeltaReignEnglishCards(detail);
+      // Do not downgrade a previously complete image catalogue to a partial response.
+      const merged = new Map((validSaved ? cached.cards : []).map(card => [Number(card.number),card]));
+      for (const card of cards) {
+        const existing = merged.get(Number(card.number));
+        if (existing && card.smallImg === TCG_CARD_ARTWORK_UNAVAILABLE &&
+            existing.smallImg && existing.smallImg !== TCG_CARD_ARTWORK_UNAVAILABLE)
+          merged.set(Number(card.number), {...card,smallImg:existing.smallImg,
+            largeImg:existing.largeImg,smallImgFallbacks:existing.smallImgFallbacks || [],
+            largeImgFallbacks:existing.largeImgFallbacks || []});
+        else merged.set(Number(card.number), card);
+      }
+      const updated = [...merged.values()];
+      try { localStorage.setItem(DELTA_REIGN_VERIFIED_CACHE_KEY,
+        JSON.stringify({savedAt:Date.now(),cards:updated})); } catch (_) {}
+      return updated;
+    } catch (error) {
+      console.warn('[SETS] English Delta Reign images unavailable; keeping checklist:',error.message);
+      return validSaved ? cached.cards : [];
+    }
+  })();
+  try { return await deltaReignVerifiedRequest; }
+  finally { deltaReignVerifiedRequest = null; }
+}
+function mergeDeltaReignRecords(records) {
+  const byNumber = new Map(getDeltaReignChecklistCards().map(card => [Number(card.number),card]));
+  for (const card of records || []) {
+    const n = normalizeDeltaReignNumber(card?.number ?? card?.localId);
+    if (!n || !card?.id || !card?.name) continue;
+    const reference = byNumber.get(n);
+    const setId = String(card.setId || card.set?.id || '').toLowerCase();
+    const isEnglish = setId === 'me06' ||
+      (!setId && String(card.id).toLowerCase() === `me06-${String(n).padStart(3,'0')}`);
+    // Reject a card from a different expansion, even if its number and name match.
+    if (!isEnglish) continue;
+    const norm = value => String(value || '').normalize('NFKD').toLowerCase()
+      .replace(/\bex\b/g,'').replace(/[^a-z0-9]+/g,'');
+    const energyAlias = {132:'bubblywaterenergy',133:'growinggrassenergy',134:'nitrofireenergy'};
+    if (norm(card.name) !== norm(reference.name) && norm(card.name) !== energyAlias[n]) continue;
+    const validImage = value => typeof value === 'string' && value !== TCG_CARD_ARTWORK_UNAVAILABLE &&
+      (/^https:\/\/assets\.tcgdex\.net\//i.test(value) ||
+       /^https:\/\/images\.pokemontcg\.io\//i.test(value));
+    const prior = byNumber.get(n);
+    const merged = {...prior,...card,
+      id:reference.id, number:reference.number,localId:reference.localId,
+      setId:'me06',setName:'Delta Reign',
+      smallImg:validImage(card.smallImg) ? card.smallImg : prior.smallImg,
+      largeImg:validImage(card.largeImg) ? card.largeImg : prior.largeImg,
+      smallImgFallbacks:[...new Set([...(card.smallImgFallbacks || []),...(prior.smallImgFallbacks || [])])]
+        .filter(validImage),
+      largeImgFallbacks:[...new Set([...(card.largeImgFallbacks || []),...(prior.largeImgFallbacks || [])])]
+        .filter(validImage),
+      priceGBP:card.priceGBP ?? prior.priceGBP ?? null,
+      rarity:card.rarity || prior.rarity || '',
+      rarityScore:card.rarityScore ?? prior.rarityScore ?? 0,
+      variants:card.variants || prior.variants,
+      baseFinish:card.baseFinish || prior.baseFinish,
+      _earlyPreview:!(validImage(card.smallImg) || validImage(prior.smallImg))
+    };
+    byNumber.set(n,merged);
+  }
+  return [...byNumber.values()].sort((a,b) => Number(a.number) - Number(b.number));
 }
 
 // Officially announced English expansions may appear before the card APIs finish indexing.
@@ -10095,6 +10214,30 @@ const CARD_VARIANT_SUPPLEMENTS = Object.freeze({
 // https://bulbapedia.bulbagarden.net/wiki/30th_Celebration_(TCG)
 // https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_30th_Anniversary
 // Separately numbered MEP promos and the Classic Collection are excluded.
+// v2.109: The three unnumbered RGB Mews are unstamped holo printings.
+// Match on the 2026 main set AND the R/G/B identity, not on the Mew name alone.
+function getThirtyRgbMewRank(card) {
+  if (!card) return -1;
+  const id = String(card.id || '').trim().toLowerCase();
+  const setId = String(card.set?.id || card.setId || card.artworkTcgDexSetId || '').trim().toLowerCase();
+  const setName = String(card.setName || card.set?.name || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+  if (['30th-c', 'me55c'].includes(setId) || /^(?:30th-c|me55c)-/.test(id) ||
+      /classic collection/.test(setName)) return -1;
+  if (!['30th', 'me6', 'me55'].includes(setId) &&
+      !/^(?:30th|me6|me55)-/.test(id) && setName !== '30th celebration') return -1;
+  const name = String(card.name || card.cardName || '').toLowerCase().trim();
+  if (!/^mew(?:\s|$|[-(])/.test(name) || /\b(?:ex|gx|vmax|vstar)\b/i.test(name)) return -1;
+  const number = String(card.number || card.localId || '').trim().toUpperCase();
+  const numberMatch = /^([RGB])(?:\s*\/\s*RGB)?$/.exec(number);
+  let letter = numberMatch?.[1];
+  if (!letter) {
+    const nameMatch = /^mew\s*(?:[-(]\s*)?(red|green|blue|[rgb])(?:\s*\/\s*rgb)?\s*\)?$/i.exec(name);
+    const alias = nameMatch?.[1]?.toUpperCase();
+    letter = ({RED:'R',GREEN:'G',BLUE:'B'})[alias] || alias;
+  }
+  return ({R:0,G:1,B:2})[letter] ?? -1;
+}
 function getThirtyCelebrationVariantSupplement(card) {
   if (!card) return null;
   const id = String(card.id || '').trim().toLowerCase();
@@ -10103,6 +10246,10 @@ function getThirtyCelebrationVariantSupplement(card) {
   if (['30th-c', 'me55c'].includes(setId) || /^(?:30th-c|me55c)-/.test(id) || /classic collection/.test(name)) return null;
   if (!['30th', 'me6', 'me55'].includes(setId) && !/^(?:30th|me6|me55)-/.test(id) && name !== '30th celebration') return null;
   const number = String(card.number || card.localId || id.replace(/^(?:30th|me6|me55)-/, '')).split('/')[0].replace(/^0+(?=\d)/, '').trim();
+  if (typeof getThirtyRgbMewRank === 'function' && getThirtyRgbMewRank(card) >= 0) return {
+    standard:true, baseFinish:'holo', reverseHolo:false, other:false,
+    unstamped:true, source:'v2108-rgb-mew-unmarked'
+  };
   const cardName = String(card.name || '').trim().toLowerCase();
   const other = (number === '63' && (!cardName || cardName === 'mewtwo')) || (number === '116' && (!cardName || cardName === 'eevee'));
   return {
@@ -10602,16 +10749,20 @@ function isolateNumberedSetVariants(setId, cards) {
 }
 
 async function fetchCardsForSet(setId, forceRefresh = false) {
-  // v2.72: an identity-only released checklist should not wait for a network
-  // request before allowing its set to open. Use cached provider records
-  // immediately; Refresh Cards explicitly probes live providers.
-  if (setId === 'me06' && !forceRefresh) {
+  // v2.109: A reviewed 141-card checklist is always available offline.
+  // TCGdex has started publishing Delta Reign scans, so fetch the English
+  // numbered catalogue directly instead of returning placeholders forever.
+  if (setId === 'me06') {
+    await loadPublishedEarlyCatalogue(false);
     let saved = window.tcgSetCardsCache?.me06 || [];
     if (!saved.length) {
       try { saved = JSON.parse(localStorage.getItem(getSetCardsCacheKey('me06')) || 'null')?.data || []; } catch (_) {}
     }
-    loadPublishedEarlyCatalogue(false).catch(() => {});
-    return mergeDeltaReignRecords([...getPublishedEarlyCardList('me06'),...saved]);
+    const verified = await loadVerifiedDeltaReignCards(forceRefresh);
+    const merged = mergeDeltaReignRecords([...getPublishedEarlyCardList('me06'),...saved,...verified]);
+    window.tcgSetCardsCache ||= {};
+    window.tcgSetCardsCache.me06 = merged;
+    return merged;
   }
   await loadPublishedEarlyCatalogue(forceRefresh);
   if (isExcludedDeckProductSet({ id: setId })) return [];
@@ -10870,6 +11021,22 @@ function orderThirtiethClassicCards(setId, cards) {
     const fallback = nameRank.get(name);
     return {card, i, position: exact ?? fallback ?? (THIRTIETH_CLASSIC_SEQUENCE.length + i)};
   }).sort((a,b) => a.position - b.position || a.i - b.i).map(item => item.card);
+}
+
+// v2.109: place the lettered RGB Mews at the end in red, green, blue
+// order regardless of provider sorting or previously cached card order.
+function orderThirtiethMainRgbMews(setId, cards) {
+  if (!Array.isArray(cards)) return cards;
+  const code = String(setId || '').trim().toLowerCase();
+  if (!['30th','me6','me55'].includes(code)) return cards;
+  const main = [], rgb = [];
+  for (const card of cards) {
+    const rank = getThirtyRgbMewRank({...card, setId:code});
+    if (rank < 0) main.push(card);
+    else rgb.push({card,rank});
+  }
+  rgb.sort((a,b) => a.rank-b.rank);
+  return [...main, ...rgb.map(item => item.card)];
 }
 
 async function loadCardsForSet(setId, forceRefresh = false) {
@@ -11164,7 +11331,7 @@ async function openTcgSet(set, preserveFilters = false) {
     `;
     return;
   }
-  currentCardsList = orderThirtiethClassicCards(set.id, cards);
+  currentCardsList = orderThirtiethMainRgbMews(set.id, orderThirtiethClassicCards(set.id, cards));
   // Convert any ownership saved by the old Sets checkbox into Standard variants.
   migrateLegacySetCardOwnership(currentCardsList);
   const collectedCount = currentCardsList.filter(card => isSetCardCollected(card) ).length;
