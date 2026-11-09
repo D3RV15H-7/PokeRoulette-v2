@@ -1,0 +1,571 @@
+{
+  "setId": "me06",
+  "setName": "Delta Reign",
+  "cardCount": 141,
+  "cards": [
+    {
+      "number": "001",
+      "name": "Heracross"
+    },
+    {
+      "number": "002",
+      "name": "Surskit"
+    },
+    {
+      "number": "003",
+      "name": "Masquerain"
+    },
+    {
+      "number": "004",
+      "name": "Cacnea"
+    },
+    {
+      "number": "005",
+      "name": "Cacturne"
+    },
+    {
+      "number": "006",
+      "name": "Combee"
+    },
+    {
+      "number": "007",
+      "name": "Vespiquen"
+    },
+    {
+      "number": "008",
+      "name": "Shaymin"
+    },
+    {
+      "number": "009",
+      "name": "Virizion"
+    },
+    {
+      "number": "010",
+      "name": "Wimpod"
+    },
+    {
+      "number": "011",
+      "name": "Mega Golisopod ex"
+    },
+    {
+      "number": "012",
+      "name": "Sprigatito"
+    },
+    {
+      "number": "013",
+      "name": "Floragato"
+    },
+    {
+      "number": "014",
+      "name": "Meowscarada ex"
+    },
+    {
+      "number": "015",
+      "name": "Smoliv"
+    },
+    {
+      "number": "016",
+      "name": "Dolliv"
+    },
+    {
+      "number": "017",
+      "name": "Arboliva"
+    },
+    {
+      "number": "018",
+      "name": "Growlithe"
+    },
+    {
+      "number": "019",
+      "name": "Arcanine"
+    },
+    {
+      "number": "020",
+      "name": "Magmar"
+    },
+    {
+      "number": "021",
+      "name": "Magmortar"
+    },
+    {
+      "number": "022",
+      "name": "Torkoal"
+    },
+    {
+      "number": "023",
+      "name": "Heat Rotom ex"
+    },
+    {
+      "number": "024",
+      "name": "Heatmor"
+    },
+    {
+      "number": "025",
+      "name": "Mantine"
+    },
+    {
+      "number": "026",
+      "name": "Kyogre"
+    },
+    {
+      "number": "027",
+      "name": "Frillish"
+    },
+    {
+      "number": "028",
+      "name": "Jellicent"
+    },
+    {
+      "number": "029",
+      "name": "Wishiwashi ex"
+    },
+    {
+      "number": "030",
+      "name": "Electabuzz"
+    },
+    {
+      "number": "031",
+      "name": "Electivire"
+    },
+    {
+      "number": "032",
+      "name": "Jolteon"
+    },
+    {
+      "number": "033",
+      "name": "Raikou ex"
+    },
+    {
+      "number": "034",
+      "name": "Rotom"
+    },
+    {
+      "number": "035",
+      "name": "Thundurus"
+    },
+    {
+      "number": "036",
+      "name": "Pincurchin"
+    },
+    {
+      "number": "037",
+      "name": "Pawmi"
+    },
+    {
+      "number": "038",
+      "name": "Pawmo"
+    },
+    {
+      "number": "039",
+      "name": "Pawmot"
+    },
+    {
+      "number": "040",
+      "name": "Wattrel"
+    },
+    {
+      "number": "041",
+      "name": "Kilowattrel"
+    },
+    {
+      "number": "042",
+      "name": "Miraidon"
+    },
+    {
+      "number": "043",
+      "name": "Drowzee"
+    },
+    {
+      "number": "044",
+      "name": "Hypno"
+    },
+    {
+      "number": "045",
+      "name": "Giratina"
+    },
+    {
+      "number": "046",
+      "name": "Golett"
+    },
+    {
+      "number": "047",
+      "name": "Mega Golurk ex"
+    },
+    {
+      "number": "048",
+      "name": "Enamorus"
+    },
+    {
+      "number": "049",
+      "name": "Sandshrew"
+    },
+    {
+      "number": "050",
+      "name": "Sandslash"
+    },
+    {
+      "number": "051",
+      "name": "Onix"
+    },
+    {
+      "number": "052",
+      "name": "Steelix"
+    },
+    {
+      "number": "053",
+      "name": "Groudon"
+    },
+    {
+      "number": "054",
+      "name": "Landorus"
+    },
+    {
+      "number": "055",
+      "name": "Nidoran♀"
+    },
+    {
+      "number": "056",
+      "name": "Nidorina"
+    },
+    {
+      "number": "057",
+      "name": "Nidoqueen"
+    },
+    {
+      "number": "058",
+      "name": "Spinarak"
+    },
+    {
+      "number": "059",
+      "name": "Ariados"
+    },
+    {
+      "number": "060",
+      "name": "Sableye"
+    },
+    {
+      "number": "061",
+      "name": "Carvanha"
+    },
+    {
+      "number": "062",
+      "name": "Sharpedo"
+    },
+    {
+      "number": "063",
+      "name": "Darkrai"
+    },
+    {
+      "number": "064",
+      "name": "Purrloin"
+    },
+    {
+      "number": "065",
+      "name": "Liepard"
+    },
+    {
+      "number": "066",
+      "name": "Zorua"
+    },
+    {
+      "number": "067",
+      "name": "Zoroark ex"
+    },
+    {
+      "number": "068",
+      "name": "Inkay"
+    },
+    {
+      "number": "069",
+      "name": "Mega Malamar ex"
+    },
+    {
+      "number": "070",
+      "name": "Morpeko"
+    },
+    {
+      "number": "071",
+      "name": "Zarude"
+    },
+    {
+      "number": "072",
+      "name": "Druddigon"
+    },
+    {
+      "number": "073",
+      "name": "Jangmo-o"
+    },
+    {
+      "number": "074",
+      "name": "Hakamo-o"
+    },
+    {
+      "number": "075",
+      "name": "Kommo-o"
+    },
+    {
+      "number": "076",
+      "name": "Cyclizar"
+    },
+    {
+      "number": "077",
+      "name": "Tauros"
+    },
+    {
+      "number": "078",
+      "name": "Eevee"
+    },
+    {
+      "number": "079",
+      "name": "Delibird"
+    },
+    {
+      "number": "080",
+      "name": "Azurill"
+    },
+    {
+      "number": "081",
+      "name": "Swablu"
+    },
+    {
+      "number": "082",
+      "name": "Altaria"
+    },
+    {
+      "number": "083",
+      "name": "Kecleon"
+    },
+    {
+      "number": "084",
+      "name": "Mega Rayquaza ex"
+    },
+    {
+      "number": "085",
+      "name": "Tornadus"
+    },
+    {
+      "number": "086",
+      "name": "Fletchling"
+    },
+    {
+      "number": "087",
+      "name": "Fletchinder"
+    },
+    {
+      "number": "088",
+      "name": "Talonflame ex"
+    },
+    {
+      "number": "089",
+      "name": "Aarune"
+    },
+    {
+      "number": "090",
+      "name": "Adventure Lantern"
+    },
+    {
+      "number": "091",
+      "name": "Custom Vest"
+    },
+    {
+      "number": "092",
+      "name": "Emcee's Hype"
+    },
+    {
+      "number": "093",
+      "name": "Grisham"
+    },
+    {
+      "number": "094",
+      "name": "Legendary Pyroduct"
+    },
+    {
+      "number": "095",
+      "name": "Legendary Pyroduct"
+    },
+    {
+      "number": "096",
+      "name": "Legendary Summit"
+    },
+    {
+      "number": "097",
+      "name": "Legendary Summit"
+    },
+    {
+      "number": "098",
+      "name": "Legendary Trench"
+    },
+    {
+      "number": "099",
+      "name": "Legendary Trench"
+    },
+    {
+      "number": "100",
+      "name": "Mega Rayquaza Cap"
+    },
+    {
+      "number": "101",
+      "name": "Tasty Rice Ball"
+    },
+    {
+      "number": "102",
+      "name": "Tate & Liza's Training"
+    },
+    {
+      "number": "103",
+      "name": "Zinnia's Trust"
+    },
+    {
+      "number": "104",
+      "name": "Masquerain"
+    },
+    {
+      "number": "105",
+      "name": "Sprigatito"
+    },
+    {
+      "number": "106",
+      "name": "Growlithe"
+    },
+    {
+      "number": "107",
+      "name": "Magmortar"
+    },
+    {
+      "number": "108",
+      "name": "Electivire"
+    },
+    {
+      "number": "109",
+      "name": "Pincurchin"
+    },
+    {
+      "number": "110",
+      "name": "Enamorus"
+    },
+    {
+      "number": "111",
+      "name": "Groudon"
+    },
+    {
+      "number": "112",
+      "name": "Zorua"
+    },
+    {
+      "number": "113",
+      "name": "Inkay"
+    },
+    {
+      "number": "114",
+      "name": "Eevee"
+    },
+    {
+      "number": "115",
+      "name": "Azurill"
+    },
+    {
+      "number": "116",
+      "name": "Altaria"
+    },
+    {
+      "number": "117",
+      "name": "Kecleon"
+    },
+    {
+      "number": "118",
+      "name": "Mega Golisopod ex"
+    },
+    {
+      "number": "119",
+      "name": "Heat Rotom ex"
+    },
+    {
+      "number": "120",
+      "name": "Wishiwashi ex"
+    },
+    {
+      "number": "121",
+      "name": "Raikou ex"
+    },
+    {
+      "number": "122",
+      "name": "Mega Golurk ex"
+    },
+    {
+      "number": "123",
+      "name": "Mega Malamar ex"
+    },
+    {
+      "number": "124",
+      "name": "Talonflame ex"
+    },
+    {
+      "number": "125",
+      "name": "Aarune"
+    },
+    {
+      "number": "126",
+      "name": "Adventure Lantern"
+    },
+    {
+      "number": "127",
+      "name": "Custom Vest"
+    },
+    {
+      "number": "128",
+      "name": "Emcee's Hype"
+    },
+    {
+      "number": "129",
+      "name": "Pokémon Catcher"
+    },
+    {
+      "number": "130",
+      "name": "Tate & Liza's Training"
+    },
+    {
+      "number": "131",
+      "name": "Zinnia's Trust"
+    },
+    {
+      "number": "132",
+      "name": "Bubbly W Energy"
+    },
+    {
+      "number": "133",
+      "name": "Growing G Energy"
+    },
+    {
+      "number": "134",
+      "name": "Nitro R Energy"
+    },
+    {
+      "number": "135",
+      "name": "Mega Golisopod ex"
+    },
+    {
+      "number": "136",
+      "name": "Raikou ex"
+    },
+    {
+      "number": "137",
+      "name": "Mega Golurk ex"
+    },
+    {
+      "number": "138",
+      "name": "Mega Rayquaza ex"
+    },
+    {
+      "number": "139",
+      "name": "Aarune"
+    },
+    {
+      "number": "140",
+      "name": "Zinnia's Trust"
+    },
+    {
+      "number": "141",
+      "name": "Mega Rayquaza ex"
+    }
+  ]
+}
