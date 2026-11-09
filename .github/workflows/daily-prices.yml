@@ -14,6 +14,9 @@ on:
       - '*.ico'
       - 'manifest.json'
       - 'CNAME'
+      - 'data/artwork-manifest.json'
+      - 'data/delta-reign-reference.json'
+      - 'images/**'
 
 permissions:
   contents: read
@@ -105,6 +108,16 @@ jobs:
       - name: Prepare app
         working-directory: _app
         run: node scripts/prepare-pages.mjs
+      - name: Include verified local card artwork
+        run: |
+          # Preserve the existing prepared site and pricing data.
+          mkdir -p _app/_site/data _app/_site/images
+          if [ -f data/artwork-manifest.json ]; then
+            cp data/artwork-manifest.json _app/_site/data/artwork-manifest.json
+          fi
+          if [ -d images ]; then
+            cp -R images/. _app/_site/images/
+          fi
       - name: Upload app
         uses: actions/upload-pages-artifact@v4
         with:
