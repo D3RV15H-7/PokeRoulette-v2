@@ -1,5 +1,1134 @@
 {
   "version": 1,
-  "description": "Verified locally hosted card fronts. Entries are added only after an image is supplied and checked.",
-  "cards": []
+  "description": "Verified locally hosted card fronts. TCGdex remains the preferred image provider; these exact card files are used as fallback.",
+  "cards": [
+    {
+      "setId": "me06",
+      "number": "001",
+      "name": "Heracross",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/001-Heracross-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "002",
+      "name": "Surskit",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/002-Surskit-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "003",
+      "name": "Masquerain",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/003-Masquerain-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "004",
+      "name": "Cacnea",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/004-Cacnea-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "005",
+      "name": "Cacturne",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/005-Cacturne-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "006",
+      "name": "Combee",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/006-Combee-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "007",
+      "name": "Vespiquen",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/007-Vespiquen-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "008",
+      "name": "Shaymin",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/008-Shaymin-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "009",
+      "name": "Virizion",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/009-Virizion-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "010",
+      "name": "Wimpod",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/010-Wimpod-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "011",
+      "name": "Mega Golisopod ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/011-Mega-Golisopod-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "012",
+      "name": "Sprigatito",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/012-Sprigatito-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "013",
+      "name": "Floragato",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/013-Floragato-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "014",
+      "name": "Meowscarada ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/014-Meowscarada-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "015",
+      "name": "Smoliv",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/015-Smoliv-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "016",
+      "name": "Dolliv",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/016-Dolliv-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "017",
+      "name": "Arboliva",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/017-Arboliva-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "018",
+      "name": "Growlithe",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/018-Growlithe-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "019",
+      "name": "Arcanine",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/019-Arcanine-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "020",
+      "name": "Magmar",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/020-Magmar-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "021",
+      "name": "Magmortar",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/021-Magmortar-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "022",
+      "name": "Torkoal",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/022-Torkoal-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "023",
+      "name": "Heat Rotom ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/023-Heat-Rotom-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "024",
+      "name": "Heatmor",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/024-Heatmor-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "025",
+      "name": "Mantine",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/025-Mantine-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "026",
+      "name": "Kyogre",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/026-Kyogre-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "027",
+      "name": "Frillish",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/027-Frillish-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "028",
+      "name": "Jellicent",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/028-Jellicent-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "029",
+      "name": "Wishiwashi ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/029-Wishiwashi-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "030",
+      "name": "Electabuzz",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/030-Electabuzz-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "031",
+      "name": "Electivire",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/031-Electivire-Delta-Reign 2.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "032",
+      "name": "Jolteon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/032-Jolteon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "033",
+      "name": "Raikou ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/033-Raikou-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "034",
+      "name": "Rotom",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/034-Rotom-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "035",
+      "name": "Thundurus",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/035-Thundurus-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "036",
+      "name": "Pincurchin",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/036-Pincurchin-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "037",
+      "name": "Pawmi",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/037-Pawmi-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "038",
+      "name": "Pawmo",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/038-Pawmo-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "039",
+      "name": "Pawmot",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/039-Pawmot-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "040",
+      "name": "Wattrel",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/040-Wattrel-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "041",
+      "name": "Kilowattrel",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/041-Kilowattrel-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "042",
+      "name": "Miraidon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/042-Miraidon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "043",
+      "name": "Drowzee",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/043-Drowzee-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "044",
+      "name": "Hypno",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/044-Hypno-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "045",
+      "name": "Giratina",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/045-Giratina-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "046",
+      "name": "Golett",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/046-Golett-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "047",
+      "name": "Mega Golurk ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/047-Mega-Golurk-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "048",
+      "name": "Enamorus",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/048-Enamorus-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "049",
+      "name": "Sandshrew",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/049-Sandshrew-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "050",
+      "name": "Sandslash",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/050-Sandslash-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "051",
+      "name": "Onix",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/051-Onix-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "052",
+      "name": "Steelix",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/052-Steelix-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "053",
+      "name": "Groudon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/053-Groudon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "054",
+      "name": "Landorus",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/054-Landorus-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "055",
+      "name": "Nidoran♀",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/055-Nidoran♀-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "056",
+      "name": "Nidorina",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/056-Nidorina-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "057",
+      "name": "Nidoqueen",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/057-Nidoqueen-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "058",
+      "name": "Spinarak",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/058-Spinarak-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "059",
+      "name": "Ariados",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/059-Ariados-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "060",
+      "name": "Sableye",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/060-Sableye-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "061",
+      "name": "Carvanha",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/061-Carvanha-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "062",
+      "name": "Sharpedo",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/062-Sharpedo-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "063",
+      "name": "Darkrai",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/063-Darkrai-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "064",
+      "name": "Purrloin",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/064-Purrloin-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "065",
+      "name": "Liepard",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/065-Liepard-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "066",
+      "name": "Zorua",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/066-Zorua-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "067",
+      "name": "Zoroark ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/067-Zoroark-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "068",
+      "name": "Inkay",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/068-Inkay-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "069",
+      "name": "Mega Malamar ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/069-Mega-Malamar-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "070",
+      "name": "Morpeko",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/070-Morpeko-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "071",
+      "name": "Zarude",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/071-Zarude-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "072",
+      "name": "Druddigon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/072-Druddigon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "073",
+      "name": "Jangmo-o",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/073-Jangmo-o-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "074",
+      "name": "Hakamo-o",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/074-Hakamo-o-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "075",
+      "name": "Kommo-o",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/075-Kommo-o-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "076",
+      "name": "Cyclizar",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/076-Cyclizar-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "077",
+      "name": "Tauros",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/077-Tauros-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "078",
+      "name": "Eevee",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/078-Eevee-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "079",
+      "name": "Delibird",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/079-Delibird-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "080",
+      "name": "Azurill",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/080-Azurill-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "081",
+      "name": "Swablu",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/081-Swablu-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "082",
+      "name": "Altaria",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/082-Altaria-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "083",
+      "name": "Kecleon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/083-Kecleon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "084",
+      "name": "Mega Rayquaza ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/084-Mega-Rayquaza-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "085",
+      "name": "Tornadus",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/085-Tornadus-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "086",
+      "name": "Fletchling",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/086-Fletchling-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "087",
+      "name": "Fletchinder",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/087-Fletchinder-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "088",
+      "name": "Talonflame ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/088-Talonflame-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "089",
+      "name": "Aarune",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/089-Aarune-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "090",
+      "name": "Adventure Lantern",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/090-Adventure-Lantern-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "091",
+      "name": "Custom Vest",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/091-Custom-Vest-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "092",
+      "name": "Emcee's Hype",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/092-Emcees-Hype-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "093",
+      "name": "Grisham",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/093-Grisham-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "094",
+      "name": "Legendary Pyroduct",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/094-Legendary-Pyroduct-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "095",
+      "name": "Legendary Pyroduct",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/095-Legendary-Pyroduct-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "096",
+      "name": "Legendary Summit",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/096-Legendary-Summit-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "097",
+      "name": "Legendary Summit",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/097-Legendary-Summit-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "098",
+      "name": "Legendary Trench",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/098-Legendary-Trench-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "099",
+      "name": "Legendary Trench",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/099-Legendary-Trench-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "100",
+      "name": "Mega Rayquaza Cap",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/100-Mega-Rayquaza-Cap-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "101",
+      "name": "Tasty Rice Ball",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/101-Tasty-Rice-Ball-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "102",
+      "name": "Tate & Liza's Training",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/102-Tate-and-Lizas-Training-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "103",
+      "name": "Zinnia's Trust",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/103-Zinnias-Trust-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "104",
+      "name": "Masquerain",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/104-Masquerain-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "105",
+      "name": "Sprigatito",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/105-Sprigatito-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "106",
+      "name": "Growlithe",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/106-Growlithe-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "107",
+      "name": "Magmortar",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/107-Magmortar-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "108",
+      "name": "Electivire",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/108-Electivire-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "109",
+      "name": "Pincurchin",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/109-Pincurchin-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "110",
+      "name": "Enamorus",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/110-Enamorus-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "111",
+      "name": "Groudon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/111-Groudon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "112",
+      "name": "Zorua",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/112-Zorua-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "113",
+      "name": "Inkay",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/113-Inkay-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "114",
+      "name": "Eevee",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/114-Eevee-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "115",
+      "name": "Azurill",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/115-Azurill-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "116",
+      "name": "Altaria",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/116-Altaria-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "117",
+      "name": "Kecleon",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/117-Kecleon-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "118",
+      "name": "Mega Golisopod ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/118-Mega-Golisopod-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "119",
+      "name": "Heat Rotom ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/119-Heat-Rotom-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "120",
+      "name": "Wishiwashi ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/120-Wishiwashi-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "121",
+      "name": "Raikou ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/121-Raikou-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "122",
+      "name": "Mega Golurk ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/122-Mega-Golurk-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "123",
+      "name": "Mega Malamar ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/123-Mega-Malamar-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "124",
+      "name": "Talonflame ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/124-Talonflame-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "125",
+      "name": "Aarune",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/125-Aarune-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "126",
+      "name": "Adventure Lantern",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/126-Adventure-Lantern-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "127",
+      "name": "Custom Vest",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/127-Custom-Vest-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "128",
+      "name": "Emcee's Hype",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/128-Emcees-Hype-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "129",
+      "name": "Pokémon Catcher",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/129-Pokemon-Catcher-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "130",
+      "name": "Tate & Liza's Training",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/130-Tate-and-Lizas-Training-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "131",
+      "name": "Zinnia's Trust",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/131-Zinnias-Trust-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "132",
+      "name": "Bubbly W Energy",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/132-Bubbly-Water-Energy-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "133",
+      "name": "Growing G Energy",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/133-Growing-Grass-Energy-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "134",
+      "name": "Nitro R Energy",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/134-Nitro-Fire-Energy-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "135",
+      "name": "Mega Golisopod ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/135-Mega-Golisopod-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "136",
+      "name": "Raikou ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/136-Raikou-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "137",
+      "name": "Mega Golurk ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/137-Mega-Golurk-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "138",
+      "name": "Mega Rayquaza ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/138-Mega-Rayquaza-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "139",
+      "name": "Aarune",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/139-Aarune-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "140",
+      "name": "Zinnia's Trust",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/140-Zinnias-Trust-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    },
+    {
+      "setId": "me06",
+      "number": "141",
+      "name": "Mega Rayquaza ex",
+      "folder": "delta-reign",
+      "file": "images/delta-reign/141-Mega-Rayquaza-ex-Delta-Reign.jpg",
+      "source": "collector-supplied"
+    }
+  ]
 }
