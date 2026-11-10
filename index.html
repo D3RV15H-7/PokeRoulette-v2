@@ -4820,7 +4820,7 @@ body.has-active #wheelWrap {
         <p>New-set checklists may be added from reviewed sources before artwork becomes available. For Delta Reign, the English 141-card checklist is cross-checked with PokéBeach and PokéCottage; published front scans are tried from numbered English image sources including TCGdex and Serebii; unavailable scans retain the checklist. External checklists are not treated as image licences. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
       </section>
       <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.119</span></h4>
+        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v2.120</span></h4>
         <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
       </section>
     </div>
@@ -5792,7 +5792,7 @@ function isThirtyClassicStampedHoloCard(card) {
 function getMeeAnniversaryBasePrinting() {
   return normaliseNamedPrinting({type:'holo',stamp:['30th-anniversary']});
 }
-// v2.119: Source-checked English Delta Reign (me06) physical printings.
+// v2.120: Source-checked English Delta Reign (me06) physical printings.
 // Main expansion: 83 Common/Uncommon Normal+Reverse, 10 Rare Holo+Reverse,
 // 10 Double Rare ex Holo-only. Secret 104–141: Holo-only. These are
 // collectible finishes, not artwork variations or unrelated promo-set cards.
@@ -5807,9 +5807,16 @@ function getVerifiedDeltaReignVariantNumber(card) {
   if (!card) return 0;
   const setId = String(card.setId || card.set?.id || '').trim().toLowerCase();
   const cardId = String(card.id || '').trim().toLowerCase();
-  if (setId && setId !== 'me06') return 0;
-  if (setId !== 'me06' && !/^me06-0*\d{1,3}$/.test(cardId)) return 0;
-  const raw = String(card.localId ?? card.number ?? cardId.match(/^me06-(\d{1,3})$/)?.[1] ?? '').trim();
+  const setName = String(card.setName || card.set?.name || '').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+  // The historic 30th Celebration expansion also used the provider alias
+  // `me6`. Never identify a card by that ambiguous alias alone. Delta Reign
+  // records are verified against the English checklist and expansion name.
+  const isNativeDelta = setId === 'me06' || (!setId && /^me06-0*\d{1,3}$/.test(cardId));
+  const isNamedDelta = setName === 'delta reign' && (!setId || setId === 'me06' || setId === 'me6');
+  if (!isNativeDelta && !isNamedDelta) return 0;
+  if (setName && setName !== 'delta reign') return 0;
+  const raw = String(card.localId ?? card.number ?? cardId.match(/^(?:me06|me6)-(\d{1,3})$/)?.[1] ?? '').trim();
   const match = /^0*(\d{1,3})(?:\s*\/\s*103)?$/.exec(raw);
   if (!match) return 0;
   const number = Number(match[1]);
@@ -8087,10 +8094,10 @@ function getMeeEnergyArtworkOverride(card) {
   if (!expected || (name && !name.includes(expected))) return null;
   return MEE_ENERGY_ARTWORK[number] || null;
 }
-// v2.119: Optional, audited local artwork overlay. Absence is not an error.
+// v2.120: Optional, audited local artwork overlay. Absence is not an error.
 // The manifest is separate from the card catalogue and never supplies prices.
 const LOCAL_ARTWORK_MANIFEST_URL = './data/artwork-manifest.json';
-// v2.119: Embedded verified filename index for the 141 user-supplied Delta Reign
+// v2.120: Embedded verified filename index for the 141 user-supplied Delta Reign
 // scans. This remains functional if the external manifest is delayed, missing,
 // or blocked by an installed-app cache. Exact set/number/name only.
 const DELTA_REIGN_EMBEDDED_ARTWORK = new Map(Object.entries({"me06:001:heracross":"./images/delta-reign/001-Heracross-Delta-Reign.jpg","me06:002:surskit":"./images/delta-reign/002-Surskit-Delta-Reign.jpg","me06:003:masquerain":"./images/delta-reign/003-Masquerain-Delta-Reign.jpg","me06:004:cacnea":"./images/delta-reign/004-Cacnea-Delta-Reign.jpg","me06:005:cacturne":"./images/delta-reign/005-Cacturne-Delta-Reign.jpg","me06:006:combee":"./images/delta-reign/006-Combee-Delta-Reign.jpg","me06:007:vespiquen":"./images/delta-reign/007-Vespiquen-Delta-Reign.jpg","me06:008:shaymin":"./images/delta-reign/008-Shaymin-Delta-Reign.jpg","me06:009:virizion":"./images/delta-reign/009-Virizion-Delta-Reign.jpg","me06:010:wimpod":"./images/delta-reign/010-Wimpod-Delta-Reign.jpg","me06:011:megagolisopodex":"./images/delta-reign/011-Mega-Golisopod-ex-Delta-Reign.jpg","me06:012:sprigatito":"./images/delta-reign/012-Sprigatito-Delta-Reign.jpg","me06:013:floragato":"./images/delta-reign/013-Floragato-Delta-Reign.jpg","me06:014:meowscaradaex":"./images/delta-reign/014-Meowscarada-ex-Delta-Reign.jpg","me06:015:smoliv":"./images/delta-reign/015-Smoliv-Delta-Reign.jpg","me06:016:dolliv":"./images/delta-reign/016-Dolliv-Delta-Reign.jpg","me06:017:arboliva":"./images/delta-reign/017-Arboliva-Delta-Reign.jpg","me06:018:growlithe":"./images/delta-reign/018-Growlithe-Delta-Reign.jpg","me06:019:arcanine":"./images/delta-reign/019-Arcanine-Delta-Reign.jpg","me06:020:magmar":"./images/delta-reign/020-Magmar-Delta-Reign.jpg","me06:021:magmortar":"./images/delta-reign/021-Magmortar-Delta-Reign.jpg","me06:022:torkoal":"./images/delta-reign/022-Torkoal-Delta-Reign.jpg","me06:023:heatrotomex":"./images/delta-reign/023-Heat-Rotom-ex-Delta-Reign.jpg","me06:024:heatmor":"./images/delta-reign/024-Heatmor-Delta-Reign.jpg","me06:025:mantine":"./images/delta-reign/025-Mantine-Delta-Reign.jpg","me06:026:kyogre":"./images/delta-reign/026-Kyogre-Delta-Reign.jpg","me06:027:frillish":"./images/delta-reign/027-Frillish-Delta-Reign.jpg","me06:028:jellicent":"./images/delta-reign/028-Jellicent-Delta-Reign.jpg","me06:029:wishiwashiex":"./images/delta-reign/029-Wishiwashi-ex-Delta-Reign.jpg","me06:030:electabuzz":"./images/delta-reign/030-Electabuzz-Delta-Reign.jpg","me06:031:electivire":"./images/delta-reign/031-Electivire-Delta-Reign 2.jpg","me06:032:jolteon":"./images/delta-reign/032-Jolteon-Delta-Reign.jpg","me06:033:raikouex":"./images/delta-reign/033-Raikou-ex-Delta-Reign.jpg","me06:034:rotom":"./images/delta-reign/034-Rotom-Delta-Reign.jpg","me06:035:thundurus":"./images/delta-reign/035-Thundurus-Delta-Reign.jpg","me06:036:pincurchin":"./images/delta-reign/036-Pincurchin-Delta-Reign.jpg","me06:037:pawmi":"./images/delta-reign/037-Pawmi-Delta-Reign.jpg","me06:038:pawmo":"./images/delta-reign/038-Pawmo-Delta-Reign.jpg","me06:039:pawmot":"./images/delta-reign/039-Pawmot-Delta-Reign.jpg","me06:040:wattrel":"./images/delta-reign/040-Wattrel-Delta-Reign.jpg","me06:041:kilowattrel":"./images/delta-reign/041-Kilowattrel-Delta-Reign.jpg","me06:042:miraidon":"./images/delta-reign/042-Miraidon-Delta-Reign.jpg","me06:043:drowzee":"./images/delta-reign/043-Drowzee-Delta-Reign.jpg","me06:044:hypno":"./images/delta-reign/044-Hypno-Delta-Reign.jpg","me06:045:giratina":"./images/delta-reign/045-Giratina-Delta-Reign.jpg","me06:046:golett":"./images/delta-reign/046-Golett-Delta-Reign.jpg","me06:047:megagolurkex":"./images/delta-reign/047-Mega-Golurk-ex-Delta-Reign.jpg","me06:048:enamorus":"./images/delta-reign/048-Enamorus-Delta-Reign.jpg","me06:049:sandshrew":"./images/delta-reign/049-Sandshrew-Delta-Reign.jpg","me06:050:sandslash":"./images/delta-reign/050-Sandslash-Delta-Reign.jpg","me06:051:onix":"./images/delta-reign/051-Onix-Delta-Reign.jpg","me06:052:steelix":"./images/delta-reign/052-Steelix-Delta-Reign.jpg","me06:053:groudon":"./images/delta-reign/053-Groudon-Delta-Reign.jpg","me06:054:landorus":"./images/delta-reign/054-Landorus-Delta-Reign.jpg","me06:055:nidoran":"./images/delta-reign/055-Nidoran♀-Delta-Reign.jpg","me06:056:nidorina":"./images/delta-reign/056-Nidorina-Delta-Reign.jpg","me06:057:nidoqueen":"./images/delta-reign/057-Nidoqueen-Delta-Reign.jpg","me06:058:spinarak":"./images/delta-reign/058-Spinarak-Delta-Reign.jpg","me06:059:ariados":"./images/delta-reign/059-Ariados-Delta-Reign.jpg","me06:060:sableye":"./images/delta-reign/060-Sableye-Delta-Reign.jpg","me06:061:carvanha":"./images/delta-reign/061-Carvanha-Delta-Reign.jpg","me06:062:sharpedo":"./images/delta-reign/062-Sharpedo-Delta-Reign.jpg","me06:063:darkrai":"./images/delta-reign/063-Darkrai-Delta-Reign.jpg","me06:064:purrloin":"./images/delta-reign/064-Purrloin-Delta-Reign.jpg","me06:065:liepard":"./images/delta-reign/065-Liepard-Delta-Reign.jpg","me06:066:zorua":"./images/delta-reign/066-Zorua-Delta-Reign.jpg","me06:067:zoroarkex":"./images/delta-reign/067-Zoroark-ex-Delta-Reign.jpg","me06:068:inkay":"./images/delta-reign/068-Inkay-Delta-Reign.jpg","me06:069:megamalamarex":"./images/delta-reign/069-Mega-Malamar-ex-Delta-Reign.jpg","me06:070:morpeko":"./images/delta-reign/070-Morpeko-Delta-Reign.jpg","me06:071:zarude":"./images/delta-reign/071-Zarude-Delta-Reign.jpg","me06:072:druddigon":"./images/delta-reign/072-Druddigon-Delta-Reign.jpg","me06:073:jangmoo":"./images/delta-reign/073-Jangmo-o-Delta-Reign.jpg","me06:074:hakamoo":"./images/delta-reign/074-Hakamo-o-Delta-Reign.jpg","me06:075:kommoo":"./images/delta-reign/075-Kommo-o-Delta-Reign.jpg","me06:076:cyclizar":"./images/delta-reign/076-Cyclizar-Delta-Reign.jpg","me06:077:tauros":"./images/delta-reign/077-Tauros-Delta-Reign.jpg","me06:078:eevee":"./images/delta-reign/078-Eevee-Delta-Reign.jpg","me06:079:delibird":"./images/delta-reign/079-Delibird-Delta-Reign.jpg","me06:080:azurill":"./images/delta-reign/080-Azurill-Delta-Reign.jpg","me06:081:swablu":"./images/delta-reign/081-Swablu-Delta-Reign.jpg","me06:082:altaria":"./images/delta-reign/082-Altaria-Delta-Reign.jpg","me06:083:kecleon":"./images/delta-reign/083-Kecleon-Delta-Reign.jpg","me06:084:megarayquazaex":"./images/delta-reign/084-Mega-Rayquaza-ex-Delta-Reign.jpg","me06:085:tornadus":"./images/delta-reign/085-Tornadus-Delta-Reign.jpg","me06:086:fletchling":"./images/delta-reign/086-Fletchling-Delta-Reign.jpg","me06:087:fletchinder":"./images/delta-reign/087-Fletchinder-Delta-Reign.jpg","me06:088:talonflameex":"./images/delta-reign/088-Talonflame-ex-Delta-Reign.jpg","me06:089:aarune":"./images/delta-reign/089-Aarune-Delta-Reign.jpg","me06:090:adventurelantern":"./images/delta-reign/090-Adventure-Lantern-Delta-Reign.jpg","me06:091:customvest":"./images/delta-reign/091-Custom-Vest-Delta-Reign.jpg","me06:092:emceeshype":"./images/delta-reign/092-Emcees-Hype-Delta-Reign.jpg","me06:093:grisham":"./images/delta-reign/093-Grisham-Delta-Reign.jpg","me06:094:legendarypyroduct":"./images/delta-reign/094-Legendary-Pyroduct-Delta-Reign.jpg","me06:095:legendarypyroduct":"./images/delta-reign/095-Legendary-Pyroduct-Delta-Reign.jpg","me06:096:legendarysummit":"./images/delta-reign/096-Legendary-Summit-Delta-Reign.jpg","me06:097:legendarysummit":"./images/delta-reign/097-Legendary-Summit-Delta-Reign.jpg","me06:098:legendarytrench":"./images/delta-reign/098-Legendary-Trench-Delta-Reign.jpg","me06:099:legendarytrench":"./images/delta-reign/099-Legendary-Trench-Delta-Reign.jpg","me06:100:megarayquazacap":"./images/delta-reign/100-Mega-Rayquaza-Cap-Delta-Reign.jpg","me06:101:tastyriceball":"./images/delta-reign/101-Tasty-Rice-Ball-Delta-Reign.jpg","me06:102:tatelizastraining":"./images/delta-reign/102-Tate-and-Lizas-Training-Delta-Reign.jpg","me06:103:zinniastrust":"./images/delta-reign/103-Zinnias-Trust-Delta-Reign.jpg","me06:104:masquerain":"./images/delta-reign/104-Masquerain-Delta-Reign.jpg","me06:105:sprigatito":"./images/delta-reign/105-Sprigatito-Delta-Reign.jpg","me06:106:growlithe":"./images/delta-reign/106-Growlithe-Delta-Reign.jpg","me06:107:magmortar":"./images/delta-reign/107-Magmortar-Delta-Reign.jpg","me06:108:electivire":"./images/delta-reign/108-Electivire-Delta-Reign.jpg","me06:109:pincurchin":"./images/delta-reign/109-Pincurchin-Delta-Reign.jpg","me06:110:enamorus":"./images/delta-reign/110-Enamorus-Delta-Reign.jpg","me06:111:groudon":"./images/delta-reign/111-Groudon-Delta-Reign.jpg","me06:112:zorua":"./images/delta-reign/112-Zorua-Delta-Reign.jpg","me06:113:inkay":"./images/delta-reign/113-Inkay-Delta-Reign.jpg","me06:114:eevee":"./images/delta-reign/114-Eevee-Delta-Reign.jpg","me06:115:azurill":"./images/delta-reign/115-Azurill-Delta-Reign.jpg","me06:116:altaria":"./images/delta-reign/116-Altaria-Delta-Reign.jpg","me06:117:kecleon":"./images/delta-reign/117-Kecleon-Delta-Reign.jpg","me06:118:megagolisopodex":"./images/delta-reign/118-Mega-Golisopod-ex-Delta-Reign.jpg","me06:119:heatrotomex":"./images/delta-reign/119-Heat-Rotom-ex-Delta-Reign.jpg","me06:120:wishiwashiex":"./images/delta-reign/120-Wishiwashi-ex-Delta-Reign.jpg","me06:121:raikouex":"./images/delta-reign/121-Raikou-ex-Delta-Reign.jpg","me06:122:megagolurkex":"./images/delta-reign/122-Mega-Golurk-ex-Delta-Reign.jpg","me06:123:megamalamarex":"./images/delta-reign/123-Mega-Malamar-ex-Delta-Reign.jpg","me06:124:talonflameex":"./images/delta-reign/124-Talonflame-ex-Delta-Reign.jpg","me06:125:aarune":"./images/delta-reign/125-Aarune-Delta-Reign.jpg","me06:126:adventurelantern":"./images/delta-reign/126-Adventure-Lantern-Delta-Reign.jpg","me06:127:customvest":"./images/delta-reign/127-Custom-Vest-Delta-Reign.jpg","me06:128:emceeshype":"./images/delta-reign/128-Emcees-Hype-Delta-Reign.jpg","me06:129:pokemoncatcher":"./images/delta-reign/129-Pokemon-Catcher-Delta-Reign.jpg","me06:130:tatelizastraining":"./images/delta-reign/130-Tate-and-Lizas-Training-Delta-Reign.jpg","me06:131:zinniastrust":"./images/delta-reign/131-Zinnias-Trust-Delta-Reign.jpg","me06:132:bubblywenergy":"./images/delta-reign/132-Bubbly-Water-Energy-Delta-Reign.jpg","me06:133:growinggenergy":"./images/delta-reign/133-Growing-Grass-Energy-Delta-Reign.jpg","me06:134:nitrorenergy":"./images/delta-reign/134-Nitro-Fire-Energy-Delta-Reign.jpg","me06:135:megagolisopodex":"./images/delta-reign/135-Mega-Golisopod-ex-Delta-Reign.jpg","me06:136:raikouex":"./images/delta-reign/136-Raikou-ex-Delta-Reign.jpg","me06:137:megagolurkex":"./images/delta-reign/137-Mega-Golurk-ex-Delta-Reign.jpg","me06:138:megarayquazaex":"./images/delta-reign/138-Mega-Rayquaza-ex-Delta-Reign.jpg","me06:139:aarune":"./images/delta-reign/139-Aarune-Delta-Reign.jpg","me06:140:zinniastrust":"./images/delta-reign/140-Zinnias-Trust-Delta-Reign.jpg","me06:141:megarayquazaex":"./images/delta-reign/141-Mega-Rayquaza-ex-Delta-Reign.jpg"}));
@@ -8110,7 +8117,7 @@ function localArtworkCardIdentity(card) {
   if (!n || n > 999 || !/^[a-z0-9-]+$/.test(setId)) return '';
   return `${setId}:${String(n).padStart(3,'0')}:${normalizedLocalArtworkName(card?.name)}`;
 }
-// v2.119: Resolve Delta Reign by its verified English collector number as well
+// v2.120: Resolve Delta Reign by its verified English collector number as well
 // as the full identity. Older cached card objects can contain a displayed
 // number like "1/103", a provider ID, or a different set-id field. Requiring
 // only the old localArtworkCardIdentity shape silently skipped these cards.
@@ -8147,7 +8154,7 @@ function getVerifiedLocalCardArtwork(card) {
   const key = localArtworkCardIdentity(card);
   return key ? (localArtworkByIdentity.get(key) || DELTA_REIGN_EMBEDDED_ARTWORK.get(key) || '') : '';
 }
-// v2.119: The same exact, verified collector image also exists on the GitHub
+// v2.120: The same exact, verified collector image also exists on the GitHub
 // repository's raw CDN. The local Pages copy remains preferred; this URL is
 // only a backup if Pages deploys a stale/missing image or a web-app cache does.
 // Construct the URL only from our exact, validated manifest/embedded filename.
@@ -8159,7 +8166,7 @@ function getVerifiedLocalArtworkFallbacks(card) {
   const encoded = relative.split('/').map(encodeURIComponent).join('/');
   return [local, 'https://raw.githubusercontent.com/D3RV15H-7/PokeRoulette-v2/main/' + encoded];
 }
-// v2.119: Delta Reign's collector-provided image is fully verified by set,
+// v2.120: Delta Reign's collector-provided image is fully verified by set,
 // printed number and name. Display it directly, without the general queued
 // thumbnail resolver that may keep a previously successful provider card back.
 // On failure, retry the identical repository file via its raw URL, not a
@@ -8231,7 +8238,7 @@ async function loadLocalArtworkManifest(forceRefresh = false) {
       localArtworkManifestLoaded = true;
       return localArtworkByIdentity;
     } catch (error) {
-      // A pre-v2.119 Pages deployment does not contain a manifest yet.
+      // A pre-v2.120 Pages deployment does not contain a manifest yet.
       // Never drop previously validated local records because of an outage.
       console.info('[ARTWORK] Local artwork manifest unavailable:', error.message);
       return localArtworkByIdentity;
@@ -9675,7 +9682,7 @@ const DELTA_REIGN_NUMBERED_NAMES = Object.freeze([
   "Zinnia's Trust",
   "Mega Rayquaza ex"
 ]);
-// v2.119: Numbered public English-gallery image fallback. The English
+// v2.120: Numbered public English-gallery image fallback. The English
 // checklist number is used verbatim (no Storm Emeralda number substitution).
 // If a provider does not serve an image, the existing image loader tries the
 // next candidate; neither image URLs nor pixels are used as pricing evidence.
@@ -9706,7 +9713,7 @@ function getDeltaReignChecklistCards() {
     };
   });
 }
-// v2.119: Fetch the confirmed English expansion directly from TCGdex instead of
+// v2.120: Fetch the confirmed English expansion directly from TCGdex instead of
 // waiting for third-party checklists or a global provider catalogue refresh.
 // The English collector number (me06-001 etc.) is the only attachment key.
 // PokéBeach/PokéCottage are reviewed checklist references, NOT image hotlinks.
@@ -10508,7 +10515,7 @@ const CARD_VARIANT_SUPPLEMENTS = Object.freeze({
 // https://bulbapedia.bulbagarden.net/wiki/30th_Celebration_(TCG)
 // https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_30th_Anniversary
 // Separately numbered MEP promos and the Classic Collection are excluded.
-// v2.119: The three unnumbered RGB Mews are unstamped holo printings.
+// v2.120: The three unnumbered RGB Mews are unstamped holo printings.
 // Match on the 2026 main set AND the R/G/B identity, not on the Mew name alone.
 function getThirtyRgbMewRank(card) {
   if (!card) return -1;
@@ -10537,6 +10544,9 @@ function getThirtyCelebrationVariantSupplement(card) {
   const id = String(card.id || '').trim().toLowerCase();
   const setId = String(card.set?.id || card.setId || card.artworkTcgDexSetId || '').trim().toLowerCase();
   const name = String(card.setName || card.set?.name || '').trim().toLowerCase();
+  // Distinct 2026 expansions can share a legacy `me6` provider alias.
+  // A Delta Reign record must never inherit the 30th Celebration stamp.
+  if (name === 'delta reign' || setId === 'me06' || /^me06-/.test(id)) return null;
   if (['30th-c', 'me55c'].includes(setId) || /^(?:30th-c|me55c)-/.test(id) || /classic collection/.test(name)) return null;
   if (!['30th', 'me6', 'me55'].includes(setId) && !/^(?:30th|me6|me55)-/.test(id) && name !== '30th celebration') return null;
   const number = String(card.number || card.localId || id.replace(/^(?:30th|me6|me55)-/, '')).split('/')[0].replace(/^0+(?=\d)/, '').trim();
@@ -11043,7 +11053,7 @@ function isolateNumberedSetVariants(setId, cards) {
 }
 
 async function fetchCardsForSet(setId, forceRefresh = false) {
-  // v2.119: A reviewed 141-card checklist is always available offline.
+  // v2.120: A reviewed 141-card checklist is always available offline.
   // TCGdex has started publishing Delta Reign scans, so fetch the English
   // numbered catalogue directly instead of returning placeholders forever.
   if (setId === 'me06') {
@@ -11319,7 +11329,7 @@ function orderThirtiethClassicCards(setId, cards) {
   }).sort((a,b) => a.position - b.position || a.i - b.i).map(item => item.card);
 }
 
-// v2.119: place the lettered RGB Mews at the end in red, green, blue
+// v2.120: place the lettered RGB Mews at the end in red, green, blue
 // order regardless of provider sorting or previously cached card order.
 function orderThirtiethMainRgbMews(setId, cards) {
   if (!Array.isArray(cards)) return cards;
