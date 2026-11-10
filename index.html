@@ -5864,7 +5864,8 @@ function getVerifiedDeltaReignVariantDefinitions(card) {
 function getScarletVioletEnergyVariantNumber(card) {
   if (!card) return 0;
   const setId = String(card.setId || card.set?.id || '').trim().toLowerCase();
-  const setName = normaliseVariantToken(card.setName || card.set?.name);
+  const setName = String(card.setName || card.set?.name || '').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const cardId = String(card.id || '').trim().toLowerCase();
   const matchesSet = setId === 'sve' ||
     ['scarlet-violet-energies', 'scarlet-and-violet-energies'].includes(setName) ||
