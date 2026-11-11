@@ -1,4 +1,4 @@
-<!-- PokéRoulette v306: Local-only expansion symbols; Scarlet & Violet Energies printing variants. -->
+<!-- PokéRoulette v307: Local-only expansion symbols; Scarlet & Violet Energies printing variants. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12946,7 +12946,6 @@ function attachSetSymbol(slot, set) {
   const image = slot.querySelector('.tcg-set-symbol-image');
   if (!image) return;
   const source = localSetSymbolSource(set);
-  // Unmapped sets display no small symbol, never unrelated artwork.
   if (!source) {
     image.removeAttribute('src');
     image.hidden = true;
@@ -12954,20 +12953,21 @@ function attachSetSymbol(slot, set) {
     slot.classList.remove('has-local-symbol');
     return;
   }
-  image.onload = () => {
-    if (!image.isConnected) return;
-    if (!image.naturalWidth || !image.naturalHeight) { image.onerror(); return; }
-    image.hidden = false;
-    slot.hidden = false;
-    slot.classList.add('has-local-symbol');
-  };
+  // Show the local symbol slot immediately. Waiting for onload while the tile
+  // is in a detached DocumentFragment can leave cached images hidden on iOS.
+  image.hidden = false;
+  slot.hidden = false;
+  slot.classList.add('has-local-symbol');
   image.onerror = () => {
+    // Only missing local assets are hidden; never load old logos/card art.
     image.hidden = true;
     slot.hidden = true;
     slot.classList.remove('has-local-symbol');
   };
-  // Cache-bust the previous external-symbol version on iOS home-screen installs.
-  image.src = `${source}?v=306`;
+  image.onload = () => {
+    if (!image.naturalWidth || !image.naturalHeight) image.onerror();
+  };
+  image.src = `${source}?v=307`;
 }
 
 // Repaint the existing tiles when Firebase ownership arrives; don't re-fetch
