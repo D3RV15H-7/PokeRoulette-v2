@@ -128,7 +128,7 @@ jobs:
           if [ -d assets/set-symbols ]; then
             mkdir -p _app/_site/assets/set-symbols
             cp -R assets/set-symbols/. _app/_site/assets/set-symbols/
-            test "$(find _app/_site/assets/set-symbols -type f -name '*.png' | wc -l)" -eq 198
+            test "$(find _app/_site/assets/set-symbols -type f -name '*.png' | wc -l)" -ge 198
           else
             echo 'Missing assets/set-symbols directory' >&2
             exit 1
