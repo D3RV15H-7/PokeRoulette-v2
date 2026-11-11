@@ -17,6 +17,7 @@ on:
       - 'data/artwork-manifest.json'
       - 'data/delta-reign-reference.json'
       - 'images/**'
+      - 'assets/set-symbols/**'
 
 permissions:
   contents: read
@@ -113,7 +114,7 @@ jobs:
           if [ -f tools/build_artwork_manifest.py ]; then
             python3 tools/build_artwork_manifest.py
           fi
-      - name: Include verified local card artwork
+      - name: Include verified local card artwork and set symbols
         run: |
           # Preserve the existing prepared site and pricing data.
           mkdir -p _app/_site/data _app/_site/images
@@ -122,6 +123,15 @@ jobs:
           fi
           if [ -d images ]; then
             cp -R images/. _app/_site/images/
+          fi
+          # Publish the local TCG set-symbol library alongside index.html.
+          if [ -d assets/set-symbols ]; then
+            mkdir -p _app/_site/assets/set-symbols
+            cp -R assets/set-symbols/. _app/_site/assets/set-symbols/
+            test "$(find _app/_site/assets/set-symbols -type f -name '*.png' | wc -l)" -eq 198
+          else
+            echo 'Missing assets/set-symbols directory' >&2
+            exit 1
           fi
       - name: Upload app
         uses: actions/upload-pages-artifact@v4
