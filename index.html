@@ -1,4 +1,4 @@
-<!-- PokéRoulette v305: Local expansion symbols; Scarlet & Violet Energies printing variants. -->
+<!-- PokéRoulette v306: Local-only expansion symbols; Scarlet & Violet Energies printing variants. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1602,6 +1602,7 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
   object-fit:contain;
   filter:drop-shadow(0 1px 1px rgba(0,0,0,.24));
 }
+.tcg-set-symbol-slot[hidden],
 .tcg-set-symbol-image[hidden],
 .tcg-set-symbol-code[hidden] {display:none!important;}
 .tcg-set-symbol-code {
@@ -12925,75 +12926,48 @@ function localSetSymbolSource(set) {
   return filename ? `assets/set-symbols/${encodeURIComponent(filename)}` : '';
 }
 
-// Prefer local set symbols; retain catalogued external images as fallbacks.
-// TCGdex uses language-independent symbol assets; Pokemon TCG API uses
-// images.symbol. The label is a fallback only where no image can be verified.
+// v306: Expansion symbols use only the approved local image library.
+// No TCGdex/Pokémon TCG API art, old placeholder symbols or card-back fallbacks.
+// The large expansion logos displayed on the left are intentionally unchanged.
 function getSetSymbolSources(set) {
-  const id = String(set?.id || '').toLowerCase().trim();
-  const known = String(AUDITED_ARTWORK_SET_ALIASES[id] || id);
-  const normalize = value => {
-    const url = String(value || '').trim();
-    if (!/^(?:https:\/\/|data:image\/)/i.test(url)) return '';
-    if (/^https:\/\/assets\.tcgdex\.net\//i.test(url) &&
-        /\/symbol(?:\.(?:png|webp|jpg))?$/i.test(url))
-      return /\.(?:png|webp|jpg)$/i.test(url) ? url : url + '.png';
-    return url;
-  };
-  // Don't synthesize a symbol for releases that have no published expansion
-  // symbol. A wrong image would be worse than the clearly labelled fallback.
-  const path = TCG_SET_LOGO_PATHS[id] ||
-    TCG_SET_LOGO_PATHS[known] ||
-    AUDITED_ARTWORK_ROUTES[known]?.[0] || '';
-  const candidates = [
-    localSetSymbolSource(set),
-    normalize(set?.symbol),
-    normalize(set?.images?.symbol),
-    path ? `https://assets.tcgdex.net/univ/${path}/symbol.png` : '',
-    // Some supplemental sets are absent from the local route table.
-    /^[a-z0-9._-]+$/i.test(known) ?
-      `https://images.pokemontcg.io/${encodeURIComponent(known)}/symbol.png` : ''
-  ];
-  return [...new Set(candidates.filter(Boolean))];
+  const source = localSetSymbolSource(set);
+  return source ? [source] : [];
 }
 
 function getSetSymbolMarkup(set) {
-  const code = escapeSetVariantHtml(getSetCompletionBadgeCode(set));
   const name = escapeSetVariantHtml(String(set?.name || 'Set'));
-  return `<span class="tcg-set-symbol-slot" aria-label="${name} set symbol" title="${name} set symbol">
+  return `<span class="tcg-set-symbol-slot" aria-label="${name} set symbol" title="${name} set symbol" hidden>
     <img class="tcg-set-symbol-image" alt="" hidden>
-    <span class="tcg-set-symbol-code">${code}</span>
   </span>`;
 }
 
 function attachSetSymbol(slot, set) {
   if (!slot) return;
   const image = slot.querySelector('.tcg-set-symbol-image');
-  const fallback = slot.querySelector('.tcg-set-symbol-code');
-  if (!image || !fallback) return;
-  const sources = getSetSymbolSources(set);
-  let cursor = 0;
-  let finished = false;
-  const failed = () => {
-    if (finished || !image.isConnected) return;
-    if (++cursor < sources.length) image.src = sources[cursor];
-    else {
-      image.hidden = true;
-      image.removeAttribute('src');
-      fallback.hidden = false;
-      finished = true;
-    }
-  };
+  if (!image) return;
+  const source = localSetSymbolSource(set);
+  // Unmapped sets display no small symbol, never unrelated artwork.
+  if (!source) {
+    image.removeAttribute('src');
+    image.hidden = true;
+    slot.hidden = true;
+    slot.classList.remove('has-local-symbol');
+    return;
+  }
   image.onload = () => {
-    if (finished || !image.isConnected) return;
-    // A valid symbol must actually contain pixels.
-    if (!image.naturalWidth || !image.naturalHeight) { failed(); return; }
+    if (!image.isConnected) return;
+    if (!image.naturalWidth || !image.naturalHeight) { image.onerror(); return; }
     image.hidden = false;
-    fallback.hidden = true;
-    slot.classList.toggle('has-local-symbol', image.src.includes('/assets/set-symbols/'));
+    slot.hidden = false;
+    slot.classList.add('has-local-symbol');
   };
-  image.onerror = failed;
-  if (sources.length) image.src = sources[0];
-  else {image.hidden = true; fallback.hidden = false;}
+  image.onerror = () => {
+    image.hidden = true;
+    slot.hidden = true;
+    slot.classList.remove('has-local-symbol');
+  };
+  // Cache-bust the previous external-symbol version on iOS home-screen installs.
+  image.src = `${source}?v=306`;
 }
 
 // Repaint the existing tiles when Firebase ownership arrives; don't re-fetch
