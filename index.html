@@ -1,4 +1,4 @@
-<!-- PokéRoulette v314: Stable Yellow A Alternate catalogue and non-destructive card reconciliation. -->
+<!-- PokéRoulette v315: Stable Yellow A Alternate catalogue and non-destructive card reconciliation. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1622,6 +1622,20 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-item .tcg-set-name { max-width:100%; white-space:nowrap; text-overflow:clip; }
 /* Light backing makes monochrome black expansion symbols legible on the dark Sets screen. */
 .tcg-set-symbol-slot.has-local-symbol { background: #f1f5f9; padding: 3px; }
+/* v315: Set overview titles wrap naturally and never enter the symbol column. */
+.tcg-set-item { padding-right: 54px; height: auto; min-height: 78px; }
+.tcg-set-item .tcg-set-info { min-width: 0; flex: 1 1 0; }
+.tcg-set-item .tcg-set-name {
+  font-size: .90rem !important;
+  line-height: 1.3;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  overflow-wrap: break-word;
+  padding-right: 0;
+  max-width: 100%;
+}
+.tcg-set-item .tcg-set-symbol-slot { right: 12px; top: 12px; }
 /*TCG Set card variant selector*/
 .tcg-set-card-image-wrap { position: relative; }
 .tcg-variant-selector {
@@ -13054,17 +13068,14 @@ function refreshVisibleSetOverviewProgress() {
 
 window.addEventListener('resize', () => fitSetOverviewTitles(document.getElementById('setsGrid')));
 function fitSetOverviewTitles(root) {
+  // v315: Natural wrapping replaces the previous shrinking-to-one-line loop.
+  // CSS reserves a separate symbol column and allows the tile to grow.
   if (!root) return;
   for (const el of root.querySelectorAll('.tcg-set-item .tcg-set-name')) {
-    el.style.fontSize = '.90rem';
-    let size = 0.90;
-    // The item has an absolute-positioned mini symbol; padding reserves it.
-    while (el.scrollWidth > el.clientWidth + 1 && size > .49) {
-      size = Math.max(.49, size - .025);
-      el.style.fontSize = `${size.toFixed(3)}rem`;
-    }
+    el.style.removeProperty('font-size');
   }
 }
+
 async function renderTcgSets(forceRefresh = false) {
   closeSetCardBulkConfirmation();
   disposeSetThumbnails();
