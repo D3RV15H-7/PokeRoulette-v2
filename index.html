@@ -1,4 +1,4 @@
-<!-- PokéRoulette v309: User-supplied MEP EN, MEE EN and Delta Reign logo images. -->
+<!-- PokéRoulette v310: User-supplied MEP EN, MEE EN and Delta Reign logo images. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6746,6 +6746,7 @@ function getCleanNationalDexName(pokeName, speciesName) {
 }
 
 function resolveSetName(setObj, cardId = '') {
+  if (typeof isYellowAAlternateCard === 'function' && isYellowAAlternateCard(cardId)) return 'Yellow A Alternate';
   if (setObj?.id) {
     const idLower = String(setObj.id).toLowerCase().trim();
     if (KNOWN_SETS[idLower]) return KNOWN_SETS[idLower];
@@ -16000,14 +16001,14 @@ function mergePokemonCardSnapshots(cards,previous=[],keepMissing=false){
 async function loadTcgCardsData(pokeName,speciesName,bypassCache=false){
  const cleanName=getCleanNationalDexName(pokeName,speciesName),key=cleanName.toLowerCase();
  const cacheKey=`tcg_complete_cache_v58_${normalizePokemonCardName(cleanName).replace(/[^a-z0-9]/g,'')}`;
- const TTL_MS=86400000,VERSION=220;
+ const TTL_MS=86400000,VERSION=221;
  let saved=memoryTcgCache.get(cacheKey)||null;
  if(!saved){try{const stored=JSON.parse(localStorage.getItem(cacheKey));if(stored?.complete===true&&Array.isArray(stored.data))saved=stored;}catch(_){}}
  let previous=saved?.data?ensureVintagePokemonCards(saved.data,cleanName):[];
  const cacheIsCurrent=saved?.catalogueVersion===VERSION;
  if(!cacheIsCurrent)previous=previous.map(card=>({...card,_rarityPending:!card.rarity||card.rarity==='Common'||card.rarity==='Unknown'}));
  if(!bypassCache&&saved?.complete&&cacheIsCurrent&&Date.now()-saved.savedAt<TTL_MS){
-  const cards=ensureVintagePokemonCards(saved.data,cleanName);sortCardsList(cards);
+  const cards=canonicalizeWheelSets(ensureVintagePokemonCards(saved.data,cleanName));sortCardsList(cards);
   tcgCardListStatus.set(cards,{partial:false});setBoundedCache(memoryTcgCache,cacheKey,saved,128);return cards;
  }
  if(!previous.length){try{const partial=JSON.parse(localStorage.getItem(`${cacheKey}_partial`));if(Array.isArray(partial?.data))previous=ensureVintagePokemonCards(partial.data,cleanName);}catch(_){}}
@@ -16101,7 +16102,7 @@ async function loadTcgCardsData(pokeName,speciesName,bypassCache=false){
  if(failed.length===2&&!latest.length)throw Error('Card services are unavailable. Tap refresh to retry.');
  // If both services fail, keep the last full snapshot instead of replacing it.
  if(failed.length===2&&saved?.complete&&cacheIsCurrent){
-  const cards=ensureVintagePokemonCards(saved.data,cleanName);sortCardsList(cards);tcgCardListStatus.set(cards,{stale:true});return cards;
+  const cards=canonicalizeWheelSets(ensureVintagePokemonCards(saved.data,cleanName));sortCardsList(cards);tcgCardListStatus.set(cards,{stale:true});return cards;
  }
  const cards=snapshot(true),status=tcgCardListStatus.get(cards);
  if(!status.partial){
