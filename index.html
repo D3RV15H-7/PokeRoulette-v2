@@ -11211,16 +11211,16 @@ async function enrichSetCardsWithTcgDex(cards, setId, setName, refreshPrice = fa
 }
 
 async function fetchYellowAAlternateCards(forceRefresh = false) {
-  const CACHE_KEY = 'pokeroulette_set_cards_v312_yellow-a-safe';
-  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v52_yellow-a-partial';
+  const CACHE_KEY = 'pokeroulette_set_cards_v313_yellow-a-reconciled';
+  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v312_yellow-a-safe';
   const CACHE_TIME = 24 * 60 * 60 * 1000;
   window.tcgSetCardsCache ||= {};
   const existing = window.tcgSetCardsCache[YELLOW_A_SET_ID];
-  if (Array.isArray(existing) && existing.length && !forceRefresh) return filterCollectorCards(existing);
-  const cached = [CACHE_KEY, OLD_CACHE_KEY].map(key => {
+  if (Array.isArray(existing) && existing.length >= YELLOW_A_CARD_IDS.length && !forceRefresh) return filterCollectorCards(existing);
+  const cached = [CACHE_KEY, OLD_CACHE_KEY, 'pokeroulette_set_cards_v52_yellow-a-partial'].map(key => {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
   }).find(value => Array.isArray(value?.data) && value.data.length);
-  if (!forceRefresh && cached && Date.now() - cached.savedAt < CACHE_TIME) {
+  if (!forceRefresh && cached && cached.data.length >= YELLOW_A_CARD_IDS.length && Date.now() - cached.savedAt < CACHE_TIME) {
     window.tcgSetCardsCache[YELLOW_A_SET_ID] = cached.data;
     return filterCollectorCards(cached.data);
   }
@@ -11242,11 +11242,28 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
   }
   const unique = new Map();
   // Merge earlier successful records so a temporary outage cannot remove cards.
-  for (const card of cached?.data || []) {
+  for (const card of [...(cached?.data || []), ...(existing || [])]) {
     if (YELLOW_A_CARD_ID_SET.has(String(card.id).toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
   }
   for (const card of rawCards) {
     if (YELLOW_A_CARD_ID_SET.has(String(card?.id || '').toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
+  }
+  // v313: Batch queries can silently omit valid alternate-number cards. Reconcile
+  // missing identities individually; retain existing records and never replace
+  // the complete catalogue with a partial response.
+  const missingIds = YELLOW_A_CARD_IDS.filter(id => !unique.has(id));
+  for (let i = 0; i < missingIds.length; i += 4) {
+    const settled = await Promise.allSettled(missingIds.slice(i, i + 4).map(async id => {
+      const url = `https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`;
+      const response = await fetchWithRetry(url, {headers, deadline:Date.now()+12000, timeoutMs:5000}, 0);
+      const payload = await response.json();
+      return payload?.data || null;
+    }));
+    settled.forEach(result => {
+      const card = result.status === 'fulfilled' ? result.value : null;
+      const id = String(card?.id || '').toLowerCase();
+      if (YELLOW_A_CARD_ID_SET.has(id)) unique.set(id, card);
+    });
   }
   const formatted = [...unique.values()].filter(card => !isExcludedCollectorCard(card)).map(card => {
     if (card.smallImg || card.largeImg) return card; // Preserves previously enriched records.
