@@ -1622,20 +1622,20 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-item .tcg-set-name { max-width:100%; white-space:nowrap; text-overflow:clip; }
 /* Light backing makes monochrome black expansion symbols legible on the dark Sets screen. */
 .tcg-set-symbol-slot.has-local-symbol { background: #f1f5f9; padding: 3px; }
-/* v315: Set overview titles wrap naturally and never enter the symbol column. */
-.tcg-set-item { padding-right: 54px; height: auto; min-height: 78px; }
-.tcg-set-item .tcg-set-info { min-width: 0; flex: 1 1 0; }
+/* v316: Keep titles on one line and reserve an independent symbol column. */
+.tcg-set-item { padding-right:54px; min-height:78px; }
+.tcg-set-item .tcg-set-info { min-width:0; flex:1 1 0; }
 .tcg-set-item .tcg-set-name {
-  font-size: .90rem !important;
-  line-height: 1.3;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-  overflow-wrap: break-word;
-  padding-right: 0;
-  max-width: 100%;
+  font-size:.90rem !important;
+  line-height:1.2;
+  white-space:nowrap !important;
+  overflow:visible;
+  text-overflow:clip;
+  overflow-wrap:normal;
+  padding-right:0;
+  max-width:100%;
 }
-.tcg-set-item .tcg-set-symbol-slot { right: 12px; top: 12px; }
+.tcg-set-item .tcg-set-symbol-slot {right:12px;top:12px;}
 /*TCG Set card variant selector*/
 .tcg-set-card-image-wrap { position: relative; }
 .tcg-variant-selector {
@@ -12964,6 +12964,10 @@ const LOCAL_SET_SYMBOL_ALIASES = {"scarletviolet151":"151","pokemon151":"151","m
 const LOCAL_SET_SYMBOL_IDS = {"mep":"mep-en.png","mee":"mee-en.png","me01":"mega-evolution.png","me02":"phantasmal-flames.png","me02.5":"ascended-heroes.png","me03":"perfect-order.png","me04":"chaos-rising.png","me05":"pitch-black.png","me06":"delta-reign.png","30th":"30th-celebration.png","30th-c":"30th-celebration-classic-collection.png","cel25":"celebrations.png","cel25cc":"celebrations-classic-collection.png","sve":"scarlet-violet-energies.png","svp":"scarlet-violet-black-star-promos.png","hgss2":"hs-unleashed.png","hgss3":"hs-undaunted.png","hgss4":"hs-triumphant.png","fut2020":"pokemon-futsal-collection.png","fut20":"pokemon-futsal-collection.png","swsh4.5sv":"shining-fates-shiny-vault.png","base1":"base.png","tk-bw-e":"black-white-trainer-kit-excadrill.png","tk-bw-z":"black-white-trainer-kit-zoroark.png","tk-dp-l":"diamond-pearl-trainer-kit-lucario.png","tk-dp-m":"diamond-pearl-trainer-kit-manaphy.png","tk-sm-l":"sun-moon-trainer-kit-lycanroc.png","tk-sm-r":"sun-moon-trainer-kit-alolan-raichu.png"};
 function localSetSymbolSource(set) {
   const id = String(set?.id || '').toLowerCase().trim();
+  if (id === 'miscp' || /^miscellaneous promos$/i.test(String(set?.name || '').trim())) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><path d="M48 5 59 34 90 35 66 55 74 86 48 69 22 86 30 55 6 35 37 34Z" fill="#050505" stroke="#fff" stroke-width="3"/><text x="48" y="56" fill="#fff" font-family="Arial,sans-serif" font-weight="900" font-size="17" text-anchor="middle">PROMO</text></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
   const canonical = String(AUDITED_ARTWORK_SET_ALIASES[id] || id).toLowerCase();
   let filename = LOCAL_SET_SYMBOL_IDS[id] || LOCAL_SET_SYMBOL_IDS[canonical];
   if (!filename) {
@@ -13068,12 +13072,64 @@ function refreshVisibleSetOverviewProgress() {
 
 window.addEventListener('resize', () => fitSetOverviewTitles(document.getElementById('setsGrid')));
 function fitSetOverviewTitles(root) {
-  // v315: Natural wrapping replaces the previous shrinking-to-one-line loop.
-  // CSS reserves a separate symbol column and allows the tile to grow.
   if (!root) return;
-  for (const el of root.querySelectorAll('.tcg-set-item .tcg-set-name')) {
-    el.style.removeProperty('font-size');
+  const fit = () => {
+    for (const el of root.querySelectorAll('.tcg-set-item .tcg-set-name')) {
+      el.style.setProperty('font-size', '0.90rem', 'important');
+      const available = el.clientWidth;
+      if (!available) continue;
+      const measured = el.scrollWidth;
+      if (measured > available) {
+        const base = parseFloat(getComputedStyle(el).fontSize) || 14;
+        // Use exact available space, with a small buffer for iOS font metrics.
+        const adjusted = Math.max(8, Math.floor(base * available / measured * 0.97 * 10) / 10);
+        el.style.setProperty('font-size', adjusted + 'px', 'important');
+      }
+    }
+  };
+  fit();
+  requestAnimationFrame(fit);
+}
+
+// v316: Only collapse verified alternate *listings* of the same release.
+// Never merge a named subset (e.g. Unown Collection) with its parent set.
+// This operates on overview rows only: no card IDs, ownership or prices change.
+function dedupeVerifiedSetOverview(sets) {
+  const targets = new Map([
+    ['dragon majesty', 'sm7.5'],
+    ['shining legends', 'sm3.5'],
+    ['pokemon futsal collection', 'fut2020'],
+    ['pokemon futsal 2020', 'fut2020']
+  ]);
+  const result = [], positions = new Map();
+  const norm = value => String(value || '').normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+  for (const set of sets) {
+    const name = norm(set.name);
+    const canonical = targets.get(name);
+    if (!canonical) { result.push(set); continue; }
+    const key = canonical;
+    if (!positions.has(key)) {
+      positions.set(key, result.length);
+      result.push(set);
+      continue;
+    }
+    const index = positions.get(key), previous = result[index];
+    // Keep the provider's canonical set ID when available, so opening the
+    // set continues to use its original card-fetching and collection keys.
+    const a = String(previous.id || '').toLowerCase() === canonical;
+    const b = String(set.id || '').toLowerCase() === canonical;
+    const preferred = b && !a ? set : previous;
+    const other = preferred === set ? previous : set;
+    result[index] = {
+      ...preferred,
+      logo: preferred.logo || other.logo || '',
+      symbol: preferred.symbol || other.symbol || '',
+      releaseDate: preferred.releaseDate || other.releaseDate || ''
+    };
   }
+  return result;
 }
 
 async function renderTcgSets(forceRefresh = false) {
@@ -13109,7 +13165,7 @@ async function renderTcgSets(forceRefresh = false) {
   const frag = document.createDocumentFragment();
  let eagerLogoCount = 0;
   const savedProgressIndex = buildSavedSetProgressIndex();
-  const groups = groupTcgSetsBySeries(normalize30thCatalogueSets(sets));
+  const groups = groupTcgSetsBySeries(dedupeVerifiedSetOverview(normalize30thCatalogueSets(sets)));
  for (const [index, group] of groups.entries()) {
   const section = createTcgSeriesSection(group, index);
   const list = section.querySelector('.tcg-series-sets');
