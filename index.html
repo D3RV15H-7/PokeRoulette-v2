@@ -11211,16 +11211,17 @@ async function enrichSetCardsWithTcgDex(cards, setId, setName, refreshPrice = fa
 }
 
 async function fetchYellowAAlternateCards(forceRefresh = false) {
-  const CACHE_KEY = 'pokeroulette_set_cards_v52_yellow-a-partial';
-  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v51_yellow-a-alternate';
+  const CACHE_KEY = 'pokeroulette_set_cards_v311_yellow-a-recovery';
+  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v52_yellow-a-partial';
+  const LEGACY_CACHE_KEY = 'pokeroulette_set_cards_v51_yellow-a-alternate';
   const CACHE_TIME = 24 * 60 * 60 * 1000;
   window.tcgSetCardsCache ||= {};
   const existing = window.tcgSetCardsCache[YELLOW_A_SET_ID];
-  if (Array.isArray(existing) && existing.length && !forceRefresh) return filterCollectorCards(existing);
-  const cached = [CACHE_KEY, OLD_CACHE_KEY].map(key => {
+  if (Array.isArray(existing) && existing.length === YELLOW_A_CARD_IDS.length && !forceRefresh) return filterCollectorCards(existing);
+  const cached = [CACHE_KEY, OLD_CACHE_KEY, LEGACY_CACHE_KEY].map(key => {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
   }).find(value => Array.isArray(value?.data) && value.data.length);
-  if (!forceRefresh && cached && Date.now() - cached.savedAt < CACHE_TIME) {
+  if (!forceRefresh && cached && cached.data.length === YELLOW_A_CARD_IDS.length && Date.now() - cached.savedAt < CACHE_TIME) {
     window.tcgSetCardsCache[YELLOW_A_SET_ID] = cached.data;
     return filterCollectorCards(cached.data);
   }
@@ -11242,12 +11243,36 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
   }
   const unique = new Map();
   // Merge earlier successful records so a temporary outage cannot remove cards.
-  for (const card of cached?.data || []) {
+  for (const card of [...(existing || []), ...(cached?.data || [])]) {
     if (YELLOW_A_CARD_ID_SET.has(String(card.id).toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
   }
   for (const card of rawCards) {
     if (YELLOW_A_CARD_ID_SET.has(String(card?.id || '').toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
   }
+  // v311: recover omitted identities one by one. Keep the original card IDs and
+  // collection records untouched; provider outages must not erase prior cards.
+  const missing = YELLOW_A_CARD_IDS.filter(id => !unique.has(id));
+  for (let i = 0; i < missing.length; i += 3) {
+    const recovered = await Promise.allSettled(missing.slice(i, i + 3).map(async id => {
+      const url = `https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`;
+      const response = await fetchWithRetry(url, {headers, deadline:Date.now()+10000, timeoutMs:5500}, 1);
+      const json = await response.json();
+      return json?.data;
+    }));
+    recovered.forEach(result => {
+      if (result.status !== 'fulfilled') return;
+      const card = result.value;
+      const id = String(card?.id || '').toLowerCase();
+      if (YELLOW_A_CARD_ID_SET.has(id)) unique.set(id, card);
+    });
+  }
+  window.pokerouletteCatalogueDiagnostics ||= {};
+  window.pokerouletteCatalogueDiagnostics.yellowA = {
+    expected: YELLOW_A_CARD_IDS.length,
+    loaded: unique.size,
+    missingIds: YELLOW_A_CARD_IDS.filter(id => !unique.has(id)),
+    checkedAt: new Date().toISOString()
+  };
   const formatted = [...unique.values()].filter(card => !isExcludedCollectorCard(card)).map(card => {
     if (card.smallImg || card.largeImg) return card; // Preserves previously enriched records.
     const sourceVariantEvidence = inferSetCardVariantsFromPokemonTcg(card);
