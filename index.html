@@ -1,4 +1,4 @@
-<!-- PokéRoulette v317: Stable Yellow A Alternate catalogue and non-destructive card reconciliation. -->
+<!-- PokéRoulette v318: Stable Yellow A Alternate catalogue and non-destructive card reconciliation. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1637,12 +1637,12 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 }
 .tcg-set-item .tcg-set-symbol-slot {right:12px;top:12px;}
 
-/* v317: progress occupies the entire content width, independently of the set logo. */
-.tcg-set-item { display:grid; grid-template-columns:100px minmax(0,1fr); grid-template-rows:auto auto; align-items:center; column-gap:1rem; row-gap:.35rem; }
-.tcg-set-item > .tcg-set-logo, .tcg-set-item > .tcg-set-logo-fallback {grid-column:1;grid-row:1;}
-.tcg-set-item > .tcg-set-info {grid-column:2;grid-row:1;min-width:0;}
-.tcg-set-item > .tcg-set-progress {grid-column:1 / -1;grid-row:2;margin-top:0;width:100%;}
-.tcg-set-item > .tcg-set-progress .tcg-set-progress-bar {width:100%;}
+/* v318: restore progress to the information column, directly below the date.
+   Keep the logo and symbol in their original positions. */
+.tcg-set-item { display:flex; align-items:center; gap:1rem; }
+.tcg-set-item > .tcg-set-info { flex:1 1 0; min-width:0; }
+.tcg-set-item .tcg-set-progress { margin-top:8px; width:100%; }
+.tcg-set-item .tcg-set-progress-bar { width:100%; }
 
 /*TCG Set card variant selector*/
 .tcg-set-card-image-wrap { position: relative; }
@@ -7745,6 +7745,7 @@ function getSetLogoSources(set) {
   const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   if (['sm3.5','sm35'].includes(id.toLowerCase()) || normalizedName === 'shining legends') return [CUSTOM_SHINING_LEGENDS_LOGO_V317];
   if (id.toLowerCase() === 'exu' || normalizedName === 'unseen forces unown collection') return [CUSTOM_UNOWN_COLLECTION_LOGO_V317];
+  if (id.toLowerCase() === 'miscp' || normalizedName === 'miscellaneous promos') return [SET_PROMO_LOGO_V120];
   if (id.toLowerCase() === 'me06' || normalizedName === 'delta reign')
     return ["assets/set-symbols/delta-reign-main-logo.png?v=309"];
   if (id.toLowerCase() === 'swsh4.5sv' || normalizedName === 'shining fates shiny vault')
@@ -12976,6 +12977,9 @@ const LOCAL_SET_SYMBOL_ALIASES = {"scarletviolet151":"151","pokemon151":"151","m
 const LOCAL_SET_SYMBOL_IDS = {"mep":"mep-en.png","mee":"mee-en.png","me01":"mega-evolution.png","me02":"phantasmal-flames.png","me02.5":"ascended-heroes.png","me03":"perfect-order.png","me04":"chaos-rising.png","me05":"pitch-black.png","me06":"delta-reign.png","30th":"30th-celebration.png","30th-c":"30th-celebration-classic-collection.png","cel25":"celebrations.png","cel25cc":"celebrations-classic-collection.png","sve":"scarlet-violet-energies.png","svp":"scarlet-violet-black-star-promos.png","hgss2":"hs-unleashed.png","hgss3":"hs-undaunted.png","hgss4":"hs-triumphant.png","fut2020":"pokemon-futsal-collection.png","fut20":"pokemon-futsal-collection.png","swsh4.5sv":"shining-fates-shiny-vault.png","base1":"base.png","tk-bw-e":"black-white-trainer-kit-excadrill.png","tk-bw-z":"black-white-trainer-kit-zoroark.png","tk-dp-l":"diamond-pearl-trainer-kit-lucario.png","tk-dp-m":"diamond-pearl-trainer-kit-manaphy.png","tk-sm-l":"sun-moon-trainer-kit-lycanroc.png","tk-sm-r":"sun-moon-trainer-kit-alolan-raichu.png"};
 function localSetSymbolSource(set) {
   const id = String(set?.id || '').toLowerCase().trim();
+  if (id === 'exu' || /^unseen forces unown collection$/i.test(String(set?.name || '').trim())) {
+    return localSetSymbolSource({ id:'ex10', name:'Unseen Forces' });
+  }
   if (id === 'miscp' || /^miscellaneous promos$/i.test(String(set?.name || '').trim())) {
     return localSetSymbolSource({ id:'basep', name:'Wizards Black Star Promos' }) || SET_PROMO_LOGO_V120;
   }
@@ -13227,9 +13231,6 @@ if (isComplete) item.classList.add('set-complete');
       </div>
     </div>
   `;
-  // v317: progress is a direct child of the tile so it spans both grid columns.
-  const tileProgress = item.querySelector('.tcg-set-info > .tcg-set-progress');
-  if (tileProgress) item.appendChild(tileProgress);
   attachSetLogo(item.querySelector('.tcg-set-logo'), set.id === YELLOW_A_SET_ID ? YELLOW_A_VIRTUAL_SET : set,
     !list.hidden && eagerLogoCount++ < 4);
   attachSetSymbol(item.querySelector('.tcg-set-symbol-slot'), set);
