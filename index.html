@@ -1,4 +1,4 @@
-<!-- PokéRoulette v310: User-supplied MEP EN, MEE EN and Delta Reign logo images. -->
+<!-- PokéRoulette v314: Stable Yellow A Alternate catalogue and non-destructive card reconciliation. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11211,16 +11211,17 @@ async function enrichSetCardsWithTcgDex(cards, setId, setName, refreshPrice = fa
 }
 
 async function fetchYellowAAlternateCards(forceRefresh = false) {
-  const CACHE_KEY = 'pokeroulette_set_cards_v313_yellow-a-reconciled';
-  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v312_yellow-a-safe';
+  const CACHE_KEY = 'pokeroulette_set_cards_v314_yellow-a-stable';
+  const OLD_CACHE_KEY = 'pokeroulette_set_cards_v313_yellow-a-reconciled';
   const CACHE_TIME = 24 * 60 * 60 * 1000;
   window.tcgSetCardsCache ||= {};
   const existing = window.tcgSetCardsCache[YELLOW_A_SET_ID];
-  if (Array.isArray(existing) && existing.length >= YELLOW_A_CARD_IDS.length && !forceRefresh) return filterCollectorCards(existing);
-  const cached = [CACHE_KEY, OLD_CACHE_KEY, 'pokeroulette_set_cards_v52_yellow-a-partial'].map(key => {
+  if (Array.isArray(existing) && existing.length === YELLOW_A_CARD_IDS.length && !forceRefresh && existing.every(c => !c._cataloguePending)) return filterCollectorCards(existing);
+  const savedCandidates = [CACHE_KEY, OLD_CACHE_KEY, 'pokeroulette_set_cards_v312_yellow-a-safe', 'pokeroulette_set_cards_v52_yellow-a-partial'].map(key => {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
-  }).find(value => Array.isArray(value?.data) && value.data.length);
-  if (!forceRefresh && cached && cached.data.length >= YELLOW_A_CARD_IDS.length && Date.now() - cached.savedAt < CACHE_TIME) {
+  }).filter(value => Array.isArray(value?.data) && value.data.length);
+  const cached = savedCandidates.reduce((best, item) => (!best || item.data.filter(c => !c._cataloguePending).length > best.data.filter(c => !c._cataloguePending).length) ? item : best, null);
+  if (!forceRefresh && cached && cached.data.length === YELLOW_A_CARD_IDS.length && cached.data.every(c => !c._cataloguePending) && Date.now() - cached.savedAt < CACHE_TIME) {
     window.tcgSetCardsCache[YELLOW_A_SET_ID] = cached.data;
     return filterCollectorCards(cached.data);
   }
@@ -11243,7 +11244,7 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
   const unique = new Map();
   // Merge earlier successful records so a temporary outage cannot remove cards.
   for (const card of [...(cached?.data || []), ...(existing || [])]) {
-    if (YELLOW_A_CARD_ID_SET.has(String(card.id).toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
+    if (card?.id && !card._cataloguePending && YELLOW_A_CARD_ID_SET.has(String(card.id).toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
   }
   for (const card of rawCards) {
     if (YELLOW_A_CARD_ID_SET.has(String(card?.id || '').toLowerCase())) unique.set(String(card.id).toLowerCase(), card);
@@ -11282,17 +11283,24 @@ async function fetchYellowAAlternateCards(forceRefresh = false) {
       variants:sourceVariantEvidence, baseFinish:sourceVariantEvidence.baseFinish
     };
   });
-  formatted.sort((a,b) => String(a.number).localeCompare(String(b.number),undefined,{numeric:true,sensitivity:'base'}));
-  if (!formatted.length) {
-    if (existing?.length) return filterCollectorCards(existing);
-    throw new Error('Yellow A provider temporarily unavailable and no saved cards exist');
-  }
-  window.tcgSetCardsCache[YELLOW_A_SET_ID] = formatted;
+  // The 79 catalogue identities are immutable. Network failures affect card detail,
+  // not set membership or its displayed count. Pending entries remain visibly pending
+  // and are retried on the next visit; they are never treated as verified artwork.
+  const byId = new Map(formatted.map(card => [String(card.id).toLowerCase(), card]));
+  const stable = YELLOW_A_CARD_IDS.map(id => byId.get(id) || {
+    id, name: 'Card details pending', number: id.split('-').slice(1).join('-').toUpperCase(),
+    setName: YELLOW_A_VIRTUAL_SET.name, sourceSetName: '',
+    smallImg: TCG_CARD_ARTWORK_UNAVAILABLE, largeImg: TCG_CARD_ARTWORK_UNAVAILABLE,
+    smallImgFallbacks: [], largeImgFallbacks: [], variants: {standard: true, reverseHolo: false, other: []},
+    _cataloguePending: true, _noPrice: true
+  });
+  stable.sort((a,b) => String(a.number).localeCompare(String(b.number),undefined,{numeric:true,sensitivity:'base'}));
+  window.tcgSetCardsCache[YELLOW_A_SET_ID] = stable;
   // Only stamp as fully fresh when all known identities have arrived; missing
   // cards will be retried on next visit rather than hidden behind a 24h cache.
-  try {localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:formatted.length===YELLOW_A_CARD_IDS.length?Date.now():0,data:formatted}));} catch(_){}
-  if (formatted.length < YELLOW_A_CARD_IDS.length) console.warn(`[SETS] Yellow A partially available: ${formatted.length}/${YELLOW_A_CARD_IDS.length}`);
-  return filterCollectorCards(formatted);
+  try {localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:stable.every(c => !c._cataloguePending)?Date.now():0,data:stable}));} catch(_){}
+  if (stable.some(c => c._cataloguePending)) console.warn(`[SETS] Yellow A details pending: ${stable.filter(c => c._cataloguePending).length}/${stable.length}; membership remains fixed`);
+  return filterCollectorCards(stable);
 }
 
 function isolateNumberedSetVariants(setId, cards) {
