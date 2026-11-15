@@ -8979,10 +8979,14 @@ function getCardArtworkSources(card) {
   const large = unique([...(recovery?.large || []), promoFront, verified, ...preferredLarge, ...fallbackLarge, card.images?.large, card.largeImg, card.images?.small, card.smallImg, ...(card.largeImgFallbacks || []), ...extra]);
   // An alternate encoding of the EXACT scan is preferable to a guessed CDN
   // path, especially when a cached WebP was interrupted in the installed app.
+  // v333: TCGdex asset fallback formats. Preserve the verified card identity
+  // and original source priority; only try alternatives if an image fails.
+  // Never guess another card/set ID or replace manually verified artwork.
   const alternateFormats = urls => [...new Set(urls.flatMap(source => {
     const url = canonicalTcgArtworkUrl(source);
-    return /^https:\/\/assets\.tcgdex\.net\/.*\/(?:low|high)\.webp$/i.test(url)
-      ? [url, url.replace(/\.webp$/i, '.png')] : [url];
+    if (!/^https:\/\/assets\.tcgdex\.net\/[^?#]+\/(?:low|high)\.(?:webp|png|jpg)$/i.test(url)) return [url];
+    const base = url.replace(/\.(?:webp|png|jpg)$/i, '');
+    return [url, ...['webp','png','jpg'].map(ext => base + '.' + ext)];
   }))];
   return { small: alternateFormats(small), large: alternateFormats(large) };
 }
