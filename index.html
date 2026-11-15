@@ -12976,23 +12976,38 @@ function orderTcgClassicCollectionsBelowParents(dateSortedSets) {
   return result;
 }
 
-// v309: Keep the main expansion, its Black Star Promo collection and its
-// Energy collection next to one another, regardless of their release dates.
-// Match the *whole series title*; never move unrelated expansions or promos.
-// v328: release-date order; same-day ties use main expansion, promos, energies.
+// v332: Position each series-wide Black Star Promo catalogue directly below
+// the original (earliest) main expansion in that series. Keep the normal
+// newest-first chronology of expansions, preserve original release dates,
+// and do not alter card IDs, counts, ownership or pricing.
 function orderTcgSeriesCompanionSets(dateSortedSets, seriesName) {
-  const typeRank = set => {
-    const name = String(set?.name || '').toLowerCase();
-    const id = String(set?.id || '').toLowerCase();
-    if (/energ(?:y|ies)/.test(name) || ['sve','mee'].includes(id)) return 2;
-    if (/promo/.test(name) || ['svp','mep','swshp','smp','xyp','bwp','dpp','hgssp'].includes(id)) return 1;
-    return 0;
-  };
+  const items = [...dateSortedSets];
+  const id = set => String(set?.id || '').toLowerCase();
+  const name = set => String(set?.name || '').toLowerCase();
+  const promoIds = new Set(['svp','mep','swshp','smp','xyp','bwp','dpp','hgssp','basep']);
+  const energyIds = new Set(['sve','mee']);
+  const isPromo = set => promoIds.has(id(set)) || /(?:black star )?promos?/.test(name(set));
+  const isEnergy = set => energyIds.has(id(set)) || /\benergies\b|\benergy\b/.test(name(set));
+  const isMain = set => !isPromo(set) && !isEnergy(set);
+  const main = items.filter(isMain);
+  if (!main.length) return items;
   const dateKey = set => String(set.releaseDate || '').replaceAll('/', '-');
-  return [...dateSortedSets].sort((a,b) =>
-    dateKey(b).localeCompare(dateKey(a)) ||
-    typeRank(a)-typeRank(b) ||
-    String(a.name || '').localeCompare(String(b.name || '')));
+  // The original series expansion is the oldest main set, not whichever
+  // expansion happened to release nearest to the promos.
+  const parent = [...main].sort((a,b) =>
+    dateKey(a).localeCompare(dateKey(b)) || String(a.name).localeCompare(String(b.name)))[0];
+  const companion = items.filter(set => isPromo(set) || isEnergy(set));
+  if (!companion.length) return items;
+  companion.sort((a,b) =>
+    Number(isEnergy(a)) - Number(isEnergy(b)) ||
+    dateKey(b).localeCompare(dateKey(a)) || String(a.name).localeCompare(String(b.name)));
+  const output = [];
+  for (const set of items) {
+    if (!isMain(set)) continue;
+    output.push(set);
+    if (set === parent) output.push(...companion);
+  }
+  return output;
 }
 
 function groupTcgSetsBySeries(sets) {
