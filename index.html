@@ -4402,6 +4402,23 @@ body.has-active #wheelWrap {
   .zoom-card-magnifier.is-closing {transition:none!important;}
 }
 </style>
+<style id="v344-smooth-card-magnifier">
+/* One continuous scale/ease instead of the older multi-stage horizontal flip. */
+.zoom-card-magnifier { transition:opacity 420ms cubic-bezier(.22,.7,.2,1); }
+#zoomCardMagnifierImage {
+  transform:scale(.74); opacity:.72;
+  transition:transform 420ms cubic-bezier(.22,.7,.2,1),opacity 420ms ease;
+  animation:none!important;
+}
+.zoom-card-magnifier.is-visible:not(.is-closing) #zoomCardMagnifierImage {
+  transform:scale(1);opacity:1;animation:none!important;
+}
+.zoom-card-magnifier.is-closing {transition:opacity 420ms cubic-bezier(.22,.7,.2,1);}
+.zoom-card-magnifier.is-closing #zoomCardMagnifierImage {transition:none!important;animation:none!important;}
+@media (prefers-reduced-motion:reduce) {
+ .zoom-card-magnifier,#zoomCardMagnifierImage {transition:none!important;animation:none!important;}
+}
+</style>
 <style id="landscape-layout-v325">
 /* v325: the portrait composition is unchanged; wide screens use the right rail. */
 .landscape-zoom-details { display:none; }
@@ -17861,11 +17878,11 @@ function hideZoomCardMagnifier(restoreFocus = false) {
     zoomCardMagnifierCloseAnimation = enlarged.animate([
       {transform:startTransform,opacity:startOpacity},
       {transform:endTransform,opacity:'0.72'}
-    ], {duration:340,easing:'cubic-bezier(.22,.72,.2,1)',fill:'forwards'});
+    ], {duration:420,easing:'cubic-bezier(.22,.7,.2,1)',fill:'forwards'});
     zoomCardMagnifierCloseAnimation.finished.then(complete, complete);
   }
   // Safety fallback for older browsers or interrupted animations.
-  zoomCardMagnifierCloseTimer = setTimeout(complete, 380);
+  zoomCardMagnifierCloseTimer = setTimeout(complete, 470);
 }
 function toggleZoomCardMagnifier(event) {
   event?.preventDefault?.();
