@@ -3720,6 +3720,24 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 
   .profile-dex-breakdown { padding: 0.15rem 0.65rem 0.65rem 1rem; }
   .profile-dex-breakdown details { margin: 0; }
+
+/* v349: compact expandable Info menu, preserving original explanatory content. */
+#infoModal .info-accordion { display:flex; flex-direction:column; gap:.58rem; }
+#infoModal .info-accordion-card { flex-shrink:0; background:#151e31; border:1px solid #35445e; border-radius:14px; overflow:hidden; }
+#infoModal .info-accordion-card[open] { border-color:#4dba98; }
+#infoModal .info-accordion-summary { display:flex; align-items:center; gap:.72rem; padding:.85rem .8rem; cursor:pointer; list-style:none; -webkit-tap-highlight-color:transparent; }
+#infoModal .info-accordion-summary::-webkit-details-marker { display:none; }
+#infoModal .info-accordion-icon { width:39px; height:39px; display:flex; align-items:center; justify-content:center; flex:none; border-radius:10px; background:#25334b; color:#70d6ed; font-weight:800; font-size:1.25rem; }
+#infoModal .info-card-1 .info-accordion-icon {color:#4fd39c;} #infoModal .info-card-2 .info-accordion-icon {color:#f4ad6e;} #infoModal .info-card-3 .info-accordion-icon {color:#f4ce73;} #infoModal .info-card-4 .info-accordion-icon {color:#c4b5fd;}
+#infoModal .info-accordion-heading {display:flex; flex-direction:column; gap:.14rem; min-width:0; flex:1;}
+#infoModal .info-accordion-heading strong {font-size:.91rem; color:#f8fafc; line-height:1.2;}
+#infoModal .info-accordion-heading small {font-size:.73rem; color:#a8b5ca; line-height:1.35;}
+#infoModal .info-accordion-chevron {width:9px; height:9px; flex:none; border-right:2px solid #a8b5ca; border-bottom:2px solid #a8b5ca; transform:rotate(45deg); margin-right:.2rem; transition:transform .22s ease;}
+#infoModal .info-accordion-card[open] .info-accordion-chevron {transform:rotate(225deg);}
+#infoModal .info-accordion-detail {border-top:1px solid #344159; padding:.78rem .85rem .9rem; color:#d3dbe9; font-size:.78rem; line-height:1.48;}
+#infoModal .info-accordion-detail p {margin:0 0 .48rem;} #infoModal .info-accordion-detail p:last-child {margin-bottom:0;}
+#infoModal .info-accordion-detail a {overflow-wrap:anywhere;}
+
 </style>
 <style>
 /* v186 fixes */
@@ -5166,35 +5184,44 @@ body.has-active #wheelWrap {
 <h3 class="page-title-with-icon" style="font-size:1.15rem;font-weight:800;"><svg class="page-title-icon nav-artwork nav-artwork-info" viewBox="790 145 194 242" aria-hidden="true" focusable="false"><g clip-path="url(#navCropV234_info)"><use href="#navArtworkSheetV233"/></g></svg><span>About PokéRoulette</span></h3>
       <button style="background:#334155;color:#fff;border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;" onclick="closeModal(null, 'infoModal')">✕</button>
     </div>
-    <div class="info-content">
-      <section class="info-section info-wheel">
-        <h4>POKÉROULETTE WHEEL</h4>
-        <p>Tap the Poké Ball or swipe to spin; search by Pokémon name or Pokédex number. Explore evolutions, card artwork, previews and sharing. Tap × to clear a search.</p>
-        <p><strong class="variant-base">Green counts:</strong> loaded / saved. <strong class="variant-reverse">Yellow counts:</strong> partial / loading. Pokémon data: PokéAPI; card catalogue and imagery: TCGdex, supplementary card APIs and verified manual references.</p>
-      </section>
-      <section class="info-section">
-        <h4>COLLECTION &amp; SETS</h4>
-        <p>Track cards in Dex or Sets. <strong class="variant-base">Green</strong> = base Standard / Holo; <strong class="variant-reverse">yellow</strong> = any Reverse; <strong class="variant-alt">blue</strong> = other printings. Split ticks show individual selected versions, including matching colours.</p>
-        <p><strong>Add All</strong> selects eligible base prints; <strong>Remove All</strong> clears a set. Search or filter collections; tap × to clear. Collection saves locally; sign in through Profile to sync across devices.</p>
-      </section>
-      <section class="info-section battles">
-        <h4>BATTLE</h4>
-        <p>Choose or randomise teams for 1v1, 3v3 or 6v6. <strong>▶</strong> normal, <strong>▶▶</strong> 2×, <strong>END</strong> finishes. <strong>Special</strong> is manually queued for your team with a 10-second recharge.</p>
-        <p><strong>Potions</strong> restore 25% max HP at ≤50% HP; 1 / 2 / 3 potions for 1v1 / 3v3 / 6v6. Opponent specials and potions are automatic.</p>
-      </section>
-      <section class="info-section prices">
-        <h4>PRICES &amp; CARD DATA</h4>
-        <p>GBP estimates prioritise Cardmarket Trend, then TCGplayer Market and Cardmarket AVG when available. Missing quotes display N/A; source dates reflect supplied pricing data. Prices update via the existing daily GitHub workflow.</p>
-        <p>New-set checklists may be added from reviewed sources before artwork becomes available. For Delta Reign, the English 141-card checklist is cross-checked with PokéBeach and PokéCottage; published front scans are tried from numbered English image sources including TCGdex and Serebii; unavailable scans retain the checklist. External checklists are not treated as image licences. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p>
-      </section>
-      <section class="info-section legal">
-        <h4>LEGAL &amp; APP DETAILS <span class="info-build">· v327</span></h4>
-        <p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p>
-      </section>
+    <div class="info-content info-accordion" id="infoAccordion">
+      <details class="info-accordion-card info-card-0">
+        <summary class="info-accordion-summary"><span class="info-accordion-icon" aria-hidden="true">◉</span><span class="info-accordion-heading"><strong>PokéRoulette Wheel</strong><small>Spin, search and discover Pokémon.</small></span><span class="info-accordion-chevron" aria-hidden="true"></span></summary>
+        <div class="info-accordion-detail"><p>Tap the Poké Ball or swipe to spin; search by Pokémon name or Pokédex number. Explore evolutions, card artwork, previews and sharing. Tap × to clear a search.</p>
+        <p><strong class="variant-base">Green counts:</strong> loaded / saved. <strong class="variant-reverse">Yellow counts:</strong> partial / loading. Pokémon data: PokéAPI; card catalogue and imagery: TCGdex, supplementary card APIs and verified manual references.</p></div>
+      </details>
+      <details class="info-accordion-card info-card-1">
+        <summary class="info-accordion-summary"><span class="info-accordion-icon" aria-hidden="true">▤</span><span class="info-accordion-heading"><strong>Collection &amp; Sets</strong><small>Track cards, variants and set progress.</small></span><span class="info-accordion-chevron" aria-hidden="true"></span></summary>
+        <div class="info-accordion-detail"><p>Track cards in Dex or Sets. <strong class="variant-base">Green</strong> = base Standard / Holo; <strong class="variant-reverse">yellow</strong> = any Reverse; <strong class="variant-alt">blue</strong> = other printings. Split ticks show individual selected versions, including matching colours.</p>
+        <p><strong>Add All</strong> selects eligible base prints; <strong>Remove All</strong> clears a set. Search or filter collections; tap × to clear. Collection saves locally; sign in through Profile to sync across devices.</p></div>
+      </details>
+      <details class="info-accordion-card info-card-2">
+        <summary class="info-accordion-summary"><span class="info-accordion-icon" aria-hidden="true">⚔</span><span class="info-accordion-heading"><strong>Battle</strong><small>Battle Pokémon in 1v1, 3v3 or 6v6.</small></span><span class="info-accordion-chevron" aria-hidden="true"></span></summary>
+        <div class="info-accordion-detail"><p>Choose or randomise teams for 1v1, 3v3 or 6v6. <strong>▶</strong> normal, <strong>▶▶</strong> 2×, <strong>END</strong> finishes. <strong>Special</strong> is manually queued for your team with a 10-second recharge.</p>
+        <p><strong>Potions</strong> restore 25% max HP at ≤50% HP; 1 / 2 / 3 potions for 1v1 / 3v3 / 6v6. Opponent specials and potions are automatic.</p></div>
+      </details>
+      <details class="info-accordion-card info-card-3">
+        <summary class="info-accordion-summary"><span class="info-accordion-icon" aria-hidden="true">£</span><span class="info-accordion-heading"><strong>Prices &amp; Card Data</strong><small>Understand values, sources and updates.</small></span><span class="info-accordion-chevron" aria-hidden="true"></span></summary>
+        <div class="info-accordion-detail"><p>GBP estimates prioritise Cardmarket Trend, then TCGplayer Market and Cardmarket AVG when available. Missing quotes display N/A; source dates reflect supplied pricing data. Prices update via the existing daily GitHub workflow.</p>
+        <p>New-set checklists may be added from reviewed sources before artwork becomes available. For Delta Reign, the English 141-card checklist is cross-checked with PokéBeach and PokéCottage; published front scans are tried from numbered English image sources including TCGdex and Serebii; unavailable scans retain the checklist. External checklists are not treated as image licences. Delta Reign’s 141-card checklist uses <a href="https://bulbapedia.bulbagarden.net/wiki/Delta_Reign_(TCG)" target="_blank" rel="noopener noreferrer">Bulbapedia contributors</a> (<a href="https://creativecommons.org/licenses/by-nc-sa/2.5/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 2.5</a>, reviewed 6 Nov 2026). Card scans and prices are sourced separately. Printed rarity symbols are now enriched from the daily verified TCGdex card catalogue using exact card IDs, names and numbers; exceptional printings can be corrected using attributed manual references. Bulbapedia remains a reviewed source rather than an automatic live feed.</p></div>
+      </details>
+      <details class="info-accordion-card info-card-4">
+        <summary class="info-accordion-summary"><span class="info-accordion-icon" aria-hidden="true">ⓘ</span><span class="info-accordion-heading"><strong>Legal &amp; App Details</strong><small>Credits, licensing and app information.</small></span><span class="info-accordion-chevron" aria-hidden="true"></span></summary>
+        <div class="info-accordion-detail"><p>Unofficial, free, non-commercial fan app; not endorsed by Nintendo or The Pokémon Company. Pokémon names, artwork and trademarks belong to their respective rights holders. Prices are estimates, not guaranteed sale values.</p></div>
+      </details>
     </div>
   </div>
 </div>
 
+<script>
+// Keep the Info screen compact: opening one topic closes the others.
+document.querySelectorAll('#infoAccordion > details').forEach((card) => {
+  card.addEventListener('toggle', () => {
+    if (!card.open) return;
+    document.querySelectorAll('#infoAccordion > details').forEach(other => { if (other !== card && other.open) other.open = false; });
+  });
+});
+</script>
 <!-- Build v242: shared price catalogue uses corrected finish selection and diagnostic reporting. -->
 <!-- In-App Toast Banner -->
 <div id="appToast" class="app-toast"></div>
