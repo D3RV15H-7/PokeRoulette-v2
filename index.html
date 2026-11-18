@@ -3718,6 +3718,8 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 .tcg-zoom-meta-rarity.rarity-asset img{display:block;height:100%;width:auto;object-fit:contain;}
 .tcg-zoom-meta-rarity.rarity-asset.rarity-promo{height:1.32em;}
 
+  .profile-dex-breakdown { padding: 0.15rem 0.65rem 0.65rem 1rem; }
+  .profile-dex-breakdown details { margin: 0; }
 </style>
 <style>
 /* v186 fixes */
@@ -5125,6 +5127,9 @@ body.has-active #wheelWrap {
         <div class="profile-stat-parent"><dt>Dex - Cards Collected</dt><dd id="profileStatDex" class="profile-stat-loading" aria-busy="true" aria-label="Loading card count"></dd></div>
         <div class="profile-stat-detail"><dt>Pokémon Represented</dt><dd id="profileStatDexPokemon">0 / 1,025</dd></div>
         <div class="profile-stat-detail"><dt>Value</dt><dd id="profileStatDexValue" class="profile-stat-loading" aria-busy="true" aria-label="Loading value"></dd></div>
+        <div class="profile-dex-breakdown">
+      <details id="profileDexValueDetails" hidden><summary id="profileDexValueSummary">Cards included in Dex value</summary><ol id="profileDexValueCards"></ol></details>
+        </div>
         <div class="profile-stat-parent"><dt>Sets - Cards Collected</dt><dd id="profileStatCards" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt>Including Variants</dt><dd id="profileStatVariants" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
         <div class="profile-stat-detail"><dt># of sets with cards collected</dt><dd id="profileStatSets" class="profile-stat-loading" aria-busy="true" aria-label="Loading statistic"></dd></div>
@@ -5134,7 +5139,6 @@ body.has-active #wheelWrap {
       </dl>
       <p id="profileValueNote">Dex uses the base card price. Sets adds each selected printing once. Unpriced printings are excluded. Cards count as fully priced when all selected printings have prices.</p>
       <details id="profileUnpricedDetails" hidden><summary id="profileUnpricedSummary">Cards without prices (0)</summary><div id="profileUnpricedExamples"></div></details>
-      <details id="profileDexValueDetails" hidden><summary id="profileDexValueSummary">Cards included in Dex value</summary><ol id="profileDexValueCards"></ol></details>
       <p id="profileValueRefreshStatus" role="status" aria-live="polite" hidden></p>
       <p id="profileStatsSyncStatus" role="status" hidden></p>
     </section>
@@ -14914,7 +14918,6 @@ async function refreshProfileStats() {
   if (status) {
     const messages = [];
     if (activeUid && spinState.count > spinState.ack) messages.push('Spin sync pending; saved on this device.');
-    if (stats.unavailable) messages.push('Some completed-set totals are currently unavailable.');
     status.textContent = messages.join(' ');
     status.hidden = messages.length === 0;
   }
