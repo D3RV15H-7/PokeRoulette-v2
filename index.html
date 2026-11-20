@@ -3739,10 +3739,11 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #infoModal .info-accordion-detail a {overflow-wrap:anywhere;}
 
 
-/* v355: draggable Sets scroll rail, independent of the existing edge arrows. */
-#setsDragRail { position:fixed; width:24px; z-index:115; display:none; touch-action:none; cursor:pointer; align-items:center; justify-content:center; }
-#setsDragRail::before { content:""; position:absolute; top:0; bottom:0; left:10px; width:4px; border-radius:8px; background:rgba(148,163,184,.26); }
-#setsDragThumb { position:absolute; left:6px; width:12px; min-height:38px; border-radius:12px; background:#7f91ad; border:1px solid rgba(220,232,250,.7); box-shadow:0 1px 7px rgba(0,0,0,.4); pointer-events:none; }
+/* v356: slim Sets rail in its own gutter, below the search/series controls. */
+#setsModal:not(.viewing-set) #setsGrid { padding-right: 17px; box-sizing:border-box; }
+#setsDragRail { position:fixed; width:12px; z-index:115; display:none; touch-action:none; cursor:pointer; }
+#setsDragRail::before { content:""; position:absolute; top:0; bottom:0; left:4px; width:3px; border-radius:8px; background:rgba(148,163,184,.22); }
+#setsDragThumb { position:absolute; left:1px; width:9px; box-sizing:border-box; min-height:38px; border-radius:12px; background:#8295b2; border:1px solid rgba(220,232,250,.7); box-shadow:0 1px 5px rgba(0,0,0,.3); pointer-events:none; }
 #setsDragRail:active #setsDragThumb { background:#16b98d; }
 
 </style>
@@ -21344,7 +21345,7 @@ rarityLogoAssetKey = function(rarity){
 </script>
 <script>
 
-/* v355: sync and drag the Sets scrollbar without changing arrow navigation. */
+/* v356: scroll thumb constrained to the Sets list gutter. */
 (function () {
   const modal = document.getElementById('setsModal');
   const body = modal?.querySelector('.modal-body');
@@ -21355,15 +21356,16 @@ rarityLogoAssetKey = function(rarity){
   function update() {
     const bounds = body.getBoundingClientRect();
     const max = Math.max(0, body.scrollHeight - body.clientHeight);
-    const visible = getComputedStyle(modal).display !== 'none' && bounds.height > 0 && max > 2;
+    const visible = getComputedStyle(modal).display !== 'none' && !modal.classList.contains('viewing-set') && bounds.height > 0 && max > 2;
     rail.style.display = visible ? 'flex' : 'none';
     if (!visible) return;
-    // Leave room for the modal handle and footer; keep the rail inside its edge.
-    const top = bounds.top + 62;
-    const bottom = bounds.bottom - 45;
+    // Start below the controls; place the thumb in the reserved right-hand gutter.
+    const gridTop = grid ? grid.getBoundingClientRect().top : bounds.top;
+    const top = Math.max(bounds.top + 8, Math.min(gridTop + 8, bounds.bottom - 90));
+    const bottom = bounds.bottom - 10;
     rail.style.top = top + 'px';
     rail.style.height = Math.max(70, bottom - top) + 'px';
-    rail.style.left = (bounds.right - 28) + 'px';
+    rail.style.left = (bounds.right - 15) + 'px';
     const height = rail.getBoundingClientRect().height;
     const thumbHeight = Math.min(height, Math.max(38, height * body.clientHeight / body.scrollHeight));
     thumb.style.height = thumbHeight + 'px';
