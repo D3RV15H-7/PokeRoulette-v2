@@ -1585,6 +1585,19 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-card.card-owned img { outline: 2px solid var(--green); outline-offset: 2px; }
 /*Completed TCG set*/
 .tcg-set-item.set-complete { outline: 2px solid var(--green); outline-offset: -2px; }
+/* v359: One consistent, self-contained style for letter-code expansion symbols. */
+.tcg-set-symbol-slot.has-code-symbol { background:#f1f5f9; padding:3px; }
+.tcg-set-symbol-slot .tcg-unified-code {
+  box-sizing:border-box; display:flex; align-items:center; justify-content:center;
+  width:100%; height:100%; min-width:0; overflow:hidden;
+  border-radius:3px; border:1px solid #ffffff;
+  background:#090b10; color:#ffffff;
+  font-family:Impact,"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
+  font-size:12px; font-stretch:condensed; font-weight:900; letter-spacing:-.45px;
+  line-height:1; white-space:nowrap; text-align:center;
+  -webkit-font-smoothing:antialiased;
+}
+.tcg-set-symbol-slot .tcg-unified-code.code-long { font-size:10px; letter-spacing:-.6px; }
 /* v314: Every set gets an expansion-symbol slot, independent of completion.
    The large set logo stays on the left and 100% retains its green outline. */
 .tcg-set-symbol-slot {
@@ -1610,6 +1623,7 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 }
 .tcg-set-symbol-slot[hidden],
 .tcg-set-symbol-image[hidden],
+.tcg-unified-code[hidden],
 .tcg-set-symbol-code[hidden] {display:none!important;}
 .tcg-set-symbol-code {
   max-width:100%;
@@ -13404,10 +13418,31 @@ function getSetSymbolSources(set) {
   return source ? [source] : [];
 }
 
+// Letter-only symbols are rendered from the set's stable ID, never from PNGs.
+// This is intentionally an allowlist: official graphical expansion symbols remain intact.
+function unifiedLetterSetCode(set) {
+  const id = String(set?.id || '').toLowerCase().trim();
+  const canonical = String(AUDITED_ARTWORK_SET_ALIASES[id] || id).toLowerCase();
+  const codes = {
+    mep:'MEP', mee:'MEE', me01:'MEG', me02:'PFL', 'me02.5':'ASC',
+    me03:'POR', me04:'CRI', me05:'PBL', me06:'DLR',
+    '30th':'30C', '30th-c':'30C', sve:'SVE'
+  };
+  if (codes[id] || codes[canonical]) return codes[id] || codes[canonical];
+  // McDonald's letter-and-year badges are code-only, not graphical set emblems.
+  const mc = getMcDonaldsSetInfo(id);
+  if (mc && /^20\d{2}$/.test(String(mc.name || '').match(/20\d{2}/)?.[0] || '')) {
+    const year = String(mc.name).match(/20\d{2}/)[0];
+    return 'M' + year.slice(2);
+  }
+  return '';
+}
+
 function getSetSymbolMarkup(set) {
   const name = escapeSetVariantHtml(String(set?.name || 'Set'));
   return `<span class="tcg-set-symbol-slot" aria-label="${name} set symbol" title="${name} set symbol" hidden>
     <img class="tcg-set-symbol-image" alt="" hidden>
+    <span class="tcg-unified-code" hidden></span>
   </span>`;
 }
 
@@ -13415,6 +13450,23 @@ function attachSetSymbol(slot, set) {
   if (!slot) return;
   const image = slot.querySelector('.tcg-set-symbol-image');
   if (!image) return;
+  const codeElement = slot.querySelector('.tcg-unified-code');
+  const code = unifiedLetterSetCode(set);
+  if (codeElement) {
+    codeElement.hidden = !code;
+    codeElement.textContent = code;
+    codeElement.classList.toggle('code-long', code.length > 3);
+  }
+  slot.classList.toggle('has-code-symbol', !!code);
+  if (code) {
+    image.hidden = true;
+    image.removeAttribute('src');
+    image.onload = null;
+    image.onerror = null;
+    slot.hidden = false;
+    slot.classList.remove('has-local-symbol');
+    return;
+  }
   const source = localSetSymbolSource(set);
   if (!source) {
     image.removeAttribute('src');
