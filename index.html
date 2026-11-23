@@ -1585,19 +1585,19 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-card.card-owned img { outline: 2px solid var(--green); outline-offset: 2px; }
 /*Completed TCG set*/
 .tcg-set-item.set-complete { outline: 2px solid var(--green); outline-offset: -2px; }
-/* v359: One consistent, self-contained style for letter-code expansion symbols. */
+/* v360: Original bold black-and-white code-badge treatment, consistently rendered. */
 .tcg-set-symbol-slot.has-code-symbol { background:#f1f5f9; padding:3px; }
 .tcg-set-symbol-slot .tcg-unified-code {
   box-sizing:border-box; display:flex; align-items:center; justify-content:center;
   width:100%; height:100%; min-width:0; overflow:hidden;
-  border-radius:3px; border:1px solid #ffffff;
-  background:#090b10; color:#ffffff;
+  border-radius:2px; border:1px solid #f8fafc;
+  background:#050505; color:#fff;
   font-family:Impact,"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
-  font-size:12px; font-stretch:condensed; font-weight:900; letter-spacing:-.45px;
+  font-size:15px; font-stretch:condensed; font-weight:900; letter-spacing:-.75px;
   line-height:1; white-space:nowrap; text-align:center;
   -webkit-font-smoothing:antialiased;
 }
-.tcg-set-symbol-slot .tcg-unified-code.code-long { font-size:10px; letter-spacing:-.6px; }
+.tcg-set-symbol-slot .tcg-unified-code.code-long { font-size:12px; letter-spacing:-.85px; }
 /* v314: Every set gets an expansion-symbol slot, independent of completion.
    The large set logo stays on the left and 100% retains its green outline. */
 .tcg-set-symbol-slot {
@@ -13423,13 +13423,39 @@ function getSetSymbolSources(set) {
 function unifiedLetterSetCode(set) {
   const id = String(set?.id || '').toLowerCase().trim();
   const canonical = String(AUDITED_ARTWORK_SET_ALIASES[id] || id).toLowerCase();
+  // Explicitly curated letter-only symbols. Never replace an official graphic mark.
   const codes = {
     mep:'MEP', mee:'MEE', me01:'MEG', me02:'PFL', 'me02.5':'ASC',
     me03:'POR', me04:'CRI', me05:'PBL', me06:'DLR',
-    '30th':'30C', '30th-c':'30C', sve:'SVE'
+    '30th':'30C', '30th-c':'30C', sve:'SVE',
+    sv01:'SVI', sv02:'PAL', sv03:'OBF', sv03pt5:'MEW', 'sv03.5':'MEW',
+    sv04:'PAR', sv04pt5:'PAF', 'sv04.5':'PAF', sv05:'TEF',
+    sv06:'TWM', sv06pt5:'SFA', 'sv06.5':'SFA', sv07:'SCR',
+    sv08:'SSP', sv08pt5:'PRE', 'sv08.5':'PRE', sv09:'JTG',
+    sv10:'DRI', sv10pt5:'BLK', 'sv10.5':'BLK',
+    sv10pt5b:'WHT', 'sv10.5b':'WHT',
+    'sv10.5w':'WHT', 'sv10.5b2':'WHT',
+    // Nonstandard IDs used by some catalogue sources for the paired expansions.
+    'sv10.5-black-bolt':'BLK', 'sv10.5-white-flare':'WHT'
   };
   if (codes[id] || codes[canonical]) return codes[id] || codes[canonical];
-  // McDonald's letter-and-year badges are code-only, not graphical set emblems.
+  // Only known code-only modern expansions, not older illustrated set emblems.
+  const names = {
+    'black bolt':'BLK', 'white flare':'WHT', 'destined rivals':'DRI',
+    'journey together':'JTG', 'prismatic evolutions':'PRE',
+    'surging sparks':'SSP', 'stellar crown':'SCR', 'shrouded fable':'SFA',
+    'twilight masquerade':'TWM', 'temporal forces':'TEF',
+    'paldean fates':'PAF', 'paradox rift':'PAR', '151':'MEW',
+    'obsidian flames':'OBF', 'paldea evolved':'PAL', 'scarlet & violet':'SVI',
+    'scarlet and violet':'SVI', 'delta reign':'DLR',
+    'pitch black':'PBL', 'perfect order':'POR', 'chaos rising':'CRI',
+    'ascended heroes':'ASC', 'phantasmal flames':'PFL',
+    'mega evolution':'MEG', 'mega evolution energies':'MEE',
+    'mep black star promos':'MEP', '30th celebration':'30C'
+  };
+  const name = String(set?.name || '').trim().toLowerCase();
+  if (names[name]) return names[name];
+  // McDonald's year marks are code-only, not official graphic symbols.
   const mc = getMcDonaldsSetInfo(id);
   if (mc && /^20\d{2}$/.test(String(mc.name || '').match(/20\d{2}/)?.[0] || '')) {
     const year = String(mc.name).match(/20\d{2}/)[0];
