@@ -3783,6 +3783,13 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #setsDragThumb { position:absolute; left:1px; width:9px; box-sizing:border-box; min-height:38px; border-radius:12px; background:#8295b2; border:1px solid rgba(220,232,250,.7); box-shadow:0 1px 5px rgba(0,0,0,.3); pointer-events:none; }
 #setsDragRail:active #setsDragThumb { background:#16b98d; }
 
+#dexDragRail { position:fixed; width:12px; z-index:115; display:none; touch-action:none; cursor:pointer; }
+#dexDragRail::before { content:""; position:absolute; top:0; bottom:0; left:4px; width:3px; border-radius:8px; background:rgba(148,163,184,.22); }
+#dexDragThumb { position:absolute; left:1px; width:9px; box-sizing:border-box; min-height:38px; border-radius:12px; background:#8295b2; border:1px solid rgba(220,232,250,.7); box-shadow:0 1px 5px rgba(0,0,0,.3); pointer-events:none; }
+#dexDragRail:active #dexDragThumb { background:#16b98d; }
+#dexGrid { box-sizing:border-box; padding-right:17px; min-height:0; scrollbar-width:none; }
+#dexGrid::-webkit-scrollbar { display:none; }
+
 </style>
 <style>
 /* v186 fixes */
@@ -5079,6 +5086,7 @@ body.has-active #wheelWrap {
     </div>
     <div class="list-view grid" id="dexGrid"></div>
   </div>
+  <div id="dexDragRail" role="scrollbar" aria-label="Scroll through Dex" aria-controls="dexGrid" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><div id="dexDragThumb"></div></div>
     <button type="button" id="dexBackTop" class="tcg-set-back-top" hidden
       aria-label="Back to top" title="Back to top"
       onclick="event.stopPropagation(); scrollDexToEdge(false)">
@@ -21522,6 +21530,40 @@ rarityLogoAssetKey = function(rarity){
   update();
 })();
 
+</script>
+<script>
+
+(function(){
+  const modal=document.getElementById('dexModal'), grid=document.getElementById('dexGrid'), body=modal.querySelector('.modal-body');
+  const rail=document.getElementById('dexDragRail'), thumb=document.getElementById('dexDragThumb');
+  let pointer=null, offset=0, frame=0;
+  const max=()=>Math.max(0,grid.scrollHeight-grid.clientHeight);
+  function update(){
+    const b=body.getBoundingClientRect(), g=grid.getBoundingClientRect(), distance=max();
+    const top=Math.max(b.top+8,g.top), bottom=Math.min(b.bottom-10,g.bottom);
+    const visible=getComputedStyle(modal).display!=='none' && distance>2 && bottom-top>40;
+    rail.style.display=visible?'block':'none';
+    if(!visible)return;
+    rail.style.top=top+'px'; rail.style.left=(b.right-15)+'px'; rail.style.height=(bottom-top)+'px';
+    const height=bottom-top, th=Math.min(height,Math.max(38,height*grid.clientHeight/grid.scrollHeight));
+    thumb.style.height=th+'px'; thumb.style.top=(Math.max(0,Math.min(1,grid.scrollTop/distance))*(height-th))+'px';
+    rail.setAttribute('aria-valuenow',String(Math.round(Math.max(0,Math.min(1,grid.scrollTop/distance))*100)));
+  }
+  function schedule(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;update();});}
+  function seek(y){const r=rail.getBoundingClientRect(), h=thumb.getBoundingClientRect().height; grid.scrollTop=Math.max(0,Math.min(1,(y-r.top-offset)/Math.max(1,r.height-h)))*max();update();}
+  rail.addEventListener('pointerdown',e=>{if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0))return; e.preventDefault();e.stopPropagation();cancelDexScroll();pointer=e.pointerId;const t=thumb.getBoundingClientRect();offset=e.clientY>=t.top&&e.clientY<=t.bottom?e.clientY-t.top:t.height/2;rail.setPointerCapture(pointer);seek(e.clientY);});
+  rail.addEventListener('pointermove',e=>{if(e.pointerId===pointer){e.preventDefault();e.stopPropagation();seek(e.clientY);}});
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])rail.addEventListener(type,e=>{if(e.pointerId===pointer){pointer=null;e.stopPropagation();}});
+  rail.addEventListener('click',e=>e.stopPropagation());
+  rail.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  rail.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
+  rail.addEventListener('keydown',e=>{const delta={ArrowDown:80,ArrowUp:-80,PageDown:grid.clientHeight,PageUp:-grid.clientHeight}[e.key];if(delta!==undefined||e.key==='Home'||e.key==='End'){e.preventDefault();e.stopPropagation();cancelDexScroll();grid.scrollTop=e.key==='Home'?0:e.key==='End'?max():grid.scrollTop+delta;update();}});
+  grid.addEventListener('scroll',schedule,{passive:true});body.addEventListener('scroll',schedule,{passive:true});window.addEventListener('resize',schedule,{passive:true});
+  if(window.visualViewport)window.visualViewport.addEventListener('resize',schedule,{passive:true});
+  if(typeof ResizeObserver==='function'){const ro=new ResizeObserver(schedule);ro.observe(body);ro.observe(grid);}
+  if(typeof MutationObserver==='function'){const mo=new MutationObserver(schedule);mo.observe(modal,{attributes:true,attributeFilter:['style','class']});mo.observe(grid,{childList:true,subtree:true});}
+  schedule();
+})();
 </script>
 </body>
 </html>
