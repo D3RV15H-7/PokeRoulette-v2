@@ -1585,19 +1585,42 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
 .tcg-set-card.card-owned img { outline: 2px solid var(--green); outline-offset: 2px; }
 /*Completed TCG set*/
 .tcg-set-item.set-complete { outline: 2px solid var(--green); outline-offset: -2px; }
-/* v360: Original bold black-and-white code-badge treatment, consistently rendered. */
-.tcg-set-symbol-slot.has-code-symbol { background:#f1f5f9; padding:3px; }
-.tcg-set-symbol-slot .tcg-unified-code {
-  box-sizing:border-box; display:flex; align-items:center; justify-content:center;
-  width:100%; height:100%; min-width:0; overflow:hidden;
-  border-radius:2px; border:1px solid #f8fafc;
-  background:#050505; color:#fff;
-  font-family:Impact,"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
-  font-size:15px; font-stretch:condensed; font-weight:900; letter-spacing:-.75px;
-  line-height:1; white-space:nowrap; text-align:center;
-  -webkit-font-smoothing:antialiased;
+/* v361: Compact reference-style letter symbols: no white square tile. */
+.tcg-set-symbol-slot.has-code-symbol {
+  background:transparent;
+  padding:0;
+  border:0;
+  border-radius:0;
+  width:40px;
+  height:26px;
+  right:9px;
+  top:12px;
 }
-.tcg-set-symbol-slot .tcg-unified-code.code-long { font-size:12px; letter-spacing:-.85px; }
+.tcg-set-symbol-slot .tcg-unified-code {
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:23px;
+  min-width:0;
+  overflow:hidden;
+  border:2px solid #9ca0a6;
+  border-radius:3px;
+  background:#080808;
+  color:#fff;
+  font-family:Impact,"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
+  font-size:16px;
+  font-stretch:condensed;
+  font-weight:900;
+  letter-spacing:-.5px;
+  line-height:1;
+  white-space:nowrap;
+  text-align:center;
+  -webkit-font-smoothing:antialiased;
+  box-shadow:inset 0 0 0 1px #343434;
+}
+.tcg-set-symbol-slot .tcg-unified-code.code-long {font-size:12px;letter-spacing:-.6px;}
 /* v314: Every set gets an expansion-symbol slot, independent of completion.
    The large set logo stays on the left and 100% retains its green outline. */
 .tcg-set-symbol-slot {
