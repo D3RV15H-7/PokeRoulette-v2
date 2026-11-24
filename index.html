@@ -1609,10 +1609,10 @@ body.has-active .hub-item-label { font-size: 0.56rem; }
   border-radius:3px;
   background:#080808;
   color:#fff;
-  font-family:Impact,"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
-  font-size:16px;
+  font-family:"Arial Narrow","Helvetica Neue Condensed",Arial,sans-serif;
+  font-size:15px;
   font-stretch:condensed;
-  font-weight:900;
+  font-weight:750;
   letter-spacing:-.5px;
   line-height:1;
   white-space:nowrap;
@@ -13446,9 +13446,14 @@ function getSetSymbolSources(set) {
 function unifiedLetterSetCode(set) {
   const id = String(set?.id || '').toLowerCase().trim();
   const canonical = String(AUDITED_ARTWORK_SET_ALIASES[id] || id).toLowerCase();
+  const setName = String(set?.name || "").trim().toLowerCase();
+  // Resolve paired expansions by name first: some catalogue IDs overlap.
+  if (setName === "black bolt") return "BLK";
+  if (setName === "white flare") return "WHT";
+  if (setName === "svp black star promos" || setName === "scarlet & violet black star promos" || setName === "scarlet and violet black star promos") return "SVP";
   // Explicitly curated letter-only symbols. Never replace an official graphic mark.
   const codes = {
-    mep:'MEP', mee:'MEE', me01:'MEG', me02:'PFL', 'me02.5':'ASC',
+    svp:'SVP', 'sv-p':'SVP', mep:'MEP', mee:'MEE', me01:'MEG', me02:'PFL', 'me02.5':'ASC',
     me03:'POR', me04:'CRI', me05:'PBL', me06:'DLR',
     '30th':'30C', '30th-c':'30C', sve:'SVE',
     sv01:'SVI', sv02:'PAL', sv03:'OBF', sv03pt5:'MEW', 'sv03.5':'MEW',
@@ -13474,7 +13479,7 @@ function unifiedLetterSetCode(set) {
     'pitch black':'PBL', 'perfect order':'POR', 'chaos rising':'CRI',
     'ascended heroes':'ASC', 'phantasmal flames':'PFL',
     'mega evolution':'MEG', 'mega evolution energies':'MEE',
-    'mep black star promos':'MEP', '30th celebration':'30C'
+    'mep black star promos':'MEP', 'svp black star promos':'SVP', '30th celebration':'30C'
   };
   const name = String(set?.name || '').trim().toLowerCase();
   if (names[name]) return names[name];
