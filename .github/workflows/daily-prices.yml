@@ -135,8 +135,8 @@ jobs:
           fi
       - name: Include extracted app images
         run: |
-          mkdir -p _app/_site/assets/embedded
-          cp -R assets/embedded/. _app/_site/assets/embedded/
+          mkdir -p _app/_site/assets/embedded_images
+          cp -R assets/embedded/. _app/_site/assets/embedded_images/
       - name: Upload app
         uses: actions/upload-pages-artifact@v4
         with:
