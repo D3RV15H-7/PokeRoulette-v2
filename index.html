@@ -17248,7 +17248,11 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
   const requestId = ++activeTcgRequestId;
   const strip = document.getElementById('tcgStrip');
   const countText = document.getElementById('tcgCountText');
+  const targetId = curId;
+  const isCurrent = () => !isSpinning && requestId === activeTcgRequestId && curId === targetId;
+  let lastVisibleCards = [];
   if (!isSpinning) {
+    currentCardsList = [];
     if (countText) {
       countText.innerText = 'Loading cards...';
       countText.classList.add('is-incomplete');
@@ -17262,13 +17266,29 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
     }
   }
   try {
-    const publish = cards => paintCatalogueWhenReady('main', () => {
-      if (!isSpinning && requestId === activeTcgRequestId && !activeTcgSet && document.getElementById('dexCardsModal')?.style.display !== 'flex') {
+    const publish = cards => {
+      if (!isCurrent()) return;
+      if (cards.length) lastVisibleCards = cards;
+      paintCatalogueWhenReady('main', () => {
+      if (isCurrent() && !activeTcgSet && document.getElementById('dexCardsModal')?.style.display !== 'flex') {
         currentCardsList = cards; renderTcgCards(cards);
       }
-    });
-    const cards = await fetchTcgCardsData(pokeName, speciesName, bypassCache, publish);
-    if (!isSpinning && requestId === activeTcgRequestId) {
+      });
+    };
+    let cards;
+    // Recover automatically once, using the same fresh request as manual refresh.
+    // Do not retry a Pokémon the user has already navigated away from.
+    try {
+      cards = await fetchTcgCardsData(pokeName, speciesName, bypassCache, publish);
+      if (!cards.length && tcgCardListStatus.get(cards)?.partial) throw new Error('Incomplete empty card search');
+    } catch (firstError) {
+      if (!isCurrent()) return;
+      if (countText) countText.innerText = 'Retrying cards...';
+      await new Promise(resolve => setTimeout(resolve, 700));
+      if (!isCurrent()) return;
+      cards = await fetchTcgCardsData(pokeName, speciesName, true, publish);
+    }
+    if (isCurrent()) {
       publish(cards);
       if (curId) {
         const hasCard = currentCardsList.some(c => isCardCollected(c));
@@ -17278,7 +17298,13 @@ async function fetchTcgCards(pokeName, speciesName, bypassCache = false) {
     }
   } catch (err) {
     console.error('[PokeRoulette] Card variations failed to load:', err);
-    if (!isSpinning && requestId === activeTcgRequestId) {
+    if (isCurrent()) {
+      if (lastVisibleCards.length) {
+        tcgCardListStatus.set(lastVisibleCards, {partial:true});
+        currentCardsList = lastVisibleCards;
+        renderTcgCards(lastVisibleCards);
+        return;
+      }
       currentCardsList = [];
       if (countText) {
         countText.innerText = 'Unavailable';
