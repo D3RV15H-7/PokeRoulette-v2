@@ -5287,9 +5287,7 @@ body.has-active #wheelWrap {
  <div class="modal-head">
   <div>
 <h3 class="page-title-with-icon" style="font-size:1.15rem;font-weight:800;"><svg class="page-title-icon nav-artwork nav-artwork-sets" viewBox="236 145 187 242" aria-hidden="true" focusable="false"><g clip-path="url(#navCropV234_sets)"><use href="#navArtworkSheetV233"/></g></svg><span>Pokémon TCG Sets</span></h3>
-    <div style="font-size:0.75rem;color:var(--sub);font-weight:600;margin-top:0.15rem;">
-      Browse physical card sets
-    </div>
+
   </div>
 
   <div style="display:flex;align-items:center;gap:0.45rem;">
@@ -15675,9 +15673,13 @@ function getHubModalScroller(modal) {
   if (modal.id === 'dexCardsModal') {
     return modal.querySelector('#dexCardsGrid');
   }
-  // Dex scrolls inside its list; Sets/Profile/Info use their modal body.
+  // Dex and the Sets catalogue have independent scrolling lists.
+  // Read the actual list scroll position before permitting pull-to-close.
   if (modal.id === 'dexModal') {
     return modal.querySelector('#dexGrid');
+  }
+  if (modal.id === 'setsModal' && !modal.classList.contains('viewing-set')) {
+    return modal.querySelector('#setsGrid');
   }
   return modal.querySelector('.modal-body');
 }
@@ -21546,6 +21548,13 @@ rarityLogoAssetKey = function(rarity){
 #setsModal:not(.viewing-set) .tcg-series-toggle-all {
   min-height: 35px; padding: 0.3rem 0.45rem;
   font-size: 0.68rem; white-space: nowrap;
+}
+
+/* v375: Sets search typography matches the Dex search field. */
+#setsModal:not(.viewing-set) .tcg-set-catalogue-controls .tcg-set-search-input,
+#setsModal:not(.viewing-set) .tcg-expanding-search .tcg-set-search-input {
+  font-size: 0.78rem;
+  font-weight: 400;
 }
 </style>
 <script id="v296-sets-interactive-edge-swipe">
