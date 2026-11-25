@@ -17,7 +17,7 @@ on:
       - 'data/artwork-manifest.json'
       - 'data/delta-reign-reference.json'
       - 'images/**'
-      - 'assets/set-symbols/**'
+      - 'assets/**'
 
 permissions:
   contents: read
@@ -133,6 +133,10 @@ jobs:
             echo 'Missing assets/set-symbols directory' >&2
             exit 1
           fi
+      - name: Include extracted app images
+        run: |
+          mkdir -p _app/_site/assets/embedded
+          cp -R assets/embedded/. _app/_site/assets/embedded/
       - name: Upload app
         uses: actions/upload-pages-artifact@v4
         with:
