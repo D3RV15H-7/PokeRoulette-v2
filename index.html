@@ -5286,17 +5286,12 @@ body.has-active #wheelWrap {
 
     <div class="tcg-set-catalogue-controls">
     <div class="tcg-expanding-search opens-right">
-    <div id="tcgSetSearchPanel" class="tcg-set-search-wrap tcg-set-search-panel" aria-hidden="true" inert>
+    <div id="tcgSetSearchPanel" class="tcg-set-search-wrap tcg-set-search-panel" aria-hidden="false">
       <input id="tcgSetSearchInput" class="tcg-set-search-input" type="search"
-        placeholder="Search sets…" autocomplete="off" spellcheck="false"
-        aria-label="Search Pokémon TCG sets or series" aria-controls="setsGrid" disabled>
+        placeholder="Filter Sets by Name or Series..." autocomplete="off" spellcheck="false"
+        aria-label="Search Pokémon TCG sets or series" aria-controls="setsGrid">
     </div>
-    <button type="button" id="tcgSetSearchToggle" class="tcg-set-search-toggle"
-      aria-label="Show sets search" title="Show sets search" aria-expanded="false"
-      aria-controls="tcgSetSearchPanel" onclick="toggleTcgCatalogueSearch()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-    </button>
+
     </div>
 
     <div class="tcg-series-toggle-wrap">
@@ -12919,9 +12914,13 @@ function updateCurrentSetSearchControls() {
 }
 
 function updateTcgCatalogueSearchControls() {
-  updateSlidingSetSearch('tcgSetSearchPanel', 'tcgSetSearchToggle', 'tcgSetSearchInput',
-    activeTcgCatalogueSearchExpanded && !activeTcgSet,
-    document.getElementById('tcgSetSearchInput')?.value || '', 'sets');
+  // Catalogue search is permanently visible, matching the Dex search field.
+  const panel = document.getElementById('tcgSetSearchPanel');
+  const input = document.getElementById('tcgSetSearchInput');
+  const search = panel?.closest('.tcg-expanding-search');
+  if (search) search.classList.add('is-expanded');
+  if (panel) { panel.inert = false; panel.setAttribute('aria-hidden', 'false'); }
+  if (input) input.disabled = false;
 }
 
 function toggleTcgCatalogueSearch(expanded) {
@@ -21484,6 +21483,40 @@ rarityLogoAssetKey = function(rarity){
 
 /* v357: Match visual logo scale for the two Match Battle McDonald’s collections. */
 #setsModal .tcg-set-item[data-mcd-logo-year="2023"] > .tcg-set-logo { transform: scale(1.10); transform-origin: center; }
+
+/* v372: shared full-height hub panels and compact catalogue search. */
+#accountModal, #infoModal, #setsModal, #dexModal, #battleModal {
+  align-items: stretch;
+}
+#accountModal:not(.auth-editing) > .modal-body,
+#infoModal > .modal-body,
+#setsModal > .modal-body,
+#dexModal > .modal-body,
+#battleModal > .modal-body {
+  height: 100%; max-height: 100%; box-sizing: border-box;
+  border-radius: 24px 24px 0 0;
+}
+#setsModal:not(.viewing-set) .tcg-set-catalogue-controls {
+  gap: 8px; margin: 6px 0 8px;
+}
+#setsModal:not(.viewing-set) .tcg-expanding-search {
+  flex: 1 1 auto; min-width: 0; width: auto; max-width: none;
+}
+#setsModal:not(.viewing-set) #tcgSetSearchPanel {
+  display: flex; visibility: visible; opacity: 1; pointer-events: auto;
+  position: relative; width: 100%; max-width: none; min-width: 0;
+  transform: none; margin: 0;
+}
+#setsModal:not(.viewing-set) #tcgSetSearchInput {
+  display: block; width: 100%; height: 37px;
+  background: var(--input-bg); border: 1px solid #334155;
+  border-radius: 99px; padding: 0.45rem 0.85rem;
+  color: #fff; font-size: 16px; box-sizing: border-box;
+}
+#setsModal:not(.viewing-set) .tcg-series-toggle-all {
+  min-height: 35px; padding: 0.3rem 0.45rem;
+  font-size: 0.68rem; white-space: nowrap;
+}
 </style>
 <script id="v296-sets-interactive-edge-swipe">
 /* Interactive edge swipe: the existing detail sheet follows the finger,
@@ -21625,9 +21658,8 @@ rarityLogoAssetKey = function(rarity){
     const visible = getComputedStyle(modal).display !== 'none' && !modal.classList.contains('viewing-set') && bounds.height > 0 && max > 2;
     rail.style.display = visible ? 'flex' : 'none';
     if (!visible) return;
-    // Start below the controls; place the thumb in the reserved right-hand gutter.
-    const gridTop = grid ? grid.getBoundingClientRect().top : bounds.top;
-    const top = Math.max(bounds.top + 8, Math.min(gridTop + 8, bounds.bottom - 90));
+    // Use the full scrollable panel height, matching the Dex scrollbar.
+    const top = bounds.top + 8;
     const bottom = bounds.bottom - 10;
     rail.style.top = top + 'px';
     rail.style.height = Math.max(70, bottom - top) + 'px';
