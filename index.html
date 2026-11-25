@@ -3871,7 +3871,7 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 #setsModal:not(.viewing-set) .tcg-set-search-input {
   width:100%;height:39px;box-sizing:border-box;border-radius:99px;
   background:var(--input-bg);border:1px solid #334155;
-  padding:7px 13px;font-size:16px;color:#fff;box-shadow:none;
+  padding:7px 13px;font-size:0.78rem;color:#fff;box-shadow:none;
 }
 #setsModal:not(.viewing-set) .tcg-set-search-input:focus {border-color:var(--red);box-shadow:none;}
 #setsModal:not(.viewing-set) .tcg-series-toggle-all {
@@ -5241,7 +5241,7 @@ body.has-active #wheelWrap {
 <h3 class="page-title-with-icon" style="font-size:1.15rem;font-weight:800;"><svg class="page-title-icon nav-artwork nav-artwork-dex" viewBox="67 145 157 242" aria-hidden="true" focusable="false"><g clip-path="url(#navCropV234_dex)"><use href="#navArtworkSheetV233"/></g></svg><span>Dex Collection</span></h3>
       <button style="background:#334155;color:#fff;border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;" onclick="closeModal(null, 'dexModal')">✕</button>
     </div>
-    <input type="text" id="dexFilterInput" class="dex-search-input" placeholder="Filter Dex by Name or #..." autocomplete="off" oninput="handleDexFilterSearch(this.value)" />
+    <input type="text" id="dexFilterInput" class="dex-search-input" placeholder="Search by Name or #" autocomplete="off" oninput="handleDexFilterSearch(this.value)" />
     <div class="tabs">
       <button class="active" id="tab-all" onclick="setDexTab('all')">All (1025)</button>
       <button id="tab-owned" onclick="setDexTab('owned')">Owned (<span id="tOwned">0</span>)</button>
@@ -5318,7 +5318,7 @@ body.has-active #wheelWrap {
     <div class="tcg-expanding-search opens-right">
     <div id="tcgSetSearchPanel" class="tcg-set-search-wrap tcg-set-search-panel" aria-hidden="false">
       <input id="tcgSetSearchInput" class="tcg-set-search-input" type="search"
-        placeholder="Filter Sets by Name or Series..." autocomplete="off" spellcheck="false"
+        placeholder="Search by Set or Series" autocomplete="off" spellcheck="false"
         aria-label="Search Pokémon TCG sets or series" aria-controls="setsGrid">
     </div>
 
