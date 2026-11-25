@@ -12473,7 +12473,7 @@ async function openTcgSet(set, preserveFilters = false) {
   closeSetCardBulkConfirmation();
   disposeSetThumbnails();
   if (!activeTcgSet) {
-    tcgSetsListScrollTop = document.querySelector('#setsModal .modal-body')?.scrollTop || 0;
+    tcgSetsListScrollTop = document.getElementById('setsGrid')?.scrollTop || 0;
     // Keep the previous catalogue view for the interactive iOS-style swipe-back preview.
     const catalogue = document.getElementById('setsGrid');
     window.__tcgSwipeCatalogueSnapshot = catalogue?.innerHTML || '';
@@ -13981,7 +13981,7 @@ async function renderTcgSets(forceRefresh = false) {
   disposeSetThumbnails();
   const requestId = ++setsViewRequestId;
   if (!activeTcgSet) {
-    tcgSetsListScrollTop = document.querySelector('#setsModal .modal-body')?.scrollTop || 0;
+    tcgSetsListScrollTop = document.getElementById('setsGrid')?.scrollTop || 0;
   }
   document.getElementById('setsModal')?.classList.remove('viewing-set');
   resetSetsScrollToTop();
@@ -14079,7 +14079,10 @@ filterTcgSetsBySearch();
 requestAnimationFrame(() => {
   if (requestId !== setsViewRequestId || activeTcgSet) return;
   const body = document.querySelector('#setsModal .modal-body');
-  if (body) body.scrollTop = tcgSetsListScrollTop;
+  // The catalogue scrolls inside #setsGrid, not the outer modal body.
+  // Restore the saved list position after its cards have been rebuilt.
+  const catalogue = document.getElementById('setsGrid');
+  if (catalogue) catalogue.scrollTop = tcgSetsListScrollTop;
   updateSetCardsBackTop();
 });
 }
@@ -21656,7 +21659,7 @@ rarityLogoAssetKey = function(rarity){
     // Restore the catalogue's position before the swipe reveals the underlay.
     // The real catalogue uses the same saved offset when Back to Sets completes.
     const savedTop = Number(window.__tcgSwipeCatalogueScrollTop ?? tcgSetsListScrollTop) || 0;
-    preview.scrollTop = savedTop;
+    catalogue.scrollTop = savedTop;
     panel.classList.add('set-swipe-front');
   }
   function settle(goBack, distance) {
