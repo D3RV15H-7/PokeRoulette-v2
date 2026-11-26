@@ -8318,6 +8318,8 @@ const V346_MCDONALDS_2024_CLEAN_LOGO = 'assets/embedded_images/05cec82e5c6c39fb.
 const V357_BW_PROMO_LOGO = 'assets/embedded_images/bw-black-star-promos.webp';
 const V357_HGSS_PROMO_LOGO = 'assets/embedded_images/hgss_promo_logo.webp';
 function getSetLogoSources(set) {
+  // v384: dedicated Diamond & Pearl Black Star Promos main set logo.
+  if (String(set?.id || '').toLowerCase() === 'dpp' || /^dp black star promos$/i.test(String(set?.name || '').trim())) return ['assets/embedded_images/d&p_promo.webp'];
   if (String(set?.id || '').toLowerCase() === 'hgssp' || /^hgss black star promos$/i.test(String(set?.name || '').trim())) return [V357_HGSS_PROMO_LOGO];
   if (["mcd24", "2024sv"].includes(String(set?.id || "").toLowerCase()) || /^mc(?:donald.s|donalds) collection 2024$/i.test(String(set?.name || "").trim())) return [V346_MCDONALDS_2024_CLEAN_LOGO];
   if (String(set?.id || '').toLowerCase() === 'bwp' || /^(?:bw|black and white) (?:black star )?promos?$/i.test(String(set?.name || '').trim())) return [V357_BW_PROMO_LOGO];
@@ -16451,34 +16453,15 @@ function renderZoomCardMeta(container,card){
 }
 function renderZoomCardIdentity(container,card) {
   if(!container)return;
+  // Display only the Pokémon name in the enlarged card viewer. Keep the
+  // original printing name intact for pricing, search and collection identity.
   const name=String(card?.name||'');
-  const parts=cardNameMechanic(name);
+  const displayName=cardNameMechanic(name).main;
   const middle=document.createElement('span');
   middle.className='tcg-identity-name';
-  renderCardName(middle,parts.main);
-  const right=document.createElement('span');
-  right.className='tcg-identity-side tcg-identity-suffix';
-  if(parts.suffix){
-    const badge=document.createElement('span');
-    badge.className='tcg-identity-ex';
-    badge.dataset.mechanic=parts.suffix.toUpperCase();
-    const styleKey=mechanicStyleForCard(card,parts.suffix);
-    badge.dataset.style=styleKey;
-    const assetKey=MECHANIC_LOGO_ASSET_BY_STYLE[styleKey]||'';
-    if(assetKey&&INLINE_LOGO_ASSETS[assetKey]){
-      badge.classList.add('tcg-identity-logo');
-      const img=createInlineLogoImage(assetKey, parts.suffix, 'tcg-identity-logo-image');
-      if(img)badge.replaceChildren(img);
-    }else if(parts.suffix==='VSTAR'){
-      const v=document.createElement('span'); v.className='mechanic-vstar-v'; v.textContent='V';
-      const star=document.createElement('span'); star.className='mechanic-vstar-star'; star.textContent='STAR';
-      badge.replaceChildren(v,star);
-    }else badge.textContent=parts.suffix;
-    badge.setAttribute('aria-label',parts.suffix+' card');
-    right.appendChild(badge);
-  }
-  container.replaceChildren(middle,right);
-  container.setAttribute('aria-label',name);
+  renderCardName(middle,displayName);
+  container.replaceChildren(middle);
+  container.setAttribute('aria-label',displayName);
 }
 
 function renderDexCardsGrid(cardsList) {
