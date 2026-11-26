@@ -4919,6 +4919,14 @@ body.has-active #wheelWrap {
   }
 }
 </style>
+<style id="smartSearchStyles">
+#smartSearchOverlay{position:fixed;inset:0;z-index:10000;background:rgba(4,9,20,.88);display:flex;align-items:center;justify-content:center;padding:12px;color:#f2f6ff}
+.smart-search-panel{background:#101a32;border:1px solid #465574;border-radius:24px;width:min(680px,100%);height:min(92dvh,850px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 60px #0008}
+.smart-search-header{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 12px;gap:12px}.smart-search-header strong{display:block;font-size:19px}.smart-search-header small{display:block;color:#a9b7d0;margin-top:5px}.smart-search-header button{border:0;background:#30405b;color:white;border-radius:50%;width:38px;height:38px;font-size:26px;flex-shrink:0}
+.smart-search-filters{display:flex;gap:8px;padding:0 18px 12px}.smart-search-filters button{border:1px solid #566582;border-radius:20px;background:transparent;color:#e2e8f0;padding:8px 15px;font-weight:700}.smart-search-filters button.active{background:#247e67;border-color:#36b58b;color:white}
+#smartSearchStatus{color:#9facc5;font-size:12px;padding:0 18px 12px}#smartSearchResults{overflow:auto;overscroll-behavior:contain;padding:0 12px 18px;flex:1}
+.smart-search-card{display:flex;flex-direction:column;text-align:left;width:100%;padding:13px 12px;margin:5px 0;border:1px solid #354361;border-radius:13px;background:#17223b;color:white}.smart-search-card strong{font-size:15px}.smart-search-card small{color:#a9b7d0;margin-top:4px}
+</style>
 </head>
 <body data-app-build="v327"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
 <div class="viewport">
@@ -19163,11 +19171,111 @@ function handleSearch(val) {
   l.style.display = 'block';
 }
 
+// v385: Cross-set Smart Search. Existing Pokémon lookup remains the default.
+const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo)$/i;
+let smartSearchSession = 0;
+let smartSearchMatches = [];
+let smartSearchMode = 'all';
+let smartSearchIndex = new Map();
+function smartSearchTerm(query) { return SMART_SEARCH_TERMS.test(String(query || '').trim()); }
+function smartSearchText(value) { return typeof value === 'string' ? value : (value?.name || ''); }
+function smartSearchCardMatches(card, query) {
+  const q = query.toLowerCase().trim();
+  const name = String(card.name || '').toLowerCase();
+  const rarity = smartSearchText(card.rarity || card.rarityName).toLowerCase();
+  const cardTypes = [card.types, card.type, card.energyType, card.energyTypes, card.category, card.supertype]
+    .flatMap(v => Array.isArray(v) ? v : [v]).map(smartSearchText).map(v => String(v).toLowerCase());
+  const types = {electric:'lightning', steel:'metal', dark:'darkness', colourless:'colorless'};
+  const type = types[q] || q;
+  if (['grass','fire','water','lightning','psychic','fighting','darkness','metal','dragon','fairy','colorless'].includes(type))
+    return cardTypes.some(v => v === type || v.includes(type)) || (Array.isArray(card.pokemonTypes) && card.pokemonTypes.some(v=>String(v).toLowerCase()===type));
+  if (['reverse','reverse holo','cosmos holo','stamped','holo'].includes(q)) {
+    try { return getAvailableSetCardVariants(card).some(v => String(v.label || v.name || v.key || v.id || v).toLowerCase().includes(q === 'reverse' ? 'reverse' : q)); }
+    catch (_) { return false; }
+  }
+  if (q === 'gold') return /gold|hyper rare/i.test(rarity + ' ' + name);
+  if (['full art','illustration rare','special illustration rare','hyper rare'].includes(q))
+    return rarity.includes(q) || name.includes(q);
+  const suffix = q === 'vunion' ? 'v-union' : q;
+  return new RegExp('(?:^|\\s)' + suffix.replace('-', '[ -]?') + '$','i').test(name);
+}
+function smartSearchClose() {
+  ++smartSearchSession;
+  document.getElementById('smartSearchOverlay')?.remove();
+}
+function smartSearchRender() {
+  const list = document.getElementById('smartSearchResults');
+  if (!list) return;
+  const matches = smartSearchMatches.filter(({card}) => smartSearchMode === 'all' ||
+    (smartSearchMode === 'owned' ? isSetCardCollected(card) : !isSetCardCollected(card)));
+  document.getElementById('smartSearchCount').textContent = `${matches.length} matching cards`;
+  const frag = document.createDocumentFragment();
+  matches.slice(0,600).forEach(({card,set}) => {
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'smart-search-card';
+    const name = document.createElement('strong'); name.textContent = card.name || 'Unnamed card';
+    const meta = document.createElement('small'); meta.textContent = `${set.name} · #${card.number || card.localId || '?'}${isSetCardCollected(card) ? ' · ✓ Owned' : ''}`;
+    row.append(name,meta);
+    row.onclick = async () => {
+      smartSearchClose();
+      const input = document.getElementById('sInput'); if(input) {input.value='';input.blur();}
+      const list = document.getElementById('sList'); if(list) list.style.display='none';
+      try {
+        openModal('setsModal', true);
+        await openTcgSet(set);
+        const index = currentCardsList.findIndex(c=>String(c.id)===String(card.id));
+        if (index >= 0) openTcgZoom(index);
+        else showToast('Card not found in set.','error');
+      } catch(err) {console.warn('Smart Search card navigation',err);showToast('Unable to open this card.','error');}
+    };
+    frag.appendChild(row);
+  });
+  list.replaceChildren(frag);
+  if (matches.length > 600) {
+    const note = document.createElement('p');note.textContent='Showing the first 600 matches. Narrow your search to explore more.';list.append(note);
+  }
+}
+async function openSmartSearch(query) {
+  smartSearchClose();
+  const session = ++smartSearchSession;
+  smartSearchMatches=[];smartSearchMode='all';
+  const overlay=document.createElement('div');overlay.id='smartSearchOverlay';
+  overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search">
+    <div class="smart-search-header"><div><strong>Card Search: ${query.replace(/[&<>"']/g,'')}</strong><small id="smartSearchCount">Searching card catalogue…</small></div><button type="button" id="smartSearchExit" aria-label="Close card search">×</button></div>
+    <div class="smart-search-filters"><button data-smart="all" class="active">All</button><button data-smart="owned">Owned</button><button data-smart="missing">Missing</button></div>
+    <div id="smartSearchStatus" role="status">Loading sets…</div><div id="smartSearchResults"></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#smartSearchExit').onclick=smartSearchClose;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)smartSearchClose();});
+  overlay.querySelectorAll('[data-smart]').forEach(btn=>btn.onclick=()=>{smartSearchMode=btn.dataset.smart;overlay.querySelectorAll('[data-smart]').forEach(b=>b.classList.toggle('active',b===btn));smartSearchRender();});
+  document.getElementById('sList')?.style && (document.getElementById('sList').style.display='none');
+  try {
+    const sets=dedupeVerifiedSetOverview(normalize30thCatalogueSets(await fetchPhysicalTcgSets()));
+    if(session!==smartSearchSession)return;
+    const status=overlay.querySelector('#smartSearchStatus');
+    let cursor=0,done=0,failed=0;
+    const worker=async()=>{
+      while(cursor<sets.length && session===smartSearchSession){
+        const set=sets[cursor++];
+        try {
+          let cards=smartSearchIndex.get(set.id);
+          if(!cards){cards=await fetchCardsForSet(set.id);if(cards?.length)smartSearchIndex.set(set.id,cards);}
+          if(session!==smartSearchSession)return;
+          for(const card of cards||[]) if(smartSearchCardMatches(card,query))smartSearchMatches.push({card,set});
+        }catch(e){failed++;console.warn('Smart Search set unavailable',set.id,e);}
+        done++;
+        if(session===smartSearchSession){status.textContent=`Searching sets: ${done} / ${sets.length}${failed ? ` · ${failed} unavailable` : ''}`;if(done%4===0 || done===sets.length)smartSearchRender();}
+      }
+    };
+    await Promise.all(Array.from({length:3},worker));
+    if(session===smartSearchSession){status.textContent=`Search complete · ${done} sets checked${failed ? ` · ${failed} unavailable` : ''}`;smartSearchRender();}
+  }catch(err){if(session===smartSearchSession)overlay.querySelector('#smartSearchStatus').textContent='Unable to load card catalogue. Close and try again.';console.warn('Smart Search',err);}
+}
 function submitSearch() {
   const input = document.getElementById('sInput');
   if (!input) return;
   const query = input.value .trim() .toLowerCase();
   if (!query) return;
+  if (smartSearchTerm(query)) { openSmartSearch(query); return; }
   // Search directly by National Dex number
   if (/^\d+$/.test(query)) {
     const id = parseInt(query, 10);
