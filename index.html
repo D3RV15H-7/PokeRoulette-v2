@@ -3901,6 +3901,14 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
   color: #94a3b8 !important;
   opacity: 1 !important;
 }
+
+/* v390: card search grab handle, matching modal-sheet styling. */
+.smart-search-panel{position:relative}
+.smart-search-grab{height:5px;width:44px;flex:none;border-radius:10px;background:#46536c;margin:10px auto 0;touch-action:pan-y;cursor:grab}
+.smart-search-grab:focus-visible{outline:2px solid #8cbcf8;outline-offset:5px}
+/* Align Sets catalogue search vertically with the Dex search below its header. */
+#setsModal:not(.viewing-set) .tcg-set-catalogue-controls{margin-top:0.5rem;margin-bottom:0.55rem;align-items:center}
+#setsModal:not(.viewing-set) .tcg-set-catalogue-controls .tcg-set-search-input{height:36px}
 </style>
 <style>
 /* v186 fixes */
@@ -4937,7 +4945,7 @@ body.has-active #wheelWrap {
 .smart-search-filters button{min-width:64px}.smart-search-sort-arrow{display:inline-block;min-width:.8em;margin-left:3px}
 </style>
 </head>
-<body data-app-build="v387"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
+<body data-app-build="v390"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
 <div class="viewport">
   <header id="appRefreshHandle">
     <h1
@@ -19301,7 +19309,25 @@ function smartSortEntries(entries,mode,direction){
   const text=(a,b)=>String(a??'').localeCompare(String(b??''),undefined,{numeric:true,sensitivity:'base'});
   const setOrder=(a,b)=>text(smartCardSetName(a),smartCardSetName(b));
   const cardOrder=(a,b)=>smartCompareCardNumbers(a,b)||text(a.card.name,b.card.name);
+  const rarityRank=e=>{
+    const card=e.card||{};
+    const raw=String(card.rarity?.name||card.rarityName||card.rarity||'').toLowerCase();
+    // Order rarity tiers from common to premium; unknown tiers follow by label.
+    if(/hyper rare|secret rare|gold rare/.test(raw))return 9;
+    if(/special illustration|special art|alternate art/.test(raw))return 8;
+    if(/illustration rare|art rare/.test(raw))return 7;
+    if(/ultra rare|rainbow rare/.test(raw))return 6;
+    if(/double rare|amazing rare|radiant rare/.test(raw))return 5;
+    if(/rare holo|holo rare|holographic/.test(raw))return 4;
+    if(/rare/.test(raw))return 3;
+    if(/uncommon/.test(raw))return 2;
+    if(/common/.test(raw))return 1;
+    return 0;
+  };
   return list.sort((a,b)=>{
+    if(mode==='rarity')return direction*(rarityRank(a)-rarityRank(b))
+      || direction*text(a.card.rarity?.name||a.card.rarityName||a.card.rarity,b.card.rarity?.name||b.card.rarityName||b.card.rarity)
+      || text(a.card.name,b.card.name)||setOrder(a,b)||cardOrder(a,b);
     if(mode==='number')return direction*smartCompareCardNumbers(a,b)
       || text(smartSetRelease(b),smartSetRelease(a))
       || setOrder(a,b)||text(a.card.name,b.card.name);
@@ -19394,11 +19420,23 @@ async function openSmartSearch(query) {
   const session = ++smartSearchSession;
   smartSearchMatches=[];smartSearchMode='name';smartSearchDirection=1;smartSearchLimit=100;smartSearchRendered=[];smartSearchTypeIndex=new Map();smartTypeVerified=new Set();
   const overlay=document.createElement('div');overlay.id='smartSearchOverlay';
-  overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search">
+  overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search"><div class="smart-search-grab" id="smartSearchGrab" role="button" tabindex="0" aria-label="Swipe down to close search" title="Swipe down to close"></div>
     <div class="smart-search-header"><div><strong>Card Search: ${query.replace(/[&<>"']/g,'')}</strong><small id="smartSearchCount">Searching card catalogue…</small></div><button type="button" id="smartSearchExit" class="zoom-preview-close-icon" aria-label="Close card search">✕</button></div>
-    <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="number">#<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button></div>
+    <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="rarity">Rarity<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button></div>
     <div id="smartSearchStatus" role="status">Loading sets…</div><div id="smartSearchResults"></div></div>`;
   document.body.appendChild(overlay);
+  // Swipe down on the grab handle to dismiss, matching the other modal sheets.
+  const grab=overlay.querySelector('#smartSearchGrab');
+  if(grab){
+    let startY=null;
+    grab.addEventListener('touchstart',e=>{startY=e.touches[0]?.clientY??null;},{passive:true});
+    grab.addEventListener('touchend',e=>{
+      if(startY!==null && (e.changedTouches[0]?.clientY??startY)-startY>65)smartSearchClose();
+      startY=null;
+    },{passive:true});
+    grab.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();smartSearchClose();}});
+    grab.addEventListener('click',()=>smartSearchClose());
+  }
   overlay.querySelector('#smartSearchExit').onclick=smartSearchClose;
   overlay.addEventListener('click',e=>{if(e.target===overlay)smartSearchClose();});
   smartUpdateSortButtons(overlay);
