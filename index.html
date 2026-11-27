@@ -4961,6 +4961,11 @@ body.has-active #wheelWrap {
 #sList .smart-autocomplete-option{display:flex;align-items:center;gap:10px;cursor:pointer;min-height:44px}
 #sList .smart-autocomplete-label{font-size:11px;font-weight:800;color:#40d7b0;white-space:nowrap}
 #sList .smart-autocomplete-term{font-weight:650;color:inherit}
+/* v397: two-line sort controls with stable card imagery */
+.smart-search-filters button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:39px;min-width:0;flex:1;padding:7px 5px;line-height:1.1}
+.smart-search-filters .smart-search-sort-detail{display:block;font-size:10px;font-weight:650;white-space:nowrap;opacity:.9}
+.smart-search-filters .smart-search-sort-detail[hidden]{display:none}
+.smart-search-card img{background:#131d33}
 </style>
 </head>
 <body data-app-build="v396"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
@@ -19277,6 +19282,8 @@ let smartSearchIndex = new Map();
 let smartSearchReturn = false;
 let smartSearchLimit = 100;
 let smartSearchRendered = [];
+let smartSearchCardNodes = new Map();
+let smartSearchRenderPending = false;
 let smartSearchTypeIndex = null;
 const smartTypeAliases = {electric:'lightning',steel:'metal',dark:'darkness',colourless:'colorless'};
 const smartPrintedTypes = ['grass','fire','water','lightning','psychic','fighting','darkness','metal','dragon','fairy','colorless'];
@@ -19425,10 +19432,24 @@ function smartSortEntries(entries,mode,direction){
 }
 function smartUpdateSortButtons(overlay){
   overlay.querySelectorAll('[data-smart]').forEach(btn=>{
-    const active=btn.dataset.smart===smartSearchMode;
+    const mode=btn.dataset.smart,active=mode===smartSearchMode;
     btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
-    btn.querySelector('.smart-search-sort-arrow').textContent=active?(smartSearchDirection===1?'↑':'↓'):'';
+    const label=btn.querySelector('.smart-search-sort-label');
+    const detail=btn.querySelector('.smart-search-sort-detail');
+    if(label)label.textContent=mode==='name'?(active&&smartSearchDirection===-1?'Z-A':'A-Z'):
+      mode==='rarity'?'Rarity':mode==='year'?'Year':'Price';
+    if(detail){
+      detail.textContent=!active?'':mode==='rarity'||mode==='price'?
+        (smartSearchDirection===1?'Low-High':'High-Low'):
+        mode==='year'?(smartSearchDirection===1?'Old-New':'New-Old'):'';
+      detail.hidden=!active||mode==='name';
+    }
   });
+}
+function smartScheduleRender(){
+  if(smartSearchRenderPending)return;
+  smartSearchRenderPending=true;
+  requestAnimationFrame(()=>{smartSearchRenderPending=false;smartSearchRender();});
 }
 function smartSearchTerm(query) { return SMART_SEARCH_TERMS.test(String(query || '').trim()); }
 function smartSearchText(value) { return typeof value === 'string' ? value : (value?.name || ''); }
@@ -19445,7 +19466,7 @@ function smartSearchCardMatches(card, query) {
   if (['non holo','non-holo','nonholo'].includes(q)) {
     try {
       return getAvailableSetCardVariants(card).some(v =>
-        /\\bnon[ -]?holo\\b/i.test(String(v.label || v.name || v.key || v.id || v))
+         /\bnon[ -]?holo\b/i.test(String(v.label || v.name || v.key || v.id || v))
       );
     } catch (_) { return false; }
   }
@@ -19477,10 +19498,13 @@ function smartSearchRender(reset=false) {
   const matches = smartSortEntries(smartSearchMatches,smartSearchMode,smartSearchDirection);
   document.getElementById('smartSearchCount').textContent = `${matches.length} matching cards`;
   const shown=matches.slice(0,smartSearchLimit);
-  if(reset || smartSearchRendered.some((v,i)=>v!==shown[i])){list.replaceChildren();smartSearchRendered=[];}
-  list.querySelector('.smart-search-more')?.remove();
+  // Preserve image elements across incremental updates and sorting; moving an
+  // existing node does not restart its image request or cause a visual flash.
   const frag=document.createDocumentFragment();
-  shown.slice(smartSearchRendered.length).forEach(entry => {
+  shown.forEach(entry => {
+    const key=smartResultIdentity(entry.card,entry.set);
+    const cached=smartSearchCardNodes.get(key);
+    if(cached){frag.append(cached);return;}
     const {card,set}=entry;
     const row=document.createElement('button');row.type='button';row.className='smart-search-card';
     const img=document.createElement('img');img.loading='lazy';img.decoding='async';img.alt='';
@@ -19503,9 +19527,10 @@ function smartSearchRender(reset=false) {
         openTcgZoom(index);
       }catch(err){console.warn('Smart Search card navigation',err);smartRestoreResults();showToast('Unable to open this card.','error');}
     };
+    smartSearchCardNodes.set(key,row);
     frag.append(row);
   });
-  list.append(frag);smartSearchRendered=shown;
+  list.replaceChildren(frag);smartSearchRendered=shown;
   if(matches.length>shown.length){const more=document.createElement('button');more.type='button';more.className='smart-search-more';more.textContent=`Show more (${shown.length} of ${matches.length})`;more.onclick=()=>{smartSearchLimit+=100;smartSearchRender();};list.append(more);}
 }
 function smartRestoreResults(){
@@ -19519,11 +19544,11 @@ function smartRestoreResults(){
 async function openSmartSearch(query) {
   smartSearchClose();
   const session = ++smartSearchSession;
-  smartSearchMatches=[];smartSearchMode='name';smartSearchDirection=1;smartSearchLimit=100;smartSearchRendered=[];smartSearchTypeIndex=new Map();smartTypeVerified=new Set();
+  smartSearchMatches=[];smartSearchMode='name';smartSearchDirection=1;smartSearchLimit=100;smartSearchRendered=[];smartSearchCardNodes=new Map();smartSearchRenderPending=false;smartSearchTypeIndex=new Map();smartTypeVerified=new Set();
   const overlay=document.createElement('div');overlay.id='smartSearchOverlay';
   overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search"><div class="smart-search-grab" id="smartSearchGrab" role="button" tabindex="0" aria-label="Swipe down to close search" title="Swipe down to close"></div>
     <div class="smart-search-header"><div><strong>Card Search: ${query.replace(/[&<>"']/g,'')}</strong><small id="smartSearchCount">Searching card catalogue…</small></div><button type="button" id="smartSearchExit" class="zoom-preview-close-icon" aria-label="Close card search">✕</button></div>
-    <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="rarity">Rarity<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button><button data-smart="price">Price<span class="smart-search-sort-arrow"></span></button></div>
+    <div class="smart-search-filters"><button data-smart="name"><span class="smart-search-sort-label">A-Z</span><small class="smart-search-sort-detail" hidden></small></button><button data-smart="rarity"><span class="smart-search-sort-label">Rarity</span><small class="smart-search-sort-detail" hidden></small></button><button data-smart="year"><span class="smart-search-sort-label">Year</span><small class="smart-search-sort-detail" hidden></small></button><button data-smart="price"><span class="smart-search-sort-label">Price</span><small class="smart-search-sort-detail" hidden></small></button></div>
     <div id="smartSearchStatus" role="status">Loading sets…</div><div id="smartSearchResults"></div></div>`;
   document.body.appendChild(overlay);
   // iOS-friendly bottom-sheet gesture. Use pointer events on the handle
@@ -19612,7 +19637,7 @@ async function openSmartSearch(query) {
     const scanned=[];const added=new Set();
     const collect=(card,set)=>{const key=smartResultIdentity(card,set);if(!added.has(key)&&smartSearchCardMatches(card,query)){added.add(key);smartSearchMatches.push({card,set});}};
     const updateStatus=()=>{status.textContent=`Searching sets: ${done} / ${sets.length}${failed?` · ${failed} unavailable`:''}${typePending?' · Checking printed types…':''}`;};
-    const typeTask=typePending?smartLoadTypeIndex(smartType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartSearchRender();},()=>session===smartSearchSession).catch(()=>{typeFailed=true;}).finally(()=>{typePending=false;if(session===smartSearchSession)updateStatus();}):Promise.resolve();
+    const typeTask=typePending?smartLoadTypeIndex(smartType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartScheduleRender();},()=>session===smartSearchSession).catch(()=>{typeFailed=true;}).finally(()=>{typePending=false;if(session===smartSearchSession)updateStatus();}):Promise.resolve();
     const worker=async()=>{
       while(cursor<sets.length && session===smartSearchSession){
         const set=sets[cursor++];
@@ -19623,14 +19648,14 @@ async function openSmartSearch(query) {
           for(const card of cards||[]){if(smartType(query))scanned.push({card,set});collect(card,set);}
           if(!cards?.length)failed++;
           if(smartType(query)&&cards?.some(c=>!smartTypeResolved(c))){
-            if(session===smartSearchSession){smartSearchRender();await new Promise(resolve=>setTimeout(resolve,0));}
+            if(session===smartSearchSession){smartScheduleRender();await new Promise(resolve=>setTimeout(resolve,0));}
             await smartRecoverSetTypes(cards,()=>session===smartSearchSession);
             if(session!==smartSearchSession)return;
             for(const card of cards)collect(card,set);
           }
         }catch(e){failed++;console.warn('Smart Search set unavailable',set.id,e);}
         done++;
-        if(session===smartSearchSession){updateStatus();smartSearchRender();await new Promise(resolve=>setTimeout(resolve,0));}
+        if(session===smartSearchSession){updateStatus();smartScheduleRender();await new Promise(resolve=>setTimeout(resolve,0));}
       }
     };
     await Promise.all([...Array.from({length:3},worker),typeTask]);
