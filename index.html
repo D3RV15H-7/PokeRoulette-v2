@@ -4943,7 +4943,13 @@ body.has-active #wheelWrap {
 .smart-search-card img{width:100%;height:auto;aspect-ratio:63/88;object-fit:contain}
 .smart-search-card .smart-search-info{width:100%;align-items:center}.smart-search-card small{font-size:10px;line-height:1.25;overflow-wrap:anywhere;margin:0}.smart-search-card small span{display:block}.smart-search-more{grid-column:1/-1}
 .smart-search-filters button{min-width:64px}.smart-search-sort-arrow{display:inline-block;min-width:.8em;margin-left:3px}
-\n/* v393: larger invisible hit area for the pull handle and reliable iOS sheet gestures */\n.smart-search-grab{width:96px!important;height:28px!important;margin:0 auto!important;position:relative!important;background:transparent!important;touch-action:none!important;flex-shrink:0!important}\n.smart-search-grab::after{content:"";position:absolute;left:26px;right:26px;top:12px;height:5px;border-radius:9px;background:#46536c}\n.smart-search-header{touch-action:none}\n#smartSearchResults{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}\n</style>
+\n/* v393: larger invisible hit area for the pull handle and reliable iOS sheet gestures */\n.smart-search-grab{width:96px!important;height:28px!important;margin:0 auto!important;position:relative!important;background:transparent!important;touch-action:none!important;flex-shrink:0!important}\n.smart-search-grab::after{content:"";position:absolute;left:26px;right:26px;top:12px;height:5px;border-radius:9px;background:#46536c}\n.smart-search-header{touch-action:none}\n#smartSearchResults{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}\n
+.smart-search-filters{flex-wrap:wrap;row-gap:7px}
+.smart-search-filters button{padding:8px 12px}
+#sList .smart-autocomplete-option{display:flex;align-items:center;gap:10px;cursor:pointer;min-height:44px}
+#sList .smart-autocomplete-label{font-size:11px;font-weight:800;color:#40d7b0;white-space:nowrap}
+#sList .smart-autocomplete-term{font-weight:650;color:inherit}
+</style>
 </head>
 <body data-app-build="v393"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
 <div class="viewport">
@@ -19182,8 +19188,18 @@ function handleSearch(val) {
       );
     })
     .slice(0, 8);
+  // Offer Smart Search suggestions alongside ordinary Pokémon autocomplete.
+  // Prefix matching makes supported categories discoverable as the user types.
+  const smartTerms=['Alolan','Galarian','Hisuian','Paldean','Grass','Fire','Water',
+    'Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Fairy','Colorless',
+    'V','VMAX','VSTAR','V-Union','GX','ex','BREAK','Holo','Reverse','Reverse Holo',
+    'Cosmos Holo','Stamped','Full Art','Illustration Rare',
+    'Special Illustration Rare','Hyper Rare','Gold'];
+  const smartSuggestions=smartTerms.filter(term=>
+    term.toLowerCase().startsWith(query) && (query.length>=2 || term.toLowerCase()===query)
+  ).slice(0,5);
   // Nothing found
-  if (!m.length) {
+  if (!m.length && !smartSuggestions.length) {
     l.innerHTML = `
       <li style="color:var(--sub);cursor:default;">
         No Pokémon found
@@ -19209,6 +19225,25 @@ function handleSearch(val) {
     // Click works for mouse, touch and keyboard; mousedown alone misses iOS taps.
     li.onclick = () => {
       loadPoke(p.id, true);
+    };
+    frag.appendChild(li);
+  });
+  smartSuggestions.forEach(term=>{
+    const li=document.createElement('li');
+    li.className='smart-autocomplete-option';
+    const label=document.createElement('strong');
+    label.className='smart-autocomplete-label';
+    label.textContent='SmartSearch';
+    const value=document.createElement('span');
+    value.className='smart-autocomplete-term';
+    value.textContent=term;
+    li.append(label,value);
+    li.onclick=()=>{
+      const input=document.getElementById('sInput');
+      if(input)input.value=term;
+      input?.blur();
+      l.style.display='none';
+      openSmartSearch(term.toLowerCase());
     };
     frag.appendChild(li);
   });
@@ -19347,7 +19382,22 @@ function smartSortEntries(entries,mode,direction){
     if(/common/.test(raw))return 1;
     return 0;
   };
+  const price=e=>{
+    const card=e.card||{};
+    // Reuse the catalogue's established GBP price resolution rather than
+    // estimating from rarity or a separate currency feed.
+    const raw=card.priceGBP ?? extractCardPriceGBP(card);
+    const value=Number(String(raw??'').replace(/[£,]/g,''));
+    return Number.isFinite(value)&&value>0?value:null;
+  };
   return list.sort((a,b)=>{
+    if(mode==='price'){
+      const av=price(a),bv=price(b);
+      if(av===null && bv!==null)return 1;
+      if(bv===null && av!==null)return -1;
+      return (av===null?0:direction*(av-bv))
+        || text(a.card.name,b.card.name)||setOrder(a,b)||cardOrder(a,b);
+    }
     if(mode==='rarity')return direction*(rarityRank(a)-rarityRank(b))
       || direction*text(a.card.rarity?.name||a.card.rarityName||a.card.rarity,b.card.rarity?.name||b.card.rarityName||b.card.rarity)
       || text(a.card.name,b.card.name)||setOrder(a,b)||cardOrder(a,b);
@@ -19453,7 +19503,7 @@ async function openSmartSearch(query) {
   const overlay=document.createElement('div');overlay.id='smartSearchOverlay';
   overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search"><div class="smart-search-grab" id="smartSearchGrab" role="button" tabindex="0" aria-label="Swipe down to close search" title="Swipe down to close"></div>
     <div class="smart-search-header"><div><strong>Card Search: ${query.replace(/[&<>"']/g,'')}</strong><small id="smartSearchCount">Searching card catalogue…</small></div><button type="button" id="smartSearchExit" class="zoom-preview-close-icon" aria-label="Close card search">✕</button></div>
-    <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="rarity">Rarity<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button></div>
+    <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="rarity">Rarity<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button><button data-smart="price">Price<span class="smart-search-sort-arrow"></span></button></div>
     <div id="smartSearchStatus" role="status">Loading sets…</div><div id="smartSearchResults"></div></div>`;
   document.body.appendChild(overlay);
   // iOS-friendly bottom-sheet gesture. Use pointer events on the handle
@@ -19476,7 +19526,7 @@ async function openSmartSearch(query) {
     if(dy>7 && dy>Math.abs(dx)*1.15 && results.scrollTop<=1){
       swipe.drag=true;swipe.dy=dy;
       if(event.cancelable)event.preventDefault();
-      panel.style.transform=`translate3d(0,${Math.min(280,dy)}px,0)`;
+      panel.style.transform=`translate3d(0,${dy}px,0)`;
     }
   };
   const end=()=>{
@@ -19487,9 +19537,12 @@ async function openSmartSearch(query) {
       setTimeout(()=>{suppressClick=false;},350);
     }
     swipe=null;
-    panel.style.transition='transform .2s ease';
-    panel.style.transform='';
-    if(dismiss)smartSearchClose();
+    panel.style.transition='transform .24s ease';
+    if(dismiss){
+      panel.style.transform=`translate3d(0,${window.innerHeight+panel.offsetHeight}px,0)`;
+      panel.addEventListener('transitionend',smartSearchClose,{once:true});
+      setTimeout(()=>{if(document.getElementById('smartSearchOverlay')===overlay)smartSearchClose();},320);
+    }else panel.style.transform='';
   };
   const cancel=()=>{
     swipe=null;panel.style.transition='transform .2s ease';panel.style.transform='';
