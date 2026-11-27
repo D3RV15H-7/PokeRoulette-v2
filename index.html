@@ -17727,6 +17727,9 @@ async function openZoomCardSet(event) {
     // Open the destination directly; dock toggling must not minimise Sets
     // when this shortcut is used from a card already within that view.
     openedFromDexModal = false;
+    // Navigating to the set ends the Smart Search return flow. Otherwise
+    // closing the preview reopens the search over the destination set.
+    if (smartSearchReturn) smartSearchClose();
     closeTcgZoom(true);
     closeDexCardsModal();
     openModal('setsModal', true);
@@ -18652,6 +18655,26 @@ function zoomDragGeometry(panel, image, source) {
     const t=event.touches[0];
     gesture={id:t.identifier,x:t.clientX,y:t.clientY,dy:0,progress:0,active:false,geometry:null};
   };
+  // The grab bar is a reliable close target even when the card sheet itself
+  // is scrollable or the general interactive gesture has been blocked.
+  if(handle){
+    let handleStart=null;
+    handle.style.touchAction='none';
+    handle.addEventListener('touchstart',event=>{
+      if(event.touches.length===1)handleStart=event.touches[0].clientY;
+    },{passive:true});
+    handle.addEventListener('touchend',event=>{
+      if(handleStart===null)return;
+      const delta=(event.changedTouches[0]?.clientY??handleStart)-handleStart;
+      handleStart=null;
+      if(delta>55 && modal.style.display==='flex' && !zoomCardMotion.closing){
+        gesture=null;
+        clearZoomInteractiveDismiss();
+        closeTcgZoom();
+      }
+    },{passive:true});
+    handle.addEventListener('touchcancel',()=>{handleStart=null;},{passive:true});
+  }
   panel.addEventListener('touchstart',start,{passive:true});
   panel.addEventListener('touchmove',event=>{
     if(!gesture||event.touches.length!==1)return;
