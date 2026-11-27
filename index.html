@@ -19216,6 +19216,7 @@ function handleSearch(val) {
   // Prefix matching makes supported categories discoverable as the user types.
   const smartTerms=['Alolan','Galarian','Hisuian','Paldean','Grass','Fire','Water',
     'Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Fairy','Colorless',
+    'Normal','Ice','Ground','Flying','Poison','Bug','Rock','Ghost',
     'V','VMAX','VSTAR','V-Union','GX','ex','BREAK','Holo','Non Holo','Reverse','Reverse Holo',
     'Cosmos Holo','Stamped','Full Art','Illustration Rare',
     'Special Illustration Rare','Hyper Rare','Gold'];
@@ -19278,7 +19279,7 @@ function handleSearch(val) {
 }
 
 // v385: Cross-set Smart Search. Existing Pokémon lookup remains the default.
-const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo|non holo|non-holo|nonholo|alolan|alola|galarian|galar|hisuian|hisui|paldean|paldea)$/i;
+const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|normal|ice|ground|flying|poison|bug|rock|ghost|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo|non holo|non-holo|nonholo|alolan|alola|galarian|galar|hisuian|hisui|paldean|paldea)$/i;
 let smartSearchSession = 0;
 let smartSearchMatches = [];
 let smartSearchMode = 'name';
@@ -19294,7 +19295,39 @@ let smartSearchRenderPending = false;
 let smartSearchTypeIndex = null;
 const smartTypeAliases = {electric:'lightning',steel:'metal',dark:'darkness',colourless:'colorless'};
 const smartPrintedTypes = ['grass','fire','water','lightning','psychic','fighting','darkness','metal','dragon','fairy','colorless'];
+// Wheel-only types do not exist as printed Pokémon TCG card types.
+// Resolve these against Pokémon species instead of relabelling printed cards.
+const smartWheelOnlyTypes = ['normal','ice','ground','flying','poison','bug','rock','ghost'];
+let smartWheelSpecies = new Set();
+function smartSpeciesName(value){return String(value||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
+function smartWheelSpeciesMatch(card){
+  if(!smartWheelSpecies.size || /^(trainer|energy)$/i.test(String(card?.supertype||card?.category||'')))return false;
+  let name=smartSpeciesName(card?.name);
+  name=name.replace(/\s+(?:vmax|vstar|v union|v|gx|ex|break|lv x)$/,'').trim();
+  // Exact Pokémon names and regional prefixes, with optional Mega prefix.
+  if(smartWheelSpecies.has(name))return true;
+  if(name.startsWith('mega ') && smartWheelSpecies.has(name.slice(5)))return true;
+  return false;
+}
+async function smartLoadWheelSpecies(type,onReady,active){
+  const response=await fetchJsonWithRetry('https://pokeapi.co/api/v2/type/'+encodeURIComponent(type),{timeoutMs:12000,deadline:Date.now()+22000},1);
+  if(!Array.isArray(response?.pokemon))throw Error('Pokémon type catalogue unavailable');
+  const names=new Set();
+  for(const entry of response.pokemon){
+    const raw=String(entry?.pokemon?.name||'');
+    if(!raw)continue;
+    names.add(smartSpeciesName(raw));
+    // PokeAPI represents regional forms with suffixes (e.g. vulpix-alola).
+    const region=raw.match(/^(.+)-(alola|galar|hisui|paldea)$/);
+    if(region)names.add(smartSpeciesName(region[2]==='alola'?'alolan '+region[1]:region[2]==='galar'?'galarian '+region[1]:region[2]==='hisui'?'hisuian '+region[1]:'paldean '+region[1]));
+  }
+  if(!active())return;
+  smartWheelSpecies=names;
+  onReady();
+}
+
 function smartType(query){const q=String(query).trim().toLowerCase();return smartPrintedTypes.includes(smartTypeAliases[q]||q)?(smartTypeAliases[q]||q):null;}
+function smartWheelType(query){const q=String(query).trim().toLowerCase();return smartWheelOnlyTypes.includes(q)?q:null;}
 function smartTypeKey(card){return String(card?.id||'').toLowerCase().replace(/-(\d+)$/,(_,n)=>'-'+String(Number(n)));}
 function smartKnownTypes(card){return [card.types,card.pokemonTypes,card.type,card.energyType,card.energyTypes].flatMap(v=>Array.isArray(v)?v:[v]).map(v=>smartSearchText(v).toLowerCase()).filter(v=>smartPrintedTypes.includes(v));}
 async function smartLoadTypeIndex(type,onPage,active){
@@ -19470,6 +19503,7 @@ function smartSearchCardMatches(card, query) {
   const type = types[q] || q;
   if (['grass','fire','water','lightning','psychic','fighting','darkness','metal','dragon','fairy','colorless'].includes(type))
     return smartKnownTypes(card).length ? smartKnownTypes(card).includes(type) : (smartSearchTypeIndex?.get(smartTypeKey(card)) === name && !!name);
+  if (smartWheelType(q)) return smartWheelSpeciesMatch(card);
   if (['non holo','non-holo','nonholo'].includes(q)) {
     try {
       return getAvailableSetCardVariants(card).some(v =>
@@ -19551,7 +19585,7 @@ function smartRestoreResults(){
 async function openSmartSearch(query) {
   smartSearchClose();
   const session = ++smartSearchSession;
-  smartSearchMatches=[];smartSearchMode='name';smartSearchDirection=1;smartSearchLimit=100;smartSearchRendered=[];smartSearchCardNodes=new Map();smartSearchRenderPending=false;smartSearchTypeIndex=new Map();smartTypeVerified=new Set();
+  smartSearchMatches=[];smartSearchMode='name';smartSearchDirection=1;smartSearchLimit=100;smartSearchRendered=[];smartSearchCardNodes=new Map();smartSearchRenderPending=false;smartSearchTypeIndex=new Map();smartTypeVerified=new Set();smartWheelSpecies=new Set();
   const overlay=document.createElement('div');overlay.id='smartSearchOverlay';
   overlay.innerHTML=`<div class="smart-search-panel" role="dialog" aria-modal="true" aria-label="Smart card search"><div class="smart-search-grab" id="smartSearchGrab" role="button" tabindex="0" aria-label="Swipe down to close search" title="Swipe down to close"></div>
     <div class="smart-search-header"><div><strong>Card Search: ${query.replace(/[&<>"']/g,'')}</strong><small id="smartSearchCount">Searching card catalogue…</small></div><button type="button" id="smartSearchExit" class="zoom-preview-close-icon" aria-label="Close card search">✕</button></div>
@@ -19640,11 +19674,11 @@ async function openSmartSearch(query) {
     const sets=dedupeVerifiedSetOverview(normalize30thCatalogueSets(await fetchPhysicalTcgSets()));
     if(session!==smartSearchSession)return;
     const status=overlay.querySelector('#smartSearchStatus');
-    let cursor=0,done=0,failed=0,typeFailed=false,typePending=!!smartType(query);
+    let cursor=0,done=0,failed=0,typeFailed=false,typePending=!!(smartType(query)||smartWheelType(query));
     const scanned=[];const added=new Set();
     const collect=(card,set)=>{const key=smartResultIdentity(card,set);if(!added.has(key)&&smartSearchCardMatches(card,query)){added.add(key);smartSearchMatches.push({card,set});}};
-    const updateStatus=()=>{status.textContent=`Searching sets: ${done} / ${sets.length}${failed?` · ${failed} unavailable`:''}${typePending?' · Checking printed types…':''}`;};
-    const typeTask=typePending?smartLoadTypeIndex(smartType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartScheduleRender();},()=>session===smartSearchSession).catch(()=>{typeFailed=true;}).finally(()=>{typePending=false;if(session===smartSearchSession)updateStatus();}):Promise.resolve();
+    const updateStatus=()=>{status.textContent=`Searching sets: ${done} / ${sets.length}${failed?` · ${failed} unavailable`:''}${typePending?' · Checking Pokémon types…':''}`;};
+    const typeTask=typePending?(smartWheelType(query)?smartLoadWheelSpecies(smartWheelType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartScheduleRender();},()=>session===smartSearchSession):smartLoadTypeIndex(smartType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartScheduleRender();},()=>session===smartSearchSession)).catch(()=>{typeFailed=true;}).finally(()=>{typePending=false;if(session===smartSearchSession)updateStatus();}):Promise.resolve();
     const worker=async()=>{
       while(cursor<sets.length && session===smartSearchSession){
         const set=sets[cursor++];
@@ -19666,7 +19700,7 @@ async function openSmartSearch(query) {
       }
     };
     await Promise.all([...Array.from({length:3},worker),typeTask]);
-    if(session===smartSearchSession){const unresolved=smartType(query)?scanned.filter(({card})=>!smartTypeResolved(card)).length:0;status.textContent=`Search complete · ${done} sets checked${failed ? ` · ${failed} unavailable` : ''}${unresolved?` · ${unresolved} cards without verified type`:''}`;smartSearchRender();}
+    if(session===smartSearchSession){const unresolved=smartType(query)?scanned.filter(({card})=>!smartTypeResolved(card)).length:0;status.textContent=`Search complete · ${done} sets checked${failed ? ` · ${failed} unavailable` : ''}${unresolved?` · ${unresolved} cards without verified type`:''}${typeFailed?' · Type lookup unavailable; results may be incomplete':''}`;smartSearchRender();}
   }catch(err){if(session===smartSearchSession)overlay.querySelector('#smartSearchStatus').textContent='Unable to load card catalogue. Close and try again.';console.warn('Smart Search',err);}
 }
 function submitSearch() {
