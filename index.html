@@ -19250,42 +19250,66 @@ async function smartRecoverSetTypes(cards,active){
     }
   }
 }
-function smartSortEntries(entries,mode,direction){
-  if(!mode)return entries.slice();
-  const cmp=(a,b)=>String(a??'').localeCompare(String(b??''),undefined,{numeric:true,sensitivity:'base'});
-  const number=e=>String(e.card.number||e.card.localId||'').trim();
-  const date=e=>String(e.set.releaseDate||e.set.release_date||'').replace(/\\//g,'-');
-  const setName=e=>String(e.set.name||e.card.setName||'');
-  const byCard=(a,b)=>cmp(number(a),number(b))||cmp(a.card.name,b.card.name)||cmp(a.card.id,b.card.id);
-  return entries.slice().sort((a,b)=>{
-    if(mode==='number'){
-      // Numeric card number first; ties show the newest set first.
-      return direction*cmp(number(a),number(b))
-        || -cmp(date(a),date(b))
-        || cmp(setName(a),setName(b))
-        || cmp(a.card.name,b.card.name)
-        || cmp(a.card.id,b.card.id);
-    }
-    if(mode==='year'){
-      // Year -> set release date -> set name -> printed order within the set.
-      const ay=date(a).slice(0,4),by=date(b).slice(0,4);
-      return direction*cmp(ay,by)
-        || direction*cmp(date(a),date(b))
-        || cmp(setName(a),setName(b))
-        || byCard(a,b);
-    }
-    return direction*cmp(a.card.name,b.card.name)
-      || cmp(setName(a),setName(b))
-      || byCard(a,b);
+// Search results are individual catalogue cards, not variant/source rows.
+function smartCanonicalText(value){
+  return String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function smartCardNumber(card){
+  return String(card?.number??card?.localId??card?.numberLabel??'').trim();
+}
+function smartCardSetName(entry){return String(entry?.card?.setName||entry?.set?.name||'').trim();}
+function smartResultIdentity(card,set){
+  // Match the exact identifiers actually printed in search results. Provider
+  // record IDs can vary between alternate artwork / variant records.
+  const setName=smartCanonicalText(card?.setName||set?.name||set?.id);
+  const number=smartCanonicalText(smartCardNumber(card)).replace(/^0+(?=\d)/,'');
+  const name=smartCanonicalText(card?.name);
+  return setName+'|'+number+'|'+name;
+}
+function smartUniqueResults(entries){
+  const seen=new Set();
+  return entries.filter(entry=>{
+    const key=smartResultIdentity(entry.card,entry.set);
+    if(seen.has(key))return false;
+    seen.add(key);return true;
   });
 }
-// Each physical card is represented once in search results, even when the
-// catalogue returns multiple variants / duplicate source records for it.
-function smartResultIdentity(card,set){
-  const setId=String(set?.id||card?.set?.id||card?.setId||card?.setName||'').trim().toLowerCase();
-  const cardNumber=String(card?.number||card?.localId||'').trim().toLowerCase().replace(/^0+(?=\\d)/,'');
-  const cardName=String(card?.name||'').trim().toLowerCase().replace(/\\s+/g,' ');
-  return setId+'|'+(cardNumber||String(card?.id||'').trim().toLowerCase())+'|'+cardName;
+function smartSetRelease(entry){
+  const set=entry?.set||{},card=entry?.card||{};
+  const raw=set.releaseDate||set.release_date||set.release||set.released||set.date||card.setReleaseDate||card.releaseDate||'';
+  const str=String(raw).trim();
+  if(/^\d{4}$/.test(str))return str+'-01-01';
+  const match=str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if(match)return match[1]+'-'+match[2].padStart(2,'0')+'-'+match[3].padStart(2,'0');
+  const eu=str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if(eu)return eu[3]+'-'+eu[2].padStart(2,'0')+'-'+eu[1].padStart(2,'0');
+  return '0000-00-00';
+}
+function smartCompareCardNumbers(a,b){
+  const parse=entry=>{
+    const n=smartCardNumber(entry.card).toUpperCase();
+    const match=n.match(/^(.*?)(\d+)(.*)$/);
+    return match?{prefix:match[1],num:Number(match[2]),suffix:match[3]}:{prefix:n,num:-1,suffix:''};
+  };
+  const x=parse(a),y=parse(b);
+  const text=(a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
+  return text(x.prefix,y.prefix)||(x.num-y.num)||text(x.suffix,y.suffix);
+}
+function smartSortEntries(entries,mode,direction){
+  const list=smartUniqueResults(entries);
+  if(!mode)return list;
+  const text=(a,b)=>String(a??'').localeCompare(String(b??''),undefined,{numeric:true,sensitivity:'base'});
+  const setOrder=(a,b)=>text(smartCardSetName(a),smartCardSetName(b));
+  const cardOrder=(a,b)=>smartCompareCardNumbers(a,b)||text(a.card.name,b.card.name);
+  return list.sort((a,b)=>{
+    if(mode==='number')return direction*smartCompareCardNumbers(a,b)
+      || text(smartSetRelease(b),smartSetRelease(a))
+      || setOrder(a,b)||text(a.card.name,b.card.name);
+    if(mode==='year')return direction*text(smartSetRelease(a),smartSetRelease(b))
+      || setOrder(a,b)||cardOrder(a,b);
+    return direction*text(a.card.name,b.card.name)
+      || setOrder(a,b)||cardOrder(a,b);
+  });
 }
 function smartUpdateSortButtons(overlay){
   overlay.querySelectorAll('[data-smart]').forEach(btn=>{
