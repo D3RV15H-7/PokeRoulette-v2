@@ -19253,15 +19253,39 @@ async function smartRecoverSetTypes(cards,active){
 function smartSortEntries(entries,mode,direction){
   if(!mode)return entries.slice();
   const cmp=(a,b)=>String(a??'').localeCompare(String(b??''),undefined,{numeric:true,sensitivity:'base'});
-  const number=e=>e.card.number||e.card.localId||'';
-  const date=e=>String(e.set.releaseDate||'').replace(/-/g,'/');
-  const year=e=>date(e).slice(0,4);
+  const number=e=>String(e.card.number||e.card.localId||'').trim();
+  const date=e=>String(e.set.releaseDate||e.set.release_date||'').replace(/\\//g,'-');
+  const setName=e=>String(e.set.name||e.card.setName||'');
+  const byCard=(a,b)=>cmp(number(a),number(b))||cmp(a.card.name,b.card.name)||cmp(a.card.id,b.card.id);
   return entries.slice().sort((a,b)=>{
-    const av=mode==='year'?year(a):mode==='number'?number(a):a.card.name;
-    const bv=mode==='year'?year(b):mode==='number'?number(b):b.card.name;
-    if(!av&&bv)return 1;if(av&&!bv)return -1;
-    return direction*cmp(av,bv)||cmp(a.card.name,b.card.name)||cmp(date(a),date(b))||cmp(number(a),number(b))||cmp(a.card.id,b.card.id);
+    if(mode==='number'){
+      // Numeric card number first; ties show the newest set first.
+      return direction*cmp(number(a),number(b))
+        || -cmp(date(a),date(b))
+        || cmp(setName(a),setName(b))
+        || cmp(a.card.name,b.card.name)
+        || cmp(a.card.id,b.card.id);
+    }
+    if(mode==='year'){
+      // Year -> set release date -> set name -> printed order within the set.
+      const ay=date(a).slice(0,4),by=date(b).slice(0,4);
+      return direction*cmp(ay,by)
+        || direction*cmp(date(a),date(b))
+        || cmp(setName(a),setName(b))
+        || byCard(a,b);
+    }
+    return direction*cmp(a.card.name,b.card.name)
+      || cmp(setName(a),setName(b))
+      || byCard(a,b);
   });
+}
+// Each physical card is represented once in search results, even when the
+// catalogue returns multiple variants / duplicate source records for it.
+function smartResultIdentity(card,set){
+  const setId=String(set?.id||card?.set?.id||card?.setId||card?.setName||'').trim().toLowerCase();
+  const cardNumber=String(card?.number||card?.localId||'').trim().toLowerCase().replace(/^0+(?=\\d)/,'');
+  const cardName=String(card?.name||'').trim().toLowerCase().replace(/\\s+/g,' ');
+  return setId+'|'+(cardNumber||String(card?.id||'').trim().toLowerCase())+'|'+cardName;
 }
 function smartUpdateSortButtons(overlay){
   overlay.querySelectorAll('[data-smart]').forEach(btn=>{
@@ -19362,7 +19386,7 @@ async function openSmartSearch(query) {
     const status=overlay.querySelector('#smartSearchStatus');
     let cursor=0,done=0,failed=0,typeFailed=false,typePending=!!smartType(query);
     const scanned=[];const added=new Set();
-    const collect=(card,set)=>{const key=String(card.id);if(!added.has(key)&&smartSearchCardMatches(card,query)){added.add(key);smartSearchMatches.push({card,set});}};
+    const collect=(card,set)=>{const key=smartResultIdentity(card,set);if(!added.has(key)&&smartSearchCardMatches(card,query)){added.add(key);smartSearchMatches.push({card,set});}};
     const updateStatus=()=>{status.textContent=`Searching sets: ${done} / ${sets.length}${failed?` · ${failed} unavailable`:''}${typePending?' · Checking printed types…':''}`;};
     const typeTask=typePending?smartLoadTypeIndex(smartType(query),()=>{if(session!==smartSearchSession)return;for(const {card,set} of scanned)collect(card,set);smartSearchRender();},()=>session===smartSearchSession).catch(()=>{typeFailed=true;}).finally(()=>{typePending=false;if(session===smartSearchSession)updateStatus();}):Promise.resolve();
     const worker=async()=>{
