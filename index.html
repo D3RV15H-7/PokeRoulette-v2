@@ -4943,9 +4943,9 @@ body.has-active #wheelWrap {
 .smart-search-card img{width:100%;height:auto;aspect-ratio:63/88;object-fit:contain}
 .smart-search-card .smart-search-info{width:100%;align-items:center}.smart-search-card small{font-size:10px;line-height:1.25;overflow-wrap:anywhere;margin:0}.smart-search-card small span{display:block}.smart-search-more{grid-column:1/-1}
 .smart-search-filters button{min-width:64px}.smart-search-sort-arrow{display:inline-block;min-width:.8em;margin-left:3px}
-</style>
+\n/* v393: larger invisible hit area for the pull handle and reliable iOS sheet gestures */\n.smart-search-grab{width:96px!important;height:28px!important;margin:0 auto!important;position:relative!important;background:transparent!important;touch-action:none!important;flex-shrink:0!important}\n.smart-search-grab::after{content:"";position:absolute;left:26px;right:26px;top:12px;height:5px;border-radius:9px;background:#46536c}\n.smart-search-header{touch-action:none}\n#smartSearchResults{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}\n</style>
 </head>
-<body data-app-build="v390"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
+<body data-app-build="v393"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
 <div class="viewport">
   <header id="appRefreshHandle">
     <h1
@@ -19218,7 +19218,7 @@ function handleSearch(val) {
 }
 
 // v385: Cross-set Smart Search. Existing Pokémon lookup remains the default.
-const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo)$/i;
+const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo|alolan|alola|galarian|galar|hisuian|hisui|paldean|paldea)$/i;
 let smartSearchSession = 0;
 let smartSearchMatches = [];
 let smartSearchMode = 'name';
@@ -19386,6 +19386,14 @@ function smartSearchCardMatches(card, query) {
   if (q === 'gold') return /gold|hyper rare/i.test(rarity + ' ' + name);
   if (['full art','illustration rare','special illustration rare','hyper rare'].includes(q))
     return rarity.includes(q) || name.includes(q);
+  // Regional forms are card-name searches, not a single Pokédex species.
+  // Accept both "Alolan Vulpix" and "Vulpix (Alolan)" naming conventions.
+  const regionAliases={alola:'alolan',galar:'galarian',hisui:'hisuian',paldea:'paldean'};
+  const region=regionAliases[q]||q;
+  if(['alolan','galarian','hisuian','paldean'].includes(region)){
+    return new RegExp('(?:^|[^a-z])'+region+'(?:[^a-z]|$)','i').test(name)
+      || new RegExp('(?:^|[^a-z])'+region.replace(/n$/,'')+'(?:[^a-z]|$)','i').test(name);
+  }
   const suffix = q === 'vunion' ? 'v-union' : q;
   return new RegExp('(?:^|\\s)' + suffix.replace('-', '[ -]?') + '$','i').test(name);
 }
@@ -19448,18 +19456,76 @@ async function openSmartSearch(query) {
     <div class="smart-search-filters"><button data-smart="name">A-Z<span class="smart-search-sort-arrow"></span></button><button data-smart="rarity">Rarity<span class="smart-search-sort-arrow"></span></button><button data-smart="year">Year<span class="smart-search-sort-arrow"></span></button></div>
     <div id="smartSearchStatus" role="status">Loading sets…</div><div id="smartSearchResults"></div></div>`;
   document.body.appendChild(overlay);
-  // Swipe down on the grab handle to dismiss, matching the other modal sheets.
+  // iOS-friendly bottom-sheet gesture. Use pointer events on the handle
+  // and non-interactive header, with touch events as a fallback for Safari.
+  // Allow downward dismiss from the card grid only when it is at scroll top.
+  const panel=overlay.querySelector('.smart-search-panel');
   const grab=overlay.querySelector('#smartSearchGrab');
+  const header=overlay.querySelector('.smart-search-header');
+  const results=overlay.querySelector('#smartSearchResults');
+  let swipe=null, suppressClick=false;
+  const begin=(x,y,target)=>{
+    if(target.closest('#smartSearchExit,.smart-search-filters,input,a,select,textarea'))return;
+    if(target.closest('#smartSearchResults') && results.scrollTop>1)return;
+    swipe={x,y,dy:0,drag:false};
+    panel.style.transition='none';
+  };
+  const move=(x,y,event)=>{
+    if(!swipe)return;
+    const dy=y-swipe.y,dx=x-swipe.x;
+    if(dy>7 && dy>Math.abs(dx)*1.15 && results.scrollTop<=1){
+      swipe.drag=true;swipe.dy=dy;
+      if(event.cancelable)event.preventDefault();
+      panel.style.transform=`translate3d(0,${Math.min(280,dy)}px,0)`;
+    }
+  };
+  const end=()=>{
+    if(!swipe)return;
+    const dismiss=swipe.drag && swipe.dy>=65;
+    if(swipe.drag){
+      suppressClick=true;
+      setTimeout(()=>{suppressClick=false;},350);
+    }
+    swipe=null;
+    panel.style.transition='transform .2s ease';
+    panel.style.transform='';
+    if(dismiss)smartSearchClose();
+  };
+  const cancel=()=>{
+    swipe=null;panel.style.transition='transform .2s ease';panel.style.transform='';
+  };
+  // Header/handle have no native scroll to interfere with the gesture.
+  // Capture touch events across the whole panel so a pull on a card works
+  // at scroll top, while upward scrolling and ordinary card taps still work.
+  panel.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1){cancel();return;}
+    begin(e.touches[0].clientX,e.touches[0].clientY,e.target);
+  },{passive:true});
+  panel.addEventListener('touchmove',e=>{
+    if(e.touches.length===1)move(e.touches[0].clientX,e.touches[0].clientY,e);
+  },{passive:false});
+  panel.addEventListener('touchend',end,{passive:true});
+  panel.addEventListener('touchcancel',cancel,{passive:true});
+  // iOS Safari and installed home-screen web apps can differ in how they
+  // dispatch touch vs pointer events on a grab handle.
   if(grab){
-    let startY=null;
-    grab.addEventListener('touchstart',e=>{startY=e.touches[0]?.clientY??null;},{passive:true});
-    grab.addEventListener('touchend',e=>{
-      if(startY!==null && (e.changedTouches[0]?.clientY??startY)-startY>65)smartSearchClose();
-      startY=null;
-    },{passive:true});
-    grab.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();smartSearchClose();}});
-    grab.addEventListener('click',()=>smartSearchClose());
+    grab.style.touchAction='none';
+    grab.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='touch')return; // handled by touch listeners
+      begin(e.clientX,e.clientY,e.target);
+      try{grab.setPointerCapture(e.pointerId);}catch(_){}
+    });
+    grab.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')move(e.clientX,e.clientY,e);});
+    grab.addEventListener('pointerup',e=>{if(e.pointerType!=='touch')end();});
+    grab.addEventListener('pointercancel',cancel);
+    grab.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();smartSearchClose();}
+    });
   }
+  panel.addEventListener('click',e=>{
+    if(!suppressClick)return;
+    e.preventDefault();e.stopImmediatePropagation();
+  },true);
   overlay.querySelector('#smartSearchExit').onclick=smartSearchClose;
   overlay.addEventListener('click',e=>{if(e.target===overlay)smartSearchClose();});
   smartUpdateSortButtons(overlay);
