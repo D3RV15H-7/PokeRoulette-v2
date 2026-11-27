@@ -3909,6 +3909,18 @@ body.account-auth-focused .hub-outer-wrap { visibility: hidden; pointer-events: 
 /* Align Sets catalogue search vertically with the Dex search below its header. */
 #setsModal:not(.viewing-set) .tcg-set-catalogue-controls{margin-top:0.5rem;margin-bottom:0.55rem;align-items:center}
 #setsModal:not(.viewing-set) .tcg-set-catalogue-controls .tcg-set-search-input{height:36px}
+
+
+/* v396: compact five-item recent history and illustrated Pokémon autocomplete */
+#sList .suggestion-pokemon-sprite{width:36px;height:36px;flex:0 0 36px;object-fit:contain;image-rendering:pixelated;align-self:center}
+#sList li:not(.smart-autocomplete-option){align-items:center}
+.search-recents{padding:9px 10px;overflow:hidden}
+.search-recents-label{margin:0 0 6px 2px}
+.search-recents-list{display:flex;flex-direction:row;flex-wrap:nowrap;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.search-recents-list::-webkit-scrollbar{display:none}
+.search-recent-item{width:auto;min-width:0;flex:1 0 0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:4px 2px;text-align:center}
+.search-recent-item img{width:32px;height:32px;flex:0 0 32px}
+.search-recent-name{display:block;width:100%;font-size:clamp(8px,2vw,11px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <style>
 /* v186 fixes */
@@ -4951,7 +4963,7 @@ body.has-active #wheelWrap {
 #sList .smart-autocomplete-term{font-weight:650;color:inherit}
 </style>
 </head>
-<body data-app-build="v393"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
+<body data-app-build="v396"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
 <div class="viewport">
   <header id="appRefreshHandle">
     <h1
@@ -16619,14 +16631,14 @@ function renderSearchRecents() {
   const list = document.getElementById('searchRecentsList');
   if (!wrap || !list) return;
   const history = getRec();
-  // Get the latest 3 unique Pokémon
+  // Get the latest 5 unique Pokémon
   const seen = new Set();
   const recent = [];
   for (const p of history) {
     if (!p || seen.has(p.id)) continue;
     seen.add(p.id);
     recent.push(p);
-    if (recent.length === 3) break;
+    if (recent.length === 5) break;
   }
   // Hide the section completely if there is no history
   if (!recent.length) {
@@ -19192,7 +19204,7 @@ function handleSearch(val) {
   // Prefix matching makes supported categories discoverable as the user types.
   const smartTerms=['Alolan','Galarian','Hisuian','Paldean','Grass','Fire','Water',
     'Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Fairy','Colorless',
-    'V','VMAX','VSTAR','V-Union','GX','ex','BREAK','Holo','Reverse','Reverse Holo',
+    'V','VMAX','VSTAR','V-Union','GX','ex','BREAK','Holo','Non Holo','Reverse','Reverse Holo',
     'Cosmos Holo','Stamped','Full Art','Illustration Rare',
     'Special Illustration Rare','Hyper Rare','Gold'];
   const smartSuggestions=smartTerms.filter(term=>
@@ -19214,6 +19226,7 @@ function handleSearch(val) {
     const li = document.createElement('li');
     li.innerHTML = `
       <span class="suggestion-number">#${String(p.id).padStart(4, '0')}</span>
+      <img class="suggestion-pokemon-sprite" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
       <span class="suggestion-name">${p.cleanName}</span>
 
       ${
@@ -19253,7 +19266,7 @@ function handleSearch(val) {
 }
 
 // v385: Cross-set Smart Search. Existing Pokémon lookup remains the default.
-const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo|alolan|alola|galarian|galar|hisuian|hisui|paldean|paldea)$/i;
+const SMART_SEARCH_TERMS = /^(?:vmax|vstar|v-union|vunion|v|gx|ex|break|grass|fire|water|lightning|electric|psychic|fighting|darkness|dark|metal|steel|dragon|fairy|colorless|colourless|full art|illustration rare|special illustration rare|hyper rare|gold|reverse|reverse holo|cosmos holo|stamped|holo|non holo|non-holo|nonholo|alolan|alola|galarian|galar|hisuian|hisui|paldean|paldea)$/i;
 let smartSearchSession = 0;
 let smartSearchMatches = [];
 let smartSearchMode = 'name';
@@ -19429,6 +19442,13 @@ function smartSearchCardMatches(card, query) {
   const type = types[q] || q;
   if (['grass','fire','water','lightning','psychic','fighting','darkness','metal','dragon','fairy','colorless'].includes(type))
     return smartKnownTypes(card).length ? smartKnownTypes(card).includes(type) : (smartSearchTypeIndex?.get(smartTypeKey(card)) === name && !!name);
+  if (['non holo','non-holo','nonholo'].includes(q)) {
+    try {
+      return getAvailableSetCardVariants(card).some(v =>
+        /\\bnon[ -]?holo\\b/i.test(String(v.label || v.name || v.key || v.id || v))
+      );
+    } catch (_) { return false; }
+  }
   if (['reverse','reverse holo','cosmos holo','stamped','holo'].includes(q)) {
     try { return getAvailableSetCardVariants(card).some(v => String(v.label || v.name || v.key || v.id || v).toLowerCase().includes(q === 'reverse' ? 'reverse' : q)); }
     catch (_) { return false; }
