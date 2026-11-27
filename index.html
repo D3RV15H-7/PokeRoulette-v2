@@ -4966,6 +4966,13 @@ body.has-active #wheelWrap {
 .smart-search-filters .smart-search-sort-detail{display:block;font-size:10px;font-weight:650;white-space:nowrap;opacity:.9}
 .smart-search-filters .smart-search-sort-detail[hidden]{display:none}
 .smart-search-card img{background:#131d33}
+/* v398: fixed-height sort buttons and compact Pokémon autocomplete */
+.smart-search-filters button{height:49px;min-height:49px;max-height:49px;box-sizing:border-box;flex:1 1 0;overflow:hidden}
+.smart-search-filters .smart-search-sort-detail[hidden]{display:block;visibility:hidden}
+#sList li:not(.smart-autocomplete-option){display:flex;align-items:center;justify-content:flex-start;gap:10px;grid-template-columns:none}
+#sList li:not(.smart-autocomplete-option) .suggestion-number{flex:0 0 57px}
+#sList li:not(.smart-autocomplete-option) .suggestion-pokemon-sprite{flex:0 0 36px}
+#sList li:not(.smart-autocomplete-option) .suggestion-name{flex:0 1 auto;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body data-app-build="v396"><svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none"><defs><clipPath id="navCropV234_dex" clipPathUnits="userSpaceOnUse"><rect x="67" y="145" width="157" height="242"/></clipPath><clipPath id="navCropV234_sets" clipPathUnits="userSpaceOnUse"><rect x="236" y="145" width="187" height="242"/></clipPath><clipPath id="navCropV234_battle" clipPathUnits="userSpaceOnUse"><rect x="424" y="171" width="182" height="202"/></clipPath><clipPath id="navCropV234_account" clipPathUnits="userSpaceOnUse"><rect x="608" y="145" width="184" height="242"/></clipPath><clipPath id="navCropV234_info" clipPathUnits="userSpaceOnUse"><rect x="790" y="145" width="194" height="242"/></clipPath><g id="navArtworkSheetV233"><image href="assets/embedded_images/286d38e5ecedb249.png" width="1024" height="572"/></g></defs></svg>
